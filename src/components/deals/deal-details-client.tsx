@@ -200,11 +200,11 @@ export function DealDetailsClient({
             {deal.name}
           </h1>
           <div className="ml-11 mt-1 space-y-0.5">
-            <p className="text-muted-foreground flex items-center">
+            <div className="text-muted-foreground flex items-center">
                 <DollarSign className="mr-2 h-4 w-4 text-green-500" />
                 {deal.value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' } className="ml-2">{deal.stage}</Badge>
-            </p>
+            </div>
             {company && (
                 <p className="text-muted-foreground flex items-center">
                 <Building className="mr-2 h-4 w-4" />

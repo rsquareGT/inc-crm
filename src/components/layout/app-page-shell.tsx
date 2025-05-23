@@ -2,7 +2,7 @@
 'use client'; // Needs to be client for useAuth and useEffect
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'nextjs-toploader/app'; // Updated import
 import { AppHeader } from './app-header';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';

@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Standard import
+import { useRouter } from 'nextjs-toploader/app'; // Updated import
 
 export default function HomePage() {
   const router = useRouter();

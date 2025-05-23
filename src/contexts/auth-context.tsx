@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation'; // Standard import for App Router
+import { useRouter } from 'nextjs-toploader/app'; // Updated import
 import type { User } from '@/lib/types';
 
 interface AuthContextType {
@@ -23,9 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const fetchUser = useCallback(async () => {
-    // Don't set isLoading to true here for every call, only for initial load.
-    // Or if it's a deliberate refresh action.
-    // For now, initial setIsLoading(true) above handles the first load.
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
@@ -38,19 +35,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to fetch user:', error);
       setUser(null);
     } finally {
-      // This finally block ensures isLoading is set to false after the initial fetch attempt,
-      // regardless of success or failure.
       if (isLoading) setIsLoading(false);
     }
-  }, [isLoading]); // Include isLoading to prevent re-setting it to false if already false.
+  }, [isLoading]); 
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // This login function is responsible for the API call and then updating the context's user.
-    // The form itself will handle its own "submitting" state.
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -59,38 +52,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await response.json();
       if (response.ok && data.success && data.user) {
-        setUser(data.user); // Directly set the user state from API response
-        // If the context was still in its initial loading phase, mark it as loaded.
+        setUser(data.user); 
         if (isLoading) {
           setIsLoading(false);
         }
         return true;
       } else {
-        setUser(null); // Clear user on failed login attempt
+        setUser(null); 
         throw new Error(data.error || 'Login failed');
       }
     } catch (error) {
-      setUser(null); // Ensure user is cleared on any error
+      setUser(null); 
       console.error('Login error in context:', error);
-      throw error; // Re-throw for the form to handle and display message
+      throw error; 
     }
   };
 
   const logout = async () => {
-    setUser(null); // Optimistically update UI
+    setUser(null); 
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
       console.error('Logout API call failed:', error);
     } finally {
-      router.push('/login'); // Redirect to login after logout
+      router.push('/login'); 
     }
   };
   
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchUser(); // Re-fetch user on tab focus to catch external session changes
+        fetchUser(); 
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);

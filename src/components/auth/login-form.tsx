@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation'; // Standard import
+import { useRouter } from 'nextjs-toploader/app'; // Updated import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,7 @@ export function LoginForm() {
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [loginApiSuccess, setLoginApiSuccess] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false); // New state
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const {
     register,
@@ -41,34 +41,31 @@ export function LoginForm() {
   });
 
   useEffect(() => {
-    // Redirect if API call was successful, auth context has updated, and not already redirecting
     if (loginApiSuccess && authUser && !authContextLoading && !isRedirecting) {
-      setIsRedirecting(true); // Set flag before pushing
+      setIsRedirecting(true);
       router.push('/dashboard');
     }
-  }, [loginApiSuccess, authUser, authContextLoading, router, isRedirecting]); // Added isRedirecting
+  }, [loginApiSuccess, authUser, authContextLoading, router, isRedirecting]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmittingForm(true);
     setFormError(null);
     setLoginApiSuccess(false);
-    setIsRedirecting(false); // Reset redirecting flag on new submission
+    setIsRedirecting(false);
 
     try {
       const success = await contextLogin(data.email, data.password);
       if (success) {
-        setLoginApiSuccess(true); // API call succeeded
-        // No longer setting setIsSubmittingForm(false) here, controlled by loginApiSuccess/isRedirecting
+        setLoginApiSuccess(true);
       } else {
-        // This case might not be hit if contextLogin throws for API failures
         setFormError('Login failed. Please check your credentials.');
-        setIsSubmittingForm(false); // Allow re-submission on contextLogin returning false
+        setIsSubmittingForm(false);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
       setFormError(message);
-      setIsSubmittingForm(false); // Allow re-submission on error
-      setLoginApiSuccess(false); // Ensure this is reset
+      setIsSubmittingForm(false);
+      setLoginApiSuccess(false);
     }
   };
 
@@ -80,21 +77,21 @@ export function LoginForm() {
         Redirecting...
       </>
     );
-  } else if (loginApiSuccess) { // API succeeded, waiting for context/redirect effect
+  } else if (loginApiSuccess) {
     buttonContent = (
       <>
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Validated. Please wait...
       </>
     );
-  } else if (isSubmittingForm) { // API call in progress
+  } else if (isSubmittingForm) {
     buttonContent = (
       <>
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Validating User...
       </>
     );
-  } else { // Initial state
+  } else {
     buttonContent = (
       <>
         <LogIn className="mr-2 h-4 w-4" />

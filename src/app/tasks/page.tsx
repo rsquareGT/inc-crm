@@ -1,3 +1,4 @@
+
 // This file is no longer needed as Tasks are part of the Dashboard.
 // You can delete this file.
 // If you want to redirect /tasks to /dashboard, you can use Next.js redirects in next.config.js
@@ -6,7 +7,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'nextjs-toploader/app'; // Updated import
 
 export default function TasksRedirectPage() {
   const router = useRouter();

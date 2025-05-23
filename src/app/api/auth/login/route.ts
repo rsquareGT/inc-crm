@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import type { User } from '@/lib/types';
 import * as jose from 'jose';
 import { cookies } from 'next/headers';
+import bcrypt from 'bcrypt';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,17 +21,12 @@ export async function POST(request: NextRequest) {
     const stmtUser = db.prepare('SELECT id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, createdAt, updatedAt FROM Users WHERE email = ?');
     const userData = stmtUser.get(email) as User & { hashedPassword?: string } | undefined; 
 
-    if (!userData) {
+    if (!userData || !userData.hashedPassword) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // TODO: CRITICAL SECURITY FLAW - Replace with bcrypt.compare()
-    // This is a DIRECT string comparison for demonstration with mock "hashed" passwords.
-    // In a real application, you MUST:
-    // 1. Hash passwords with bcrypt (or Argon2) when users are created/seeded.
-    // 2. Use `await bcrypt.compare(password, userData.hashedPassword)` here.
-    // Example: const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
-    const passwordMatch = password === userData.hashedPassword;
+    // Securely compare the provided password with the stored hash
+    const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
 
     if (!passwordMatch) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
@@ -73,6 +69,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('API Login Error:', error);
+    // It's good practice not to expose too much detail about bcrypt errors to the client
+    // But for development, logging it server-side is useful.
+    if (error instanceof Error && error.message.includes('data and salt arguments required')) {
+      // This might happen if password or userData.hashedPassword is unexpectedly empty/null
+      return NextResponse.json({ error: 'Invalid input for password comparison.' }, { status: 400 });
+    }
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });
   }
 }

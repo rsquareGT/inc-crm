@@ -106,6 +106,7 @@ export interface Task {
 export interface Organization {
   id: string;
   name: string;
+  logoUrl?: string; // URL to the organization's logo
   createdAt: string;
   updatedAt: string;
   // Add other organization-specific fields here if needed, e.g., ownerId, subscriptionStatus
@@ -121,8 +122,9 @@ export interface User {
   // It's a backend concern.
   firstName?: string;
   lastName?: string;
+  profilePictureUrl?: string; // URL to the user's profile picture
   role: UserRole;
   createdAt: string;
   updatedAt: string;
-  // You might add fields like profilePictureUrl, lastLoginAt, etc.
+  // You might add fields like lastLoginAt, etc.
 }

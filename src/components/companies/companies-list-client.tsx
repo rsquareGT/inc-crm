@@ -14,9 +14,9 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'; // Ensure CardHeader and CardFooter are imported
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
-import type { Company, Contact } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown, Loader2 } from 'lucide-react';
+import type { Company, User } from '@/lib/types'; // Changed Contact to User
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -31,7 +31,7 @@ type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
+  const [allUsersForForm, setAllUsersForForm] = useState<User[]>([]); // Changed from allContactsForForm
   const [isLoading, setIsLoading] = useState(true);
   const [isFormRelatedDataLoading, setIsFormRelatedDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,13 +71,14 @@ export function CompaniesListClient() {
   const fetchFormData = useCallback(async () => {
     setIsFormRelatedDataLoading(true);
     try {
-      const contactsResponse = await fetch('/api/contacts');
-      if(!contactsResponse.ok) {
-        const errorData = await contactsResponse.json();
-        throw new Error(errorData.error || `Failed to fetch contacts for form: ${contactsResponse.statusText}`);
+      // Fetch users instead of contacts
+      const usersResponse = await fetch('/api/users');
+      if(!usersResponse.ok) {
+        const errorData = await usersResponse.json();
+        throw new Error(errorData.error || `Failed to fetch users for form: ${usersResponse.statusText}`);
       }
-      const contactsData: Contact[] = await contactsResponse.json();
-      setAllContactsForForm(contactsData);
+      const usersData: User[] = await usersResponse.json();
+      setAllUsersForForm(usersData);
     } catch (err) {
       console.error("Error fetching form data for Companies List:", err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred fetching form data.';
@@ -295,7 +296,6 @@ export function CompaniesListClient() {
               <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
-          {/* This button is moved into PageSectionHeader */}
         </div>
       </div>
 
@@ -332,8 +332,8 @@ export function CompaniesListClient() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {company.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                        {company.tags.length > 2 && <Badge variant="outline">+{company.tags.length - 2}</Badge>}
+                        {(company.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                        {(company.tags || []).length > 2 && <Badge variant="outline">+{company.tags.length - 2}</Badge>}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -374,6 +374,7 @@ export function CompaniesListClient() {
                 <CompanyCard
                   key={company.id}
                   company={company}
+                  allUsers={allUsersForForm} // Pass users for displaying account manager name
                   onEdit={() => handleOpenModal(company)}
                   onDelete={() => handleDeleteCompany(company.id)}
                 />
@@ -393,7 +394,7 @@ export function CompaniesListClient() {
         onClose={handleCloseModal}
         onSaveCallback={handleSaveCompanyCallback}
         company={editingCompany}
-        allContacts={allContactsForForm}
+        allUsers={allUsersForForm} // Pass users for the dropdown
       />
 
       <DeleteConfirmationDialog
@@ -405,5 +406,3 @@ export function CompaniesListClient() {
     </div>
   );
 }
-
-    

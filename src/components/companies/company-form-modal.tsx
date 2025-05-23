@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
-import type { Company, Contact, Industry, CompanySize } from '@/lib/types';
+import type { Company, User, Industry, CompanySize } from '@/lib/types'; // Changed Contact to User
 import { INDUSTRY_OPTIONS, COMPANY_SIZE_OPTIONS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -57,10 +57,10 @@ interface CompanyFormModalProps {
   onClose: () => void;
   onSaveCallback: () => void; 
   company?: Company | null;
-  allContacts: Contact[]; 
+  allUsers: User[]; // Changed from allContacts: Contact[]
 }
 
-export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, allContacts }: CompanyFormModalProps) {
+export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, allUsers }: CompanyFormModalProps) {
   const { toast } = useToast();
   const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<CompanyFormData>({
     resolver: zodResolver(companyFormSchema),
@@ -121,7 +121,10 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(companyToSave),
         });
-        if (!response.ok) throw new Error('Failed to update company');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update company');
+        }
         toast({ title: "Company Updated", description: `${data.name} details saved.` });
       } else { 
         response = await fetch('/api/companies', {
@@ -129,7 +132,10 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(companyToSave),
         });
-        if (!response.ok) throw new Error('Failed to create company');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create company');
+        }
         toast({ title: "Company Created", description: `New company "${data.name}" added.` });
       }
       
@@ -256,8 +262,8 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NONE_SELECT_VALUE}>None</SelectItem>
-                      {allContacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id}>{contact.firstName} {contact.lastName}</SelectItem>
+                      {allUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>{user.firstName} {user.lastName}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

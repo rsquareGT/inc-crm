@@ -1,12 +1,12 @@
 
 'use client';
 
-import type { Company } from '@/lib/types';
+import type { Company, User } from '@/lib/types'; // Added User
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/shared/tag-badge';
-import { MoreHorizontal, Edit, Trash2, ExternalLink, Building, Globe, MapPin, FileText, Users } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, ExternalLink, Building, Globe, MapPin, FileText, Users as UsersIcon } from 'lucide-react'; // Renamed Users to UsersIcon to avoid conflict
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +17,15 @@ import Link from 'next/link';
 
 interface CompanyCardProps {
   company: Company;
+  allUsers: User[]; // Added allUsers to find account manager name
   onEdit: (company: Company) => void;
   onDelete: (companyId: string) => void;
 }
 
-export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
+export function CompanyCard({ company, allUsers, onEdit, onDelete }: CompanyCardProps) {
   const tags = company.tags || [];
   const displayAddress = [company.city, company.state, company.country].filter(Boolean).join(', ');
+  const accountManager = company.accountManagerId ? allUsers.find(u => u.id === company.accountManagerId) : undefined;
 
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 bg-card flex flex-col h-full">
@@ -85,8 +87,16 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
         )}
         {company.companySize && (
           <div className="flex items-center text-muted-foreground">
-            <Users className="h-4 w-4 mr-2 flex-shrink-0" />
+            <UsersIcon className="h-4 w-4 mr-2 flex-shrink-0" />
             <span className="truncate" title={company.companySize}>{company.companySize}</span>
+          </div>
+        )}
+        {accountManager && (
+          <div className="flex items-center text-muted-foreground">
+             <UserCircle className="h-4 w-4 mr-2 flex-shrink-0" /> {/* Assuming UserCircle icon */}
+             <span className="truncate" title={`${accountManager.firstName} ${accountManager.lastName}`}>
+               AM: {accountManager.firstName} {accountManager.lastName}
+             </span>
           </div>
         )}
         {company.description && (
@@ -96,7 +106,7 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
           </div>
         )}
       </CardContent>
-      {tags.length > 0 && (
+      {(tags || []).length > 0 && (
         <CardFooter className="px-4 pt-2 pb-4 flex flex-wrap gap-1 border-t mt-auto">
           {tags.slice(0, 3).map((tag) => (
             <TagBadge key={tag} tag={tag} />

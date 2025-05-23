@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Company, Contact, Deal, Note } from '@/lib/types';
+import type { Company, Contact, Deal, Note, User } from '@/lib/types'; // Added User
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -47,6 +47,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
   const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
+  const [allUsersList, setAllUsersList] = useState<User[]>([]); // For Account Manager
 
   const { toast } = useToast();
 
@@ -91,18 +92,18 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   }, [companyId, toast]);
 
   const fetchFormDropdownData = useCallback(async () => {
-    // setIsLoading(true); // No, this is for main entity, form data can load in background
     try {
-        const [companiesRes, contactsRes] = await Promise.all([
+        const [companiesRes, contactsRes, usersRes] = await Promise.all([ // Added usersRes
             fetch('/api/companies'),
-            fetch('/api/contacts')
+            fetch('/api/contacts'),
+            fetch('/api/users') // Fetch users
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
         if (contactsRes.ok) setAllContactsList(await contactsRes.json());
+        if (usersRes.ok) setAllUsersList(await usersRes.json()); // Set users
     } catch (err) {
         toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
     }
-    // finally { setIsLoading(false); }
   }, [toast]);
 
   useEffect(() => {
@@ -117,13 +118,13 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   };
 
   const handleSaveContactCallback = () => {
-    fetchCompanyDetails();
+    fetchCompanyDetails(); // Refetch company details to update contacts list potentially
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
 
   const handleSaveDealCallback = () => {
-    fetchCompanyDetails();
+    fetchCompanyDetails(); // Refetch company details to update deals list potentially
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -199,7 +200,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     }
   };
 
-  const accountManager = company?.accountManagerId ? allContactsList.find(c => c.id === company.accountManagerId) : undefined;
+  // Use allUsersList to find the account manager
+  const accountManager = company?.accountManagerId ? allUsersList.find(u => u.id === company.accountManagerId) : undefined;
 
   const formatAddress = () => {
     if (!company) return 'N/A';
@@ -364,16 +366,17 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                     <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4"/>Account Manager</h4>
                         {accountManager ? (
-                        <Link href={`/contacts/${accountManager.id}`} className="text-primary hover:underline text-sm">
+                        // Link to a user profile page if you plan to have one, otherwise just display name
+                        <span className="text-sm"> 
                             {accountManager.firstName} {accountManager.lastName}
-                        </Link>
+                        </span>
                         ) : (
                         <p className="text-sm">N/A</p>
                         )}
                     </div>
                 </div>
 
-                {company.tags && company.tags.length > 0 && (
+                {(company.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-2 items-center pt-2">
                     <span className="text-sm text-muted-foreground">Tags:</span>
                     {company.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
@@ -608,7 +611,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         onClose={() => setIsCompanyModalOpen(false)}
         onSaveCallback={handleSaveCompanyCallback}
         company={company}
-        allContacts={allContactsList}
+        allUsers={allUsersList} // Pass allUsersList here
       />
       <ContactFormModal
         isOpen={isContactModalOpen}

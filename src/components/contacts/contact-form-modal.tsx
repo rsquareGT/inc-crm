@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -27,6 +28,8 @@ import {
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Contact, Company } from '@/lib/types';
 import { generateId } from '@/lib/mock-data';
+
+const NONE_SELECT_VALUE = "_none_";
 
 const contactSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -60,7 +63,7 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
 
   useEffect(() => {
     if (isOpen) {
-      reset(contact ? { ...contact, tags: contact.tags || [] } : { firstName: '', lastName: '', email: '', tags: [], notes: '' });
+      reset(contact ? { ...contact, companyId: contact.companyId || undefined, tags: contact.tags || [] } : { firstName: '', lastName: '', email: '', tags: [], notes: '', companyId: undefined });
     }
   }, [isOpen, contact, reset]);
 
@@ -69,6 +72,7 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
     const contactToSave: Contact = {
       id: contact?.id || generateId(),
       ...data,
+      companyId: data.companyId === NONE_SELECT_VALUE ? undefined : data.companyId,
       tags: data.tags || [],
       createdAt: contact?.createdAt || now,
       updatedAt: now,
@@ -114,12 +118,12 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
               name="companyId"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                   <SelectTrigger id="companyId">
                     <SelectValue placeholder="Select company" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={NONE_SELECT_VALUE}>None</SelectItem>
                     {companies.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}

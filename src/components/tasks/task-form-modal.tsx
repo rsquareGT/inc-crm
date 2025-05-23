@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -28,6 +29,8 @@ import {
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Task, Deal, Contact } from '@/lib/types';
 import { generateId } from '@/lib/mock-data';
+
+const NONE_SELECT_VALUE = "_none_";
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -62,7 +65,7 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
 
   useEffect(() => {
     if (isOpen) {
-      reset(task ? { ...task, tags: task.tags || [] } : { title: '', completed: false, tags: [], description: '', dueDate: '' });
+      reset(task ? { ...task, relatedDealId: task.relatedDealId || undefined, relatedContactId: task.relatedContactId || undefined, tags: task.tags || [] } : { title: '', completed: false, tags: [], description: '', dueDate: '', relatedDealId: undefined, relatedContactId: undefined });
     }
   }, [isOpen, task, reset]);
 
@@ -71,6 +74,8 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
     const taskToSave: Task = {
       id: task?.id || generateId(),
       ...data,
+      relatedDealId: data.relatedDealId === NONE_SELECT_VALUE ? undefined : data.relatedDealId,
+      relatedContactId: data.relatedContactId === NONE_SELECT_VALUE ? undefined : data.relatedContactId,
       tags: data.tags || [],
       createdAt: task?.createdAt || now,
       updatedAt: now,
@@ -123,12 +128,12 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
                 name="relatedDealId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                     <SelectTrigger id="relatedDealId">
                       <SelectValue placeholder="Select deal" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={NONE_SELECT_VALUE}>None</SelectItem>
                       {deals.map((d) => (
                         <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
@@ -143,12 +148,12 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
                 name="relatedContactId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                     <SelectTrigger id="relatedContactId">
                       <SelectValue placeholder="Select contact" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={NONE_SELECT_VALUE}>None</SelectItem>
                       {contacts.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
                       ))}

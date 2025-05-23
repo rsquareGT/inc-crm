@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -28,6 +29,8 @@ import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Deal, DealStage, Contact, Company } from '@/lib/types';
 import { DEAL_STAGES } from '@/lib/constants';
 import { generateId } from '@/lib/mock-data';
+
+const NONE_SELECT_VALUE = "_none_";
 
 const dealSchema = z.object({
   name: z.string().min(1, 'Deal name is required'),
@@ -63,7 +66,7 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
 
   useEffect(() => {
     if (isOpen) {
-      reset(deal ? { ...deal, tags: deal.tags || [] } : { name: '', value: 0, stage: 'Opportunity', tags: [], notes: '', expectedCloseDate: '' });
+      reset(deal ? { ...deal, contactId: deal.contactId || undefined, companyId: deal.companyId || undefined, tags: deal.tags || [] } : { name: '', value: 0, stage: 'Opportunity', tags: [], notes: '', expectedCloseDate: '', contactId: undefined, companyId: undefined });
     }
   }, [isOpen, deal, reset]);
 
@@ -72,6 +75,8 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
     const dealToSave: Deal = {
       id: deal?.id || generateId(),
       ...data,
+      contactId: data.contactId === NONE_SELECT_VALUE ? undefined : data.contactId,
+      companyId: data.companyId === NONE_SELECT_VALUE ? undefined : data.companyId,
       tags: data.tags || [],
       createdAt: deal?.createdAt || now,
       updatedAt: now,
@@ -131,12 +136,12 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 name="contactId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                     <SelectTrigger id="contactId">
                       <SelectValue placeholder="Select contact" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={NONE_SELECT_VALUE}>None</SelectItem>
                       {contacts.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
                       ))}
@@ -151,12 +156,12 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 name="companyId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
                     <SelectTrigger id="companyId">
                       <SelectValue placeholder="Select company" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value={NONE_SELECT_VALUE}>None</SelectItem>
                       {companies.map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}

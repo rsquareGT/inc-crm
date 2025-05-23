@@ -68,7 +68,7 @@ export function KanbanColumn({
   return (
     <div
       className={cn(
-        `flex-shrink-0 w-60 bg-secondary/50 rounded-lg p-1 border-t-4 transition-colors duration-150 ease-in-out`, // Changed w-80 to w-60
+        `flex-shrink-0 w-60 bg-secondary/50 rounded-lg p-1 border-t-4 transition-colors duration-150 ease-in-out`,
         stageColors[stage],
         isOver ? 'bg-primary/10 ring-2 ring-primary ring-offset-2 ring-offset-background' : 'border-transparent'
       )}
@@ -77,12 +77,12 @@ export function KanbanColumn({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="p-3">
+      <div className="p-2"> {/* Reduced padding from p-3 to p-2 */}
         <h3 className="text-md font-semibold mb-1">{stage} ({deals.length})</h3>
-        <p className="text-xs text-muted-foreground mb-3">{formattedTotalValue}</p>
+        <p className="text-xs text-muted-foreground mb-2">{formattedTotalValue}</p> {/* Reduced margin-bottom from mb-3 to mb-2 */}
       </div>
-      <ScrollArea className="h-[calc(100vh-20rem)] pr-1">
-        <div className="p-3 pt-0 space-y-0.5"> {/* Reduced space-y for tighter card packing */}
+      <ScrollArea className="h-[calc(100vh-18.5rem)] pr-1"> {/* Adjusted height slightly for reduced header */}
+        <div className="px-2 pb-2 pt-0 space-y-1.5"> {/* Reduced padding and space-y */}
         {deals.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No deals in this stage.</p>}
         {deals.map((deal) => {
           const contact = contacts.find((c) => c.id === deal.contactId);

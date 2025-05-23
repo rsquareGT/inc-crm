@@ -50,16 +50,16 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
 
   return (
     <Card 
-      className="mb-4 shadow-md hover:shadow-lg transition-shadow duration-200 bg-card cursor-grab active:cursor-grabbing"
+      className="mb-2 shadow-md hover:shadow-lg transition-shadow duration-200 bg-card cursor-grab active:cursor-grabbing" // Reduced mb-4 to mb-2
       draggable={true}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <CardHeader className="pb-2 pt-4 px-4">
+      <CardHeader className="pb-1 pt-3 px-3"> {/* Reduced padding */}
         <div className="flex justify-between items-start">
           <div className="flex items-center">
-            <GripVertical className="h-5 w-5 mr-1 text-muted-foreground flex-shrink-0" />
-            <CardTitle className="text-lg font-semibold leading-tight">
+            <GripVertical className="h-4 w-4 mr-1 text-muted-foreground flex-shrink-0" /> {/* Slightly smaller grip */}
+            <CardTitle className="text-base font-semibold leading-tight"> {/* Reduced text-lg to text-base */}
               <Link href={`/deals/${deal.id}`} className="hover:underline text-primary" onClick={(e) => e.stopPropagation()}>
                   {deal.name}
               </Link>
@@ -67,44 +67,44 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-1 h-auto" onClick={(e) => e.stopPropagation()}>
-                <Edit3 className="h-4 w-4 text-muted-foreground" />
+              <Button variant="ghost" size="sm" className="p-0.5 h-auto w-auto" onClick={(e) => e.stopPropagation()}> {/* Smaller button */}
+                <Edit3 className="h-3.5 w-3.5 text-muted-foreground" /> {/* Smaller icon */}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem asChild>
-                <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
-                   <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                <Link href={`/deals/${deal.id}`} className="flex items-center w-full text-xs"> {/* Smaller text */}
+                   <ExternalLink className="mr-2 h-3.5 w-3.5" /> View Details
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(deal)}>
-                <Edit3 className="mr-2 h-4 w-4" /> Edit
+              <DropdownMenuItem onClick={() => onEdit(deal)} className="text-xs"> {/* Smaller text */}
+                <Edit3 className="mr-2 h-3.5 w-3.5" /> Edit
               </DropdownMenuItem>
               {DEAL_STAGES.filter(s => s !== deal.stage).map(stage => (
-                <DropdownMenuItem key={stage} onClick={() => onChangeStage(deal.id, stage)}>
+                <DropdownMenuItem key={stage} onClick={() => onChangeStage(deal.id, stage)} className="text-xs"> {/* Smaller text */}
                   Move to {stage}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuItem onClick={() => onDelete(deal.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <DropdownMenuItem onClick={() => onDelete(deal.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground text-xs"> {/* Smaller text */}
+                <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-3 space-y-2 text-sm">
+      <CardContent className="px-3 pb-2 space-y-1.5 text-xs"> {/* Reduced padding, space, and text size */}
         <div className="flex items-center text-muted-foreground">
-          <DollarSign className="h-4 w-4 mr-2 text-green-500" />
+          <DollarSign className="h-3.5 w-3.5 mr-1.5 text-green-500" /> {/* Smaller icon */}
           <span>{formattedValue}</span>
           {deal.expectedCloseDate && (
-            <Badge variant="outline" className="ml-auto text-xs">
+            <Badge variant="outline" className="ml-auto text-xs px-1.5 py-0"> {/* Smaller badge */}
               Closes: {new Date(deal.expectedCloseDate).toLocaleDateString()}
             </Badge>
           )}
         </div>
         {contact && (
           <div className="flex items-center text-muted-foreground">
-            <User className="h-4 w-4 mr-2" />
+            <User className="h-3.5 w-3.5 mr-1.5" /> {/* Smaller icon */}
              <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary" onClick={(e) => e.stopPropagation()}>
                 {contact.firstName} {contact.lastName}
             </Link>
@@ -112,7 +112,7 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
         )}
         {company && (
           <div className="flex items-center text-muted-foreground">
-            <Building className="h-4 w-4 mr-2" />
+            <Building className="h-3.5 w-3.5 mr-1.5" /> {/* Smaller icon */}
             <Link href={`/companies/${company.id}`} className="hover:underline text-primary" onClick={(e) => e.stopPropagation()}>
                 {company.name}
             </Link>
@@ -120,9 +120,9 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
         )}
       </CardContent>
       {tags.length > 0 && (
-        <CardFooter className="px-4 pb-4 flex flex-wrap gap-1">
+        <CardFooter className="px-3 pb-2 flex flex-wrap gap-1"> {/* Reduced padding */}
           {tags.map((tag) => (
-            <TagBadge key={tag} tag={tag} />
+            <TagBadge key={tag} tag={tag} className="text-xs px-1.5 py-0"/> /* Smaller tags */
           ))}
         </CardFooter>
       )}

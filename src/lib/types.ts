@@ -5,6 +5,11 @@ export interface Note {
   id: string;
   content: string;
   createdAt: string;
+  organizationId: string; // Added
+  // Parent FKs remain, one of them will be non-null
+  companyId?: string;
+  contactId?: string;
+  dealId?: string;
 }
 
 export type Industry =
@@ -39,6 +44,7 @@ export type CompanySize =
 
 export interface Contact {
   id: string;
+  organizationId: string; // Added
   firstName: string;
   lastName: string;
   email: string;
@@ -53,6 +59,7 @@ export interface Contact {
 
 export interface Company {
   id: string;
+  organizationId: string; // Added
   name: string;
   industry?: Industry;
   website?: string;
@@ -64,10 +71,10 @@ export interface Company {
   contactPhone1?: string;
   contactPhone2?: string;
   companySize?: CompanySize;
-  accountManagerId?: string; // ID of a contact
+  accountManagerId?: string; // Now conceptually refers to a User['id']
   tags: Tag[];
-  description?: string; // This was the old "notes"
-  notes: Note[]; // This is for chronological, timestamped notes
+  description?: string;
+  notes: Note[];
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +83,7 @@ export type DealStage = 'Opportunity' | 'Proposal Sent' | 'Negotiation' | 'Won' 
 
 export interface Deal {
   id: string;
+  organizationId: string; // Added
   name: string;
   contactId?: string;
   companyId?: string;
@@ -91,6 +99,7 @@ export interface Deal {
 
 export interface Task {
   id: string;
+  organizationId: string; // Added
   title: string;
   description?: string;
   dueDate?: string;
@@ -102,14 +111,12 @@ export interface Task {
   updatedAt: string;
 }
 
-// New types for Organization and User
 export interface Organization {
   id: string;
   name: string;
-  logoUrl?: string; // URL to the organization's logo
+  logoUrl?: string;
   createdAt: string;
   updatedAt: string;
-  // Add other organization-specific fields here if needed, e.g., ownerId, subscriptionStatus
 }
 
 export type UserRole = 'admin' | 'user';
@@ -118,13 +125,10 @@ export interface User {
   id: string;
   organizationId: string;
   email: string;
-  // hashedPassword will not be part of the client-side type for security.
-  // It's a backend concern.
   firstName?: string;
   lastName?: string;
-  profilePictureUrl?: string; // URL to the user's profile picture
+  profilePictureUrl?: string;
   role: UserRole;
   createdAt: string;
   updatedAt: string;
-  // You might add fields like lastLoginAt, etc.
 }

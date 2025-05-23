@@ -4,99 +4,99 @@
 
 @layer base {
   :root {
-    /* Background color: Light gray (#F5F5FA) */
-    --background: 240 25% 97%; /* #F5F5FA */
-    --foreground: 240 10% 3.9%; /* Default dark for text on light background */
+    /* Light Theme: Cool Breeze & Warm Sand */
+    --background: 200 75% 98%; /* Very light, almost white, cool tint */
+    --foreground: 200 25% 25%; /* Dark, slightly desaturated blue-gray */
 
-    --card: 0 0% 100%; /* White cards for contrast on light gray */
-    --card-foreground: 240 10% 3.9%;
+    --card: 0 0% 100%; /* White cards */
+    --card-foreground: 200 25% 25%; /* Dark, slightly desaturated blue-gray */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%; /* White popovers */
+    --popover-foreground: 200 25% 25%; /* Dark, slightly desaturated blue-gray */
 
-    /* Primary color: Deep blue (#3F51B5) */
-    --primary: 231 48% 48%; /* #3F51B5 */
-    --primary-foreground: 0 0% 98%; /* White/light text on deep blue */
+    --primary: 205 70% 50%; /* Sky Blue */
+    --primary-foreground: 0 0% 100%; /* White */
 
-    /* Secondary: for subtle backgrounds or borders, derived from background */
-    --secondary: 240 15% 92%; /* Slightly darker than background for subtle distinctions */
-    --secondary-foreground: 240 10% 20%; /* Darker text for secondary elements */
+    --secondary: 200 50% 94%; /* Light cool gray */
+    --secondary-foreground: 200 20% 40%; /* Medium-dark blue-gray */
     
-    --muted: 240 15% 88%; /* Muted elements, slightly darker than secondary */
-    --muted-foreground: 240 5% 45%; /* Muted text */
+    --muted: 200 40% 90%; /* Very light cool gray */
+    --muted-foreground: 200 15% 60%; /* Medium-light gray */
 
-    /* Accent color: Purple (#7E57C2) */
-    --accent: 260 46% 55%; /* #7E57C2 */
-    --accent-foreground: 0 0% 98%; /* White/light text on purple */
+    --accent: 25 85% 60%; /* Soft Orange/Peach */
+    --accent-foreground: 25 30% 15%; /* Dark brown for contrast on orange */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%; /* Default Shadcn destructive red */
+    --destructive-foreground: 0 0% 98%; /* White/light text on destructive */
 
-    --border: 240 10% 85%; /* Adjusted for light gray theme */
-    --input: 240 10% 85%;  /* Adjusted for light gray theme */
-    --ring: 231 48% 48%; /* Using primary for ring */
+    --border: 200 30% 88%; /* Slightly darker cool gray for borders */
+    --input: 200 30% 88%;  /* Input border, background can be transparent or --background */
+    --ring: 205 70% 50%; /* Primary Blue for focus rings */
 
-    --chart-1: 231 48% 48%; /* primary */
-    --chart-2: 260 46% 55%; /* accent */
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 205 70% 50%; /* Primary Blue */
+    --chart-2: 25 85% 60%; /* Accent Orange */
+    --chart-3: 150 60% 45%; /* Seafoam Green */
+    --chart-4: 270 60% 65%; /* Soft Lavender */
+    --chart-5: 50 70% 55%; /* Muted Yellow */
+    
     --radius: 0.5rem;
 
-    /* Sidebar specific colors - kept as per shadcn structure but not central to this app's design */
-    --sidebar-background: 240 10% 15%; 
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 231 48% 48%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 260 46% 55%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 10% 25%;
-    --sidebar-ring: 231 48% 48%;
+    /* Sidebar specific colors (Light) */
+    --sidebar-background: 200 30% 90%; /* Slightly darker than app background for contrast */
+    --sidebar-foreground: 200 25% 20%; /* Darker text for sidebar */
+    --sidebar-primary: 205 70% 50%; /* Same as main primary */
+    --sidebar-primary-foreground: 0 0% 100%; /* Same as main primary-foreground */
+    --sidebar-accent: 25 85% 60%; /* Same as main accent */
+    --sidebar-accent-foreground: 25 30% 15%; /* Same as main accent-foreground */
+    --sidebar-border: 200 25% 80%; /* Sidebar border */
+    --sidebar-ring: 205 70% 50%; /* Same as main ring */
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Dark Theme: Cool Breeze & Warm Sand */
+    --background: 205 30% 15%; /* Deep Dark Blue */
+    --foreground: 200 20% 90%; /* Light cool gray for text */
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 205 28% 18%; /* Slightly lighter deep dark blue for cards */
+    --card-foreground: 200 20% 90%; /* Light cool gray */
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 205 28% 18%; /* Popover same as card */
+    --popover-foreground: 200 20% 90%; /* Light cool gray */
 
-    --primary: 231 48% 58%; 
-    --primary-foreground: 240 5.9% 10%;
+    --primary: 205 75% 65%; /* Brighter Sky Blue for dark mode */
+    --primary-foreground: 205 30% 10%; /* Very dark blue for text on primary */
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 205 25% 22%; /* Darker shade of background for secondary elements */
+    --secondary-foreground: 200 15% 75%; /* Medium-light cool gray */
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 205 20% 28%; /* Even darker shade for muted elements */
+    --muted-foreground: 200 10% 60%; /* Soft gray for muted text */
 
-    --accent: 260 46% 65%; 
-    --accent-foreground: 0 0% 98%;
+    --accent: 25 90% 70%; /* Brighter Soft Orange/Peach for dark mode */
+    --accent-foreground: 25 30% 15%; /* Dark brown (remains same as light for contrast) */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 70% 55%; /* Slightly less intense red for dark mode */
+    --destructive-foreground: 0 0% 98%; /* White/light text on destructive */
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 231 48% 58%; 
+    --border: 205 20% 25%; /* Border for dark mode */
+    --input: 205 20% 25%; /* Input border for dark mode */
+    --ring: 205 75% 65%; /* Primary Blue (dark theme version) for focus rings */
 
-    --chart-1: 231 48% 58%; /* primary dark */
-    --chart-2: 260 46% 65%; /* accent dark */
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-1: 205 75% 65%; /* Primary Blue Dark */
+    --chart-2: 25 90% 70%; /* Accent Orange Dark */
+    --chart-3: 150 70% 55%; /* Brighter Seafoam Green */
+    --chart-4: 270 70% 75%; /* Brighter Soft Lavender */
+    --chart-5: 50 80% 65%; /* Brighter Muted Yellow */
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 231 48% 58%;
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 260 46% 65%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 231 48% 58%;
+    /* Sidebar specific colors (Dark) */
+    --sidebar-background: 205 35% 12%; /* Very dark blue, almost black for sidebar */
+    --sidebar-foreground: 200 20% 92%; /* Light text for sidebar */
+    --sidebar-primary: 205 75% 65%; /* Same as main primary dark */
+    --sidebar-primary-foreground: 205 30% 10%; /* Same as main primary-foreground dark */
+    --sidebar-accent: 25 90% 70%; /* Same as main accent dark */
+    --sidebar-accent-foreground: 25 30% 15%; /* Same as main accent-foreground dark */
+    --sidebar-border: 205 15% 35%; /* Sidebar border dark */
+    --sidebar-ring: 205 75% 65%; /* Same as main ring dark */
   }
 }
 

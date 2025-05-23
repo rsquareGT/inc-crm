@@ -44,7 +44,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); // For DealFormModal
 
   const { toast } = useToast();
 
@@ -62,8 +62,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     try {
       const response = await fetch(`/api/contacts/${contactId}`);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch contact details');
+        let errorJson;
+        try {
+          errorJson = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          console.error("API error response (contact details) was not JSON:", errorText.substring(0, 500));
+          throw new Error(`Server error (status ${response.status}). Check server logs for contact details.`);
+        }
+        throw new Error(errorJson.error || `Failed to fetch contact details (status ${response.status})`);
       }
       const contactData: Contact = await response.json();
       setContact(contactData);
@@ -71,16 +78,23 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       if (contactData.companyId) {
         const companyRes = await fetch(`/api/companies/${contactData.companyId}`);
         if (companyRes.ok) setCompany(await companyRes.json());
-        else setCompany(undefined);
+        else {
+            console.warn(`Failed to fetch company ${contactData.companyId} for contact ${contactId}`);
+            setCompany(undefined);
+        }
       } else {
         setCompany(undefined);
       }
 
       const dealsRes = await fetch(`/api/deals?contactId=${contactId}`);
-      if (dealsRes.ok) setDeals(await dealsRes.json()); else setDeals([]);
+      if (dealsRes.ok) setDeals(await dealsRes.json()); 
+      else {
+        console.warn(`Failed to fetch deals for contact ${contactId}`);
+        setDeals([]);
+      }
 
     } catch (err) {
-      console.error(err);
+      console.error("Error in fetchContactDetails:", err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(message);
       toast({ title: "Error Fetching Contact Data", description: message, variant: "destructive" });
@@ -90,16 +104,23 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   }, [contactId, toast]);
 
   const fetchFormDropdownData = useCallback(async () => {
+    // This is for forms on this page (e.g. DealFormModal)
+    // setIsLoading(true); // Main entity loading is separate
     try {
-        const [companiesRes, contactsRes] = await Promise.all([
-            fetch('/api/companies'),
-            fetch('/api/contacts')
+        const [companiesRes, contactsResForDealForm] = await Promise.all([
+            fetch('/api/companies'), // For ContactFormModal (passed to it) & DealFormModal
+            fetch('/api/contacts') // For DealFormModal's contact dropdown
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
-        if (contactsRes.ok) setAllContactsList(await contactsRes.json());
+        else console.warn("Failed to fetch companies list for forms on contact detail page");
+
+        if (contactsResForDealForm.ok) setAllContactsList(await contactsResForDealForm.json());
+        else console.warn("Failed to fetch contacts list for DealFormModal on contact detail page");
+
     } catch (err) {
-        toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
+        toast({title: "Error loading form dependencies", description: (err as Error).message, variant: "destructive"});
     }
+    // finally { setIsLoading(false); }
   }, [toast]);
 
 
@@ -109,12 +130,12 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   }, [fetchContactDetails, fetchFormDropdownData]);
 
   const handleSaveContactCallback = () => {
-    fetchContactDetails();
+    fetchContactDetails(); // Refetch to get updated contact details (including potentially new notes if form allowed)
     setIsContactModalOpen(false);
   };
 
   const handleSaveDealCallback = () => {
-    fetchContactDetails();
+    fetchContactDetails(); // Refetch deals for this contact
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -133,7 +154,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       endpoint = `/api/contacts/${contact.id}/notes/${itemToDelete.id}`;
       successMessage = "Note has been deleted.";
     } else if (itemToDelete.type === 'deal') {
-      endpoint = `/api/deals/${itemToDelete.id}`;
+      endpoint = `/api/deals/${itemToDelete.id}`; // Deals are global, not sub-resources of contacts for deletion
       successMessage = `Deal "${itemToDelete.name}" deleted.`;
     }
 
@@ -146,7 +167,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchContactDetails();
+      fetchContactDetails(); // Refetch to update lists
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -173,9 +194,10 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         throw new Error(errorData.error || 'Failed to add note');
       }
       const newNote: Note = await response.json();
+      // Optimistically update or refetch
       setContact(prevContact => {
         if(!prevContact) return null;
-        return { ...prevContact, notes: [newNote, ...(prevContact.notes || [])] };
+        return { ...prevContact, notes: [newNote, ...(prevContact.notes || [])].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) };
       });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this contact." });
@@ -452,15 +474,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         onClose={() => setIsContactModalOpen(false)}
         onSaveCallback={handleSaveContactCallback}
         contact={contact}
-        companies={allCompaniesList}
+        companies={allCompaniesList} // Pass all companies for the dropdown
       />
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
         onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContactsList}
-        companies={allCompaniesList}
+        contacts={allContactsList} // Pass all contacts for the dropdown
+        companies={allCompaniesList} // Pass all companies for the dropdown
         defaultContactId={contact.id}
         defaultCompanyId={contact.companyId}
       />

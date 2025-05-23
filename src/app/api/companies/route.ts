@@ -13,7 +13,7 @@ export async function GET() {
 
     const stmtCompanies = db.prepare(`
       SELECT c.*, 
-             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt)) 
+             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId)) 
               FROM Notes n WHERE n.companyId = c.id ORDER BY n.createdAt DESC) as notes_json
       FROM Companies c 
       ORDER BY c.name ASC
@@ -40,18 +40,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const body = await request.json();
-    const { name, industry, website, street, city, state, postalCode, country, contactPhone1, contactPhone2, companySize, accountManagerId, tags, description } = body;
+    const { name, industry, website, street, city, state, postalCode, country, contactPhone1, contactPhone2, companySize, accountManagerId, tags, description, organizationId } = body; // Assuming organizationId will be passed
 
     if (!name) {
       return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
     }
+    // TODO: In a real multi-tenant app, organizationId should come from authenticated user's session or context
+    if (!organizationId) {
+        return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
+    }
 
-    const newCompanyId = generateId();
+
+    const newCompanyId = generateId(); // Generate ID server-side
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
-      `INSERT INTO Companies (id, name, industry, website, street, city, state, postalCode, country, contactPhone1, contactPhone2, companySize, accountManagerId, tags, description, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO Companies (id, name, industry, website, street, city, state, postalCode, country, contactPhone1, contactPhone2, companySize, accountManagerId, tags, description, createdAt, updatedAt, organizationId)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     
     stmt.run(
@@ -71,11 +76,9 @@ export async function POST(request: NextRequest) {
       JSON.stringify(tags || []),
       description || null,
       now,
-      now
+      now,
+      organizationId
     );
-
-    // If there's an initial note in description, consider adding it to Notes table as well
-    // For simplicity, initial notes from description are not automatically added to the Notes table here.
 
     const newCompany: Company = {
       id: newCompanyId,
@@ -93,9 +96,10 @@ export async function POST(request: NextRequest) {
       accountManagerId,
       tags: tags || [],
       description,
-      notes: [], // New company starts with no chronological notes via this endpoint
+      notes: [], 
       createdAt: now,
       updatedAt: now,
+      organizationId,
     };
 
     return NextResponse.json(newCompany, { status: 201 });

@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Contact, Note } from '@/lib/types';
-import { generateId } from '@/lib/mock-data'; // For generating IDs for new notes
+import { generateId } from '@/lib/mock-data'; // For generating IDs
 
 // GET all contacts or contacts by companyId
 export async function GET(request: NextRequest) {
@@ -12,33 +12,46 @@ export async function GET(request: NextRequest) {
     }
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
+    // TODO: Add organizationId filtering based on authenticated user
 
-    // Temporarily removed notes_json subquery for diagnostic purposes.
-    // Original subquery:
-    // (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt)) 
-    //  FROM Notes n WHERE n.contactId = c.id ORDER BY n.createdAt DESC) as notes_json
+    // Removed notes_json subquery temporarily for stability.
+    // We will add it back or fetch notes separately.
     let query = `
       SELECT c.*
       FROM Contacts c
     `;
-    const params: any[] = [];
+    const queryParams: any[] = [];
 
     if (companyId) {
-      query += ' WHERE c.companyId = ?';
-      params.push(companyId);
+      query += (queryParams.length === 0 ? ' WHERE' : ' AND') + ' c.companyId = ?';
+      queryParams.push(companyId);
     }
+    // TODO: Add organizationId to WHERE clause
+    // if (organizationId) {
+    //   query += (queryParams.length === 0 ? ' WHERE' : ' AND') + ' c.organizationId = ?';
+    //   queryParams.push(organizationId);
+    // }
     
     query += ' ORDER BY c.lastName ASC, c.firstName ASC';
 
     const stmtContacts = db.prepare(query);
-    const contactsData = stmtContacts.all(...params) as any[];
+    const contactsData = stmtContacts.all(...queryParams) as any[];
 
-    const contacts: Contact[] = contactsData.map((contact) => ({
-      ...contact,
-      tags: contact.tags ? JSON.parse(contact.tags) : [],
-      // notes: contact.notes_json ? JSON.parse(contact.notes_json) : [], // Temporarily not fetching notes
-      notes: [], // DIAGNOSTIC: Return empty notes array for now
-    }));
+    const contacts: Contact[] = contactsData.map((contact) => {
+      let parsedTags: string[] = [];
+      try {
+        if (contact.tags) {
+          parsedTags = JSON.parse(contact.tags);
+        }
+      } catch (e) {
+        console.error(`Failed to parse tags for contact ${contact.id}: ${contact.tags}`, e);
+      }
+      return {
+        ...contact,
+        tags: parsedTags,
+        notes: [], // Notes should be fetched on demand in the contact detail view or with a more specific query
+      };
+    });
     
     return NextResponse.json(contacts);
   } catch (error) {
@@ -58,18 +71,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const body = await request.json();
-    const { firstName, lastName, email, phone, companyId, tags, description } = body;
+    const { firstName, lastName, email, phone, companyId, tags, description, organizationId } = body; // Assuming organizationId is passed
 
     if (!firstName || !lastName || !email) {
       return NextResponse.json({ error: 'First name, last name, and email are required' }, { status: 400 });
     }
+    // TODO: In a real multi-tenant app, organizationId should come from authenticated user's session or context
+    if (!organizationId) {
+        return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
+    }
+
 
     const newContactId = generateId(); // Backend generates ID for the contact itself
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
-      `INSERT INTO Contacts (id, firstName, lastName, email, phone, companyId, tags, description, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO Contacts (id, firstName, lastName, email, phone, companyId, tags, description, createdAt, updatedAt, organizationId)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     
     stmt.run(
@@ -82,7 +100,8 @@ export async function POST(request: NextRequest) {
       JSON.stringify(tags || []),
       description || null,
       now,
-      now
+      now,
+      organizationId
     );
 
     const newContact: Contact = {
@@ -94,9 +113,10 @@ export async function POST(request: NextRequest) {
       companyId,
       tags: tags || [],
       description,
-      notes: [], // New contact starts with no notes via this endpoint
+      notes: [], 
       createdAt: now,
       updatedAt: now,
+      organizationId,
     };
 
     return NextResponse.json(newContact, { status: 201 });
@@ -104,7 +124,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('API Error creating contact:', error);
      let errorMessage = 'Failed to create contact.';
-    if (error instanceof Error && (error as any).code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (error instanceof Error && (error as any).code === 'SQLITE_CONSTRAINT_UNIQUE' && (error as any).message.includes('Contacts.email') ) {
         errorMessage = 'A contact with this email already exists.';
         return NextResponse.json({ error: errorMessage }, { status: 409 }); // Conflict
     }

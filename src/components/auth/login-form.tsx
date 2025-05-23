@@ -5,12 +5,10 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Standard import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Toast for success is removed, only used for errors now.
-// import { useToast } from '@/hooks/use-toast'; 
 import { Loader2, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -23,12 +21,12 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
-  // const { toast } = useToast(); // Only needed if we keep error toasts from here. AuthContext also shows errors.
   const { login: contextLogin, user: authUser, isLoading: authContextLoading } = useAuth();
   
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Local state for form submission process
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [loginApiSuccess, setLoginApiSuccess] = useState(false); // True if API call returned success
+  const [loginApiSuccess, setLoginApiSuccess] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false); // New state
 
   const {
     register,
@@ -36,60 +34,67 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    }
   });
 
   useEffect(() => {
-    // Redirect if login API call was successful and the auth context has updated the user
-    if (loginApiSuccess && authUser && !authContextLoading) {
+    // Redirect if API call was successful, auth context has updated, and not already redirecting
+    if (loginApiSuccess && authUser && !authContextLoading && !isRedirecting) {
+      setIsRedirecting(true); // Set flag before pushing
       router.push('/dashboard');
     }
-  }, [loginApiSuccess, authUser, authContextLoading, router]);
+  }, [loginApiSuccess, authUser, authContextLoading, router, isRedirecting]); // Added isRedirecting
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmittingForm(true);
     setFormError(null);
-    setLoginApiSuccess(false); 
+    setLoginApiSuccess(false);
+    setIsRedirecting(false); // Reset redirecting flag on new submission
+
     try {
       const success = await contextLogin(data.email, data.password);
       if (success) {
-        setLoginApiSuccess(true);
-        // No local success toast here. Button text will indicate "Validated. Redirecting..."
-        // setIsSubmittingForm(true) remains true, as the component should ideally unmount on redirect.
+        setLoginApiSuccess(true); // API call succeeded
+        // No longer setting setIsSubmittingForm(false) here, controlled by loginApiSuccess/isRedirecting
       } else {
-        // This case might not be hit if contextLogin throws an error for API failures
+        // This case might not be hit if contextLogin throws for API failures
         setFormError('Login failed. Please check your credentials.');
-        setIsSubmittingForm(false);
+        setIsSubmittingForm(false); // Allow re-submission on contextLogin returning false
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
       setFormError(message);
-      // Error toast can be handled by AuthContext or here. For simplicity, let AuthContext handle it.
-      // toast({
-      //   title: 'Login Error',
-      //   description: message,
-      //   variant: 'destructive',
-      // });
-      setIsSubmittingForm(false);
-      setLoginApiSuccess(false);
+      setIsSubmittingForm(false); // Allow re-submission on error
+      setLoginApiSuccess(false); // Ensure this is reset
     }
   };
 
   let buttonContent;
-  if (loginApiSuccess) {
+  if (isRedirecting) {
     buttonContent = (
       <>
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Validated. Redirecting...
+        Redirecting...
       </>
     );
-  } else if (isSubmittingForm) {
+  } else if (loginApiSuccess) { // API succeeded, waiting for context/redirect effect
+    buttonContent = (
+      <>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Validated. Please wait...
+      </>
+    );
+  } else if (isSubmittingForm) { // API call in progress
     buttonContent = (
       <>
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Validating User...
       </>
     );
-  } else {
+  } else { // Initial state
     buttonContent = (
       <>
         <LogIn className="mr-2 h-4 w-4" />
@@ -97,6 +102,8 @@ export function LoginForm() {
       </>
     );
   }
+
+  const isButtonDisabled = isSubmittingForm || loginApiSuccess || isRedirecting;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -112,7 +119,7 @@ export function LoginForm() {
           type="email"
           placeholder="you@example.com"
           {...register('email')}
-          disabled={isSubmittingForm || loginApiSuccess}
+          disabled={isButtonDisabled}
           className={errors.email || formError ? 'border-destructive' : ''}
         />
         {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
@@ -124,12 +131,12 @@ export function LoginForm() {
           type="password"
           placeholder="••••••••"
           {...register('password')}
-          disabled={isSubmittingForm || loginApiSuccess}
+          disabled={isButtonDisabled}
           className={errors.password || formError ? 'border-destructive' : ''}
         />
         {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
       </div>
-      <Button type="submit" className="w-full" disabled={isSubmittingForm || loginApiSuccess}>
+      <Button type="submit" className="w-full" disabled={isButtonDisabled}>
         {buttonContent}
       </Button>
     </form>

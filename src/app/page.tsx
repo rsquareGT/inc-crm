@@ -10,7 +10,7 @@ export default function HomePage() {
   useEffect(() => {
     // For now, always redirect to login.
     // Later, this will check auth state.
-    router.replace('/login');
+    router.replace('/dashboard');
   }, [router]);
 
   return (

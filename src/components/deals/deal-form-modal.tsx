@@ -39,7 +39,7 @@ const dealSchema = z.object({
   contactId: z.string().optional(),
   companyId: z.string().optional(),
   expectedCloseDate: z.string().optional(),
-  notes: z.string().optional(),
+  description: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -58,15 +58,15 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<DealFormData>({
     resolver: zodResolver(dealSchema),
     defaultValues: deal 
-      ? { ...deal, tags: deal.tags || [] } 
-      : { name: '', value: 0, stage: 'Opportunity', tags: [] },
+      ? { ...deal, tags: deal.tags || [], description: deal.description || '' } 
+      : { name: '', value: 0, stage: 'Opportunity', tags: [], description: '' },
   });
 
-  const notesForAISuggestions = watch('notes');
+  const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(deal ? { ...deal, contactId: deal.contactId || undefined, companyId: deal.companyId || undefined, tags: deal.tags || [] } : { name: '', value: 0, stage: 'Opportunity', tags: [], notes: '', expectedCloseDate: '', contactId: undefined, companyId: undefined });
+      reset(deal ? { ...deal, contactId: deal.contactId || undefined, companyId: deal.companyId || undefined, tags: deal.tags || [], description: deal.description || '' } : { name: '', value: 0, stage: 'Opportunity', tags: [], description: '', expectedCloseDate: '', contactId: undefined, companyId: undefined });
     }
   }, [isOpen, deal, reset]);
 
@@ -178,8 +178,8 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
           </div>
           
           <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" {...register('notes')} placeholder="Add any relevant notes for this deal..."/>
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this deal..."/>
           </div>
 
           <div>
@@ -192,7 +192,7 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                     <TagInputField
                         value={field.value || []}
                         onChange={field.onChange}
-                        textToSuggestFrom={notesForAISuggestions}
+                        textToSuggestFrom={descriptionForAISuggestions}
                         placeholder="Add relevant tags..."
                     />
                 )}

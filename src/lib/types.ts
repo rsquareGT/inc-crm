@@ -1,3 +1,4 @@
+
 export type Tag = string;
 
 export interface Contact {
@@ -8,7 +9,7 @@ export interface Contact {
   phone?: string;
   companyId?: string;
   tags: Tag[];
-  notes?: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,7 +22,7 @@ export interface Company {
   address?: string;
   // contactIds: string[]; // Removed, contacts will link to company
   tags: Tag[];
-  notes?: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,7 +38,7 @@ export interface Deal {
   value: number;
   expectedCloseDate?: string;
   tags: Tag[];
-  notes?: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }

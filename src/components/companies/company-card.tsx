@@ -82,10 +82,10 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
             <span className="truncate" title={company.address}>{company.address}</span>
           </div>
         )}
-        {company.notes && (
+        {company.description && (
            <div className="flex items-start text-muted-foreground pt-1">
             <FileText className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-            <p className="text-xs line-clamp-2" title={company.notes}>{company.notes}</p>
+            <p className="text-xs line-clamp-2" title={company.description}>{company.description}</p>
           </div>
         )}
       </CardContent>

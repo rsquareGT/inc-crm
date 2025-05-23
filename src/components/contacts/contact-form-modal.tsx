@@ -37,7 +37,7 @@ const contactSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
   companyId: z.string().optional(),
-  notes: z.string().optional(),
+  description: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -55,15 +55,15 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
     defaultValues: contact 
-      ? { ...contact, tags: contact.tags || [] } 
-      : { firstName: '', lastName: '', email: '', tags: [] },
+      ? { ...contact, tags: contact.tags || [], description: contact.description || '' } 
+      : { firstName: '', lastName: '', email: '', tags: [], description: '' },
   });
 
-  const notesForAISuggestions = watch('notes');
+  const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(contact ? { ...contact, companyId: contact.companyId || undefined, tags: contact.tags || [] } : { firstName: '', lastName: '', email: '', tags: [], notes: '', companyId: undefined });
+      reset(contact ? { ...contact, companyId: contact.companyId || undefined, tags: contact.tags || [], description: contact.description || '' } : { firstName: '', lastName: '', email: '', tags: [], description: '', companyId: undefined });
     }
   }, [isOpen, contact, reset]);
 
@@ -133,8 +133,8 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
             />
           </div>
           <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" {...register('notes')} placeholder="Add any relevant notes for this contact..."/>
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this contact..."/>
           </div>
           <div>
             <Label htmlFor="tags">Tags</Label>
@@ -146,7 +146,7 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
                     <TagInputField
                         value={field.value || []}
                         onChange={field.onChange}
-                        textToSuggestFrom={notesForAISuggestions}
+                        textToSuggestFrom={descriptionForAISuggestions}
                         placeholder="Add relevant tags..."
                     />
                 )}

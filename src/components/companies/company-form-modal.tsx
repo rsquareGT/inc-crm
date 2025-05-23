@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -26,7 +27,7 @@ const companySchema = z.object({
   industry: z.string().optional(),
   website: z.string().url('Invalid URL').or(z.literal('')).optional(),
   address: z.string().optional(),
-  notes: z.string().optional(),
+  description: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -43,15 +44,15 @@ export function CompanyFormModal({ isOpen, onClose, onSave, company }: CompanyFo
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
     defaultValues: company 
-      ? { ...company, tags: company.tags || [] } 
-      : { name: '', tags: [] },
+      ? { ...company, tags: company.tags || [], description: company.description || '' } 
+      : { name: '', tags: [], description: '' },
   });
 
-  const notesForAISuggestions = watch('notes');
+  const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(company ? { ...company, tags: company.tags || [] } : { name: '', tags: [], notes: '', industry: '', website: '', address: '' });
+      reset(company ? { ...company, tags: company.tags || [], description: company.description || '' } : { name: '', tags: [], description: '', industry: '', website: '', address: '' });
     }
   }, [isOpen, company, reset]);
 
@@ -99,8 +100,8 @@ export function CompanyFormModal({ isOpen, onClose, onSave, company }: CompanyFo
             <Input id="address" {...register('address')} />
           </div>
           <div>
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" {...register('notes')} placeholder="Add any relevant notes for this company..."/>
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this company..."/>
           </div>
           <div>
             <Label htmlFor="tags">Tags</Label>
@@ -112,7 +113,7 @@ export function CompanyFormModal({ isOpen, onClose, onSave, company }: CompanyFo
                     <TagInputField
                         value={field.value || []}
                         onChange={field.onChange}
-                        textToSuggestFrom={notesForAISuggestions}
+                        textToSuggestFrom={descriptionForAISuggestions}
                         placeholder="Add relevant tags..."
                     />
                 )}

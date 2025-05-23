@@ -172,7 +172,7 @@ export function CompanyDetailsClient({
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="overview">Overview & Notes</TabsTrigger>
+          <TabsTrigger value="overview">Overview & Description</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
         </TabsList>
@@ -204,11 +204,11 @@ export function CompanyDetailsClient({
                 </div>
               )}
               <div className="space-y-2 pt-2">
-                <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</h4>
-                {company.notes ? (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{company.notes}</p>
+                <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
+                {company.description ? (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{company.description}</p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No notes for this company.</p>
+                  <p className="text-sm text-muted-foreground">No description for this company.</p>
                 )}
               </div>
             </CardContent>

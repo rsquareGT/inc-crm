@@ -1,17 +1,17 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation'; // Standard Next.js App Router import
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useAuth } from '@/contexts/auth-context';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
@@ -23,10 +23,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { login: contextLogin } = useAuth(); // Get login function from AuthContext
-  const [isLoading, setIsLoading] = useState(false);
+  const { login: contextLogin, user: authUser, isLoading: authContextLoading } = useAuth(); // Get user from context
+  const [isLoading, setIsLoading] = useState(false); // Local loading state for form submission
   const [formError, setFormError] = useState<string | null>(null);
-
+  const [loginAttemptSuccessful, setLoginAttemptSuccessful] = useState(false);
 
   const {
     register,
@@ -36,32 +36,44 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
+  useEffect(() => {
+    // Redirect if login was successful and the user object is now available in context
+    if (loginAttemptSuccessful && authUser && !authContextLoading) {
+      router.push('/dashboard');
+      // No need to reset loginAttemptSuccessful here as the component will unmount
+    }
+  }, [loginAttemptSuccessful, authUser, authContextLoading, router]);
+
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     setFormError(null);
+    setLoginAttemptSuccessful(false); // Reset on new attempt
     try {
-      const loginSuccessful = await contextLogin(data.email, data.password);
-      if (loginSuccessful) {
+      const success = await contextLogin(data.email, data.password);
+      if (success) {
         toast({
           title: 'Login Successful',
-          description: `Welcome back!`, // User details will be in context
+          description: `Welcome back! Redirecting...`,
         });
-        router.push('/dashboard'); // Redirect to dashboard
+        setLoginAttemptSuccessful(true); // Trigger useEffect for redirection
+        // The useEffect will handle the router.push when authUser is confirmed in context
       } else {
-        // This case might not be hit if contextLogin throws an error handled below
+        // This case might not be hit if contextLogin throws an error handled by catch
         setFormError('Login failed. Please check your credentials.');
+        setIsLoading(false);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
-      setFormError(message); // Display error on the form
+      setFormError(message);
       toast({
         title: 'Login Error',
         description: message,
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
+    // setIsLoading(false) is handled in success path by redirection or error path explicitly.
+    // If login is successful, component will unmount on redirect, so local isLoading becomes irrelevant.
   };
 
   return (

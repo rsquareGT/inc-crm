@@ -8,7 +8,7 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/deals');
+    router.replace('/dashboard'); // Changed to redirect to dashboard
   }, [router]);
 
   return (

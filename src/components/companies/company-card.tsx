@@ -6,14 +6,14 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/shared/tag-badge';
-import { MoreHorizontal, Edit, Trash2, ExternalLink, Building, Globe, MapPin, FileText } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, ExternalLink, Building, Globe, MapPin, FileText, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 
 interface CompanyCardProps {
   company: Company;
@@ -23,6 +23,7 @@ interface CompanyCardProps {
 
 export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
   const tags = company.tags || [];
+  const displayAddress = [company.city, company.state, company.country].filter(Boolean).join(', ');
 
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 bg-card flex flex-col h-full">
@@ -42,7 +43,7 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
                 <Link href={`/companies/${company.id}`} className="flex items-center w-full">
-                   <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                  <ExternalLink className="mr-2 h-4 w-4" /> View Details
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(company)}>
@@ -76,14 +77,20 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
             </a>
           </div>
         )}
-        {company.address && (
+        {displayAddress && (
           <div className="flex items-center text-muted-foreground">
             <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="truncate" title={company.address}>{company.address}</span>
+            <span className="truncate" title={displayAddress}>{displayAddress}</span>
+          </div>
+        )}
+        {company.companySize && (
+          <div className="flex items-center text-muted-foreground">
+            <Users className="h-4 w-4 mr-2 flex-shrink-0" />
+            <span className="truncate" title={company.companySize}>{company.companySize}</span>
           </div>
         )}
         {company.description && (
-           <div className="flex items-start text-muted-foreground pt-1">
+          <div className="flex items-start text-muted-foreground pt-1">
             <FileText className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
             <p className="text-xs line-clamp-2" title={company.description}>{company.description}</p>
           </div>

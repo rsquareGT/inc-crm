@@ -14,10 +14,10 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card'; // Import from ui
+import { Card, CardContent } from '@/components/ui/card';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
-import type { Company } from '@/lib/types';
-import { mockCompanies } from '@/lib/mock-data';
+import type { Company, Contact } from '@/lib/types'; // Added Contact
+import { mockCompanies, mockContacts } from '@/lib/mock-data'; // Added mockContacts
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -25,12 +25,13 @@ import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmatio
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 
 type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [allContacts, setAllContacts] = useState<Contact[]>([]); // State for all contacts
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -44,6 +45,7 @@ export function CompaniesListClient() {
 
   useEffect(() => {
     setCompanies(mockCompanies);
+    setAllContacts(mockContacts); // Load all contacts
   }, []);
 
   const handleOpenModal = (company: Company | null = null) => {
@@ -68,7 +70,6 @@ export function CompaniesListClient() {
       toast({ title: "Company Created", description: `New company "${companyToSave.name}" added.` });
       return [...prevCompanies, companyToSave];
     });
-     // Update mockCompanies array directly
     const mockIndex = mockCompanies.findIndex(c => c.id === companyToSave.id);
     if (mockIndex !== -1) {
       mockCompanies[mockIndex] = companyToSave;
@@ -86,7 +87,6 @@ export function CompaniesListClient() {
     if (companyToDelete) {
       const companyName = companies.find(c => c.id === companyToDelete)?.name || "Company";
       setCompanies(prevCompanies => prevCompanies.filter(c => c.id !== companyToDelete));
-       // Remove from mockCompanies array
       const mockIndex = mockCompanies.findIndex(c => c.id === companyToDelete);
       if (mockIndex !== -1) {
         mockCompanies.splice(mockIndex, 1);
@@ -124,6 +124,11 @@ export function CompaniesListClient() {
     }
     return items;
   }, [companies, searchTerm, sortBy, sortOrder]);
+
+  const formatAddressForList = (company: Company) => {
+    return [company.city, company.state, company.country].filter(Boolean).join(', ') || 'N/A';
+  };
+
 
   return (
     <div>
@@ -172,6 +177,7 @@ export function CompaniesListClient() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Industry</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Website</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -186,6 +192,7 @@ export function CompaniesListClient() {
                       </Link>
                     </TableCell>
                     <TableCell>{company.industry || 'N/A'}</TableCell>
+                    <TableCell>{formatAddressForList(company)}</TableCell>
                     <TableCell>
                       {company.website ? (
                         <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center">
@@ -208,9 +215,9 @@ export function CompaniesListClient() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                           <DropdownMenuItem asChild>
+                          <DropdownMenuItem asChild>
                             <Link href={`/companies/${company.id}`} className="flex items-center">
-                               <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                              <ExternalLink className="mr-2 h-4 w-4" /> View Details
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleOpenModal(company)}>
@@ -226,7 +233,7 @@ export function CompaniesListClient() {
                 ))}
                 {displayedCompanies.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24">No companies found.</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">No companies found.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -256,6 +263,7 @@ export function CompaniesListClient() {
         onClose={handleCloseModal}
         onSave={handleSaveCompany}
         company={editingCompany}
+        allContacts={allContacts} // Pass all contacts to the modal
       />
 
       <DeleteConfirmationDialog

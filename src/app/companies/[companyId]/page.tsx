@@ -22,8 +22,8 @@ const getCompanyData = (companyId: string) => {
     company,
     relatedContacts,
     relatedDeals,
-    allCompanies: mockCompanies, // For linking in forms
-    allContacts: mockContacts, // For linking in forms
+    allCompanies: mockCompanies, 
+    allContacts: mockContacts, 
   };
 };
 
@@ -54,7 +54,7 @@ export default function CompanyDetailsPage({ params }: CompanyDetailsPageProps) 
         initialContacts={relatedContacts}
         initialDeals={relatedDeals}
         allCompanies={allCompanies}
-        allContacts={allContacts}
+        allContacts={allContacts} // Pass allContacts here
       />
     </AppPageShell>
   );

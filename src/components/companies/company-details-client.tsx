@@ -11,7 +11,7 @@ import { ContactFormModal } from '@/components/contacts/contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { mockCompanies, mockContacts, mockDeals, generateId } from '@/lib/mock-data'; 
+import { mockCompanies, mockContacts, mockDeals, generateId } from '@/lib/mock-data';
 import {
   Table,
   TableBody,
@@ -21,23 +21,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
 import { DEAL_STAGES } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-// import { format } from 'date-fns'; // No longer directly used here for notes
-import { Label } from '@/components/ui/label'; 
+import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 
 interface CompanyDetailsClientProps {
   initialCompany: Company;
   initialContacts: Contact[];
   initialDeals: Deal[];
-  allCompanies: Company[];
-  allContacts: Contact[];
+  allCompanies: Company[]; // For contact/deal forms
+  allContacts: Contact[]; // For selecting account manager & for contact/deal forms
 }
 
 export function CompanyDetailsClient({
@@ -45,14 +44,14 @@ export function CompanyDetailsClient({
   initialContacts: serverContacts,
   initialDeals: serverDeals,
   allCompanies: serverAllCompanies,
-  allContacts: serverAllContacts,
+  allContacts: serverAllContacts, // Renamed for clarity
 }: CompanyDetailsClientProps) {
   const [company, setCompany] = useState<Company>(initialCompany);
   const [contacts, setContacts] = useState<Contact[]>(serverContacts);
   const [deals, setDeals] = useState<Deal[]>(serverDeals);
   const [newNoteContent, setNewNoteContent] = useState('');
 
-  const [allCompanies] = useState<Company[]>(serverAllCompanies);
+  const [allCompaniesList] = useState<Company[]>(serverAllCompanies);
   const [allContactsList] = useState<Contact[]>(serverAllContacts);
 
   const { toast } = useToast();
@@ -65,7 +64,7 @@ export function CompanyDetailsClient({
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'company' | 'note'; name: string } | null>(null);
-  
+
   useEffect(() => {
     setCompany(initialCompany);
   }, [initialCompany]);
@@ -81,7 +80,7 @@ export function CompanyDetailsClient({
   const handleSaveCompany = (updatedCompany: Company) => {
     setCompany(updatedCompany);
     const index = mockCompanies.findIndex(c => c.id === updatedCompany.id);
-    if (index !== -1) mockCompanies[index] = updatedCompany; 
+    if (index !== -1) mockCompanies[index] = updatedCompany;
     toast({ title: "Company Updated", description: `${updatedCompany.name} details saved.` });
     setIsCompanyModalOpen(false);
   };
@@ -97,11 +96,19 @@ export function CompanyDetailsClient({
         toast({ title: "Contact Updated", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
         return updated;
       }
-      const newContact = { ...contactToSave, companyId: company.id }; // Ensure companyId is set
+      const newContact = { ...contactToSave, companyId: company.id };
       mockContacts.push(newContact);
       toast({ title: "Contact Created", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
       return [...prevContacts, newContact];
     });
+    // Also update allContactsList if a new contact is added or an existing one is modified
+    // This ensures the Account Manager dropdown is up-to-date if it relies on this list
+    const globalContactIndex = allContactsList.findIndex(c => c.id === contactToSave.id);
+    if (globalContactIndex > -1) {
+        allContactsList[globalContactIndex] = contactToSave;
+    } else {
+        allContactsList.push(contactToSave);
+    }
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
@@ -117,7 +124,7 @@ export function CompanyDetailsClient({
         toast({ title: "Deal Updated", description: `Deal "${dealToSave.name}" updated.` });
         return updated;
       }
-      const newDeal = { ...dealToSave, companyId: company.id }; // Ensure companyId is set
+      const newDeal = { ...dealToSave, companyId: company.id };
       mockDeals.push(newDeal);
       toast({ title: "Deal Created", description: `New deal "${dealToSave.name}" added.` });
       return [...prevDeals, newDeal];
@@ -125,7 +132,7 @@ export function CompanyDetailsClient({
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
-  
+
   const handleDeleteRequest = (id: string, type: 'contact' | 'deal' | 'note', name: string) => {
     setItemToDelete({ id, type, name });
     setShowDeleteDialog(true);
@@ -138,6 +145,8 @@ export function CompanyDetailsClient({
       setContacts(prev => prev.filter(c => c.id !== itemToDelete.id));
       const mockIndex = mockContacts.findIndex(mc => mc.id === itemToDelete.id);
       if (mockIndex !== -1) mockContacts.splice(mockIndex, 1);
+      const globalContactIndex = allContactsList.findIndex(c => c.id === itemToDelete.id);
+      if (globalContactIndex > -1) allContactsList.splice(globalContactIndex, 1);
       toast({ title: "Contact Deleted", description: `Contact "${itemToDelete.name}" deleted.`, variant: "destructive" });
     } else if (itemToDelete.type === 'deal') {
       setDeals(prev => prev.filter(d => d.id !== itemToDelete.id));
@@ -170,7 +179,7 @@ export function CompanyDetailsClient({
       createdAt: new Date().toISOString(),
     };
     setCompany(prevCompany => {
-      const updatedNotes = [newNote, ...prevCompany.notes]; 
+      const updatedNotes = [newNote, ...(prevCompany.notes || [])];
       const companyIndex = mockCompanies.findIndex(c => c.id === prevCompany.id);
       if (companyIndex !== -1) {
         mockCompanies[companyIndex].notes = updatedNotes;
@@ -180,9 +189,15 @@ export function CompanyDetailsClient({
     setNewNoteContent('');
     toast({ title: "Note Added", description: "New note saved for this company." });
   };
-  
-  const sortedNotes = company.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
+  const sortedNotes = company.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  
+  const accountManager = company.accountManagerId ? allContactsList.find(c => c.id === company.accountManagerId) : undefined;
+
+  const formatAddress = () => {
+    const parts = [company.street, company.city, company.state, company.postalCode, company.country].filter(Boolean);
+    return parts.join(', ') || 'N/A';
+  };
 
   return (
     <div className="space-y-6">
@@ -203,40 +218,39 @@ export function CompanyDetailsClient({
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="overview">Overview & Notes</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for 4 tabs */}
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="details">Company Details</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid gap-6">
+          <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Company Overview</CardTitle>
+                <CardTitle>Key Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {company.website && (
                   <div className="flex items-center">
-                    <Globe className="mr-2 h-5 w-5 text-muted-foreground" />
-                    <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    <Globe className="mr-3 h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                       {company.website}
                     </a>
                   </div>
                 )}
-                {company.address && (
-                  <div className="flex items-center">
-                    <MapPin className="mr-2 h-5 w-5 text-muted-foreground" />
-                    <span>{company.address}</span>
+                 <div className="flex items-start">
+                    <MapPin className="mr-3 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <span>{formatAddress()}</span>
                   </div>
-                )}
                 {company.tags && company.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-sm text-muted-foreground">Tags:</span>
                     {company.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
                   </div>
                 )}
-                <div className="space-y-2 pt-2">
+                 <div className="space-y-2 pt-2">
                   <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
                   {company.description ? (
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{company.description}</p>
@@ -249,7 +263,7 @@ export function CompanyDetailsClient({
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
+                <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground" />Notes & Activity</CardTitle>
                 <CardDescription>Chronological notes related to this company.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -266,9 +280,9 @@ export function CompanyDetailsClient({
                     <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
                   </Button>
                 </div>
-                
+
                 {sortedNotes.length > 0 ? (
-                  <ScrollArea className="h-[300px] w-full pr-4">
+                  <ScrollArea className="h-[250px] w-full pr-4">
                     <div className="space-y-3">
                       {sortedNotes.map(note => (
                         <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
@@ -276,14 +290,14 @@ export function CompanyDetailsClient({
                           <p className="text-xs text-muted-foreground mt-1">
                             <FormattedNoteTimestamp createdAt={note.createdAt} />
                           </p>
-                           <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                              onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
-                            >
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                            onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -295,6 +309,41 @@ export function CompanyDetailsClient({
             </Card>
           </div>
         </TabsContent>
+        
+        <TabsContent value="details">
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Company Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Contact Phone 1</h4>
+                    <p>{company.contactPhone1 || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Contact Phone 2</h4>
+                    <p>{company.contactPhone2 || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Users className="mr-2 h-4 w-4"/>Company Size</h4>
+                    <p>{company.companySize || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4"/>Account Manager</h4>
+                    {accountManager ? (
+                      <Link href={`/contacts/${accountManager.id}`} className="text-primary hover:underline">
+                        {accountManager.firstName} {accountManager.lastName}
+                      </Link>
+                    ) : (
+                      <p>N/A</p>
+                    )}
+                  </div>
+               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
 
         <TabsContent value="contacts">
           <Card>
@@ -322,16 +371,16 @@ export function CompanyDetailsClient({
                     {contacts.map((contact) => (
                       <TableRow key={contact.id}>
                         <TableCell className="font-medium">
-                            <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
-                                {contact.firstName} {contact.lastName}
-                            </Link>
+                          <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
+                            {contact.firstName} {contact.lastName}
+                          </Link>
                         </TableCell>
                         <TableCell>{contact.email}</TableCell>
                         <TableCell>{contact.phone || 'N/A'}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {contact.tags.slice(0,2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                            {contact.tags.length > 2 && <Badge variant="outline">+{contact.tags.length-2}</Badge>}
+                            {contact.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                            {contact.tags.length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -342,9 +391,9 @@ export function CompanyDetailsClient({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                               <DropdownMenuItem asChild>
+                              <DropdownMenuItem asChild>
                                 <Link href={`/contacts/${contact.id}`} className="flex items-center w-full">
-                                   <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                  <ExternalLink className="mr-2 h-4 w-4" /> View Details
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }}>
@@ -392,27 +441,27 @@ export function CompanyDetailsClient({
                   </TableHeader>
                   <TableBody>
                     {deals.map((deal) => {
-                      const contact = allContactsList.find(c => c.id === deal.contactId);
+                      const dealContact = allContactsList.find(c => c.id === deal.contactId);
                       return (
                         <TableRow key={deal.id}>
                           <TableCell className="font-medium">
                             <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
-                                {deal.name}
+                              {deal.name}
                             </Link>
                           </TableCell>
-                          <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' }>{deal.stage}</Badge></TableCell>
+                          <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
                           <TableCell>${deal.value.toLocaleString()}</TableCell>
                           <TableCell>
-                            {contact ? (
-                                 <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
-                                    {contact.firstName} {contact.lastName}
-                                </Link>
-                            ): 'N/A'}
-                           </TableCell>
+                            {dealContact ? (
+                              <Link href={`/contacts/${dealContact.id}`} className="hover:underline text-primary">
+                                {dealContact.firstName} {dealContact.lastName}
+                              </Link>
+                            ) : 'N/A'}
+                          </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {deal.tags.slice(0,2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                              {deal.tags.length > 2 && <Badge variant="outline">+{deal.tags.length-2}</Badge>}
+                              {deal.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                              {deal.tags.length > 2 && <Badge variant="outline">+{deal.tags.length - 2}</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -424,15 +473,15 @@ export function CompanyDetailsClient({
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem asChild>
-                                    <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                                  <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
                                     <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                    </Link>
+                                  </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
                                 {DEAL_STAGES.filter(s => s !== deal.stage).map(stage => (
-                                  <DropdownMenuItem key={stage} onClick={() => handleSaveDeal({...deal, stage: stage, updatedAt: new Date().toISOString() })}>
+                                  <DropdownMenuItem key={stage} onClick={() => handleSaveDeal({ ...deal, stage: stage, updatedAt: new Date().toISOString() })}>
                                     Move to {stage}
                                   </DropdownMenuItem>
                                 ))}
@@ -459,15 +508,16 @@ export function CompanyDetailsClient({
         isOpen={isCompanyModalOpen}
         onClose={() => setIsCompanyModalOpen(false)}
         onSave={handleSaveCompany}
-        company={company} 
+        company={company}
+        allContacts={allContactsList} // Pass all contacts
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }}
         onSave={handleSaveContact}
         contact={editingContact}
-        companies={allCompanies}
-        defaultCompanyId={company.id} // Pre-fill current company when adding contact
+        companies={allCompaniesList}
+        defaultCompanyId={company.id}
       />
       <DealFormModal
         isOpen={isDealModalOpen}
@@ -475,8 +525,8 @@ export function CompanyDetailsClient({
         onSave={handleSaveDeal}
         deal={editingDeal}
         contacts={allContactsList}
-        companies={allCompanies}
-        defaultCompanyId={company.id} // Pre-fill current company when adding deal
+        companies={allCompaniesList}
+        defaultCompanyId={company.id}
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

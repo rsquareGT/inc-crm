@@ -8,7 +8,7 @@ export function AppPageShell({ children }: AppPageShellProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader />
-      <main className="flex-1 container py-8 max-w-screen-2xl">
+      <main className="flex-1 container py-8 max-w-7xl"> {/* Updated max-width */}
         {children}
       </main>
     </div>

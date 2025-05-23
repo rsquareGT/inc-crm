@@ -218,9 +218,8 @@ export function CompanyDetailsClient({
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for 4 tabs */}
+        <TabsList className="grid w-full grid-cols-3 mb-4"> {/* Updated for 3 tabs */}
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="details">Company Details</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
         </TabsList>
@@ -229,9 +228,9 @@ export function CompanyDetailsClient({
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Key Information</CardTitle>
+                <CardTitle>Company Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {company.website && (
                   <div className="flex items-center">
                     <Globe className="mr-3 h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -244,8 +243,34 @@ export function CompanyDetailsClient({
                     <MapPin className="mr-3 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                     <span>{formatAddress()}</span>
                   </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-2">
+                    <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Phone 1</h4>
+                        <p className="text-sm">{company.contactPhone1 || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Phone 2</h4>
+                        <p className="text-sm">{company.contactPhone2 || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Users className="mr-2 h-4 w-4"/>Company Size</h4>
+                        <p className="text-sm">{company.companySize || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4"/>Account Manager</h4>
+                        {accountManager ? (
+                        <Link href={`/contacts/${accountManager.id}`} className="text-primary hover:underline text-sm">
+                            {accountManager.firstName} {accountManager.lastName}
+                        </Link>
+                        ) : (
+                        <p className="text-sm">N/A</p>
+                        )}
+                    </div>
+                </div>
+                
                 {company.tags && company.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex flex-wrap gap-2 items-center pt-2">
                     <span className="text-sm text-muted-foreground">Tags:</span>
                     {company.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
                   </div>
@@ -310,41 +335,6 @@ export function CompanyDetailsClient({
           </div>
         </TabsContent>
         
-        <TabsContent value="details">
-          <Card>
-            <CardHeader>
-              <CardTitle>Detailed Company Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Contact Phone 1</h4>
-                    <p>{company.contactPhone1 || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Contact Phone 2</h4>
-                    <p>{company.contactPhone2 || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Users className="mr-2 h-4 w-4"/>Company Size</h4>
-                    <p>{company.companySize || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4"/>Account Manager</h4>
-                    {accountManager ? (
-                      <Link href={`/contacts/${accountManager.id}`} className="text-primary hover:underline">
-                        {accountManager.firstName} {accountManager.lastName}
-                      </Link>
-                    ) : (
-                      <p>N/A</p>
-                    )}
-                  </div>
-               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-
         <TabsContent value="contacts">
           <Card>
             <CardHeader>

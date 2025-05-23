@@ -14,9 +14,9 @@ import Link from 'next/link';
 import { StatsCard } from './stats-card';
 import { format, subDays, isWithinInterval } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TaskCard } from './task-card'; // New import
+import { TaskCard } from './task-card'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader } from '../ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '../ui/card';
 
 
 export function DashboardClient() {
@@ -277,3 +277,4 @@ export function DashboardClient() {
     </div>
   );
 }
+

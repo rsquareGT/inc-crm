@@ -27,14 +27,15 @@ import {
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Company, Contact, Industry, CompanySize } from '@/lib/types';
-import { generateId } from '@/lib/mock-data';
+// generateId removed as new IDs will come from backend or be handled by it
 import { INDUSTRY_OPTIONS, COMPANY_SIZE_OPTIONS } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 
 const NONE_SELECT_VALUE = "_none_";
 
 const companyFormSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
-  industry: z.enum(INDUSTRY_OPTIONS as [Industry, ...Industry[]]).optional(),
+  industry: z.enum(INDUSTRY_OPTIONS as [Industry, ...Industry[]]).optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
   website: z.string().url('Invalid URL').or(z.literal('')).optional(),
   street: z.string().optional(),
   city: z.string().optional(),
@@ -43,8 +44,8 @@ const companyFormSchema = z.object({
   country: z.string().optional(),
   contactPhone1: z.string().optional(),
   contactPhone2: z.string().optional(),
-  companySize: z.enum(COMPANY_SIZE_OPTIONS as [CompanySize, ...CompanySize[]]).optional(),
-  accountManagerId: z.string().optional(),
+  companySize: z.enum(COMPANY_SIZE_OPTIONS as [CompanySize, ...CompanySize[]]).optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
+  accountManagerId: z.string().optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -54,57 +55,25 @@ type CompanyFormData = z.infer<typeof companyFormSchema>;
 interface CompanyFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (company: Company) => void;
+  onSaveCallback: () => void; // Callback to refresh list after save
   company?: Company | null;
   allContacts: Contact[]; // To populate Account Manager dropdown
 }
 
-export function CompanyFormModal({ isOpen, onClose, onSave, company, allContacts }: CompanyFormModalProps) {
+export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, allContacts }: CompanyFormModalProps) {
+  const { toast } = useToast();
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<CompanyFormData>({
     resolver: zodResolver(companyFormSchema),
-    defaultValues: company
-      ? {
-        name: company.name,
-        industry: company.industry,
-        website: company.website || '',
-        street: company.street || '',
-        city: company.city || '',
-        state: company.state || '',
-        postalCode: company.postalCode || '',
-        country: company.country || '',
-        contactPhone1: company.contactPhone1 || '',
-        contactPhone2: company.contactPhone2 || '',
-        companySize: company.companySize,
-        accountManagerId: company.accountManagerId || undefined,
-        description: company.description || '',
-        tags: company.tags || []
-      }
-      : {
-        name: '',
-        industry: undefined,
-        website: '',
-        street: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        country: '',
-        contactPhone1: '',
-        contactPhone2: '',
-        companySize: undefined,
-        accountManagerId: undefined,
-        description: '',
-        tags: []
-      },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(company
-        ? {
+      const defaultValues = company
+      ? {
           name: company.name,
-          industry: company.industry,
+          industry: company.industry || NONE_SELECT_VALUE,
           website: company.website || '',
           street: company.street || '',
           city: company.city || '',
@@ -113,14 +82,14 @@ export function CompanyFormModal({ isOpen, onClose, onSave, company, allContacts
           country: company.country || '',
           contactPhone1: company.contactPhone1 || '',
           contactPhone2: company.contactPhone2 || '',
-          companySize: company.companySize,
-          accountManagerId: company.accountManagerId || undefined,
+          companySize: company.companySize || NONE_SELECT_VALUE,
+          accountManagerId: company.accountManagerId || NONE_SELECT_VALUE,
           description: company.description || '',
           tags: company.tags || []
         }
-        : {
+      : {
           name: '',
-          industry: undefined,
+          industry: NONE_SELECT_VALUE,
           website: '',
           street: '',
           city: '',
@@ -129,28 +98,51 @@ export function CompanyFormModal({ isOpen, onClose, onSave, company, allContacts
           country: '',
           contactPhone1: '',
           contactPhone2: '',
-          companySize: undefined,
-          accountManagerId: undefined,
+          companySize: NONE_SELECT_VALUE,
+          accountManagerId: NONE_SELECT_VALUE,
           description: '',
           tags: []
-        });
+        };
+      reset(defaultValues);
     }
   }, [isOpen, company, reset]);
 
-  const onSubmit = (data: CompanyFormData) => {
-    const now = new Date().toISOString();
-    const companyToSave: Company = {
-      id: company?.id || generateId(),
+  const onSubmit = async (data: CompanyFormData) => {
+    const companyToSave = {
       ...data,
-      accountManagerId: data.accountManagerId === NONE_SELECT_VALUE ? undefined : data.accountManagerId,
+      // Zod transform handles NONE_SELECT_VALUE to undefined, so no need to adjust here
       tags: data.tags || [],
-      notes: company?.notes || [], // Preserve existing chronological notes
-      createdAt: company?.createdAt || now,
-      updatedAt: now,
+      // notes will be handled by the backend or fetched separately, not part of form data
     };
-    onSave(companyToSave);
-    onClose();
+
+    try {
+      let response;
+      if (company?.id) { // Editing existing company
+        response = await fetch(`/api/companies/${company.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(companyToSave),
+        });
+        if (!response.ok) throw new Error('Failed to update company');
+        toast({ title: "Company Updated", description: `${data.name} details saved.` });
+      } else { // Creating new company
+        response = await fetch('/api/companies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(companyToSave),
+        });
+        if (!response.ok) throw new Error('Failed to create company');
+        toast({ title: "Company Created", description: `New company "${data.name}" added.` });
+      }
+      
+      onSaveCallback(); // Call callback to refresh list
+      onClose();
+    } catch (error) {
+      console.error("Error saving company:", error);
+      toast({ title: "Error Saving Company", description: error instanceof Error ? error.message : "Could not save company.", variant: "destructive" });
+    }
   };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

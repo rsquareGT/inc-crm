@@ -11,7 +11,7 @@ import { ContactFormModal } from '@/components/contacts/contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { mockCompanies, mockContacts, mockDeals, generateId } from '@/lib/mock-data';
+import { mockContacts, mockDeals, generateId, mockCompanies as fallbackMockCompanies } from '@/lib/mock-data'; // Keep for contacts/deals until they are DB driven
 import {
   Table,
   TableBody,
@@ -30,29 +30,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
+import { PageSectionHeader } from '../shared/page-section-header';
+
 
 interface CompanyDetailsClientProps {
-  initialCompany: Company;
-  initialContacts: Contact[];
-  initialDeals: Deal[];
-  allCompanies: Company[]; // For contact/deal forms
-  allContacts: Contact[]; // For selecting account manager & for contact/deal forms
+  companyId: string;
+  // initialCompany?: Company | null; // Optional: if pre-fetched server-side
+  // initialContacts?: Contact[]; // Optional
+  // initialDeals?: Deal[]; // Optional
+  // allCompanies?: Company[]; // For contact/deal forms (can be fetched client-side)
+  // allContacts?: Contact[]; // For selecting account manager & for contact/deal forms (can be fetched client-side)
 }
 
-export function CompanyDetailsClient({
-  initialCompany,
-  initialContacts: serverContacts,
-  initialDeals: serverDeals,
-  allCompanies: serverAllCompanies,
-  allContacts: serverAllContacts, // Renamed for clarity
-}: CompanyDetailsClientProps) {
-  const [company, setCompany] = useState<Company>(initialCompany);
-  const [contacts, setContacts] = useState<Contact[]>(serverContacts);
-  const [deals, setDeals] = useState<Deal[]>(serverDeals);
+export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
+  const [company, setCompany] = useState<Company | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]); // Will be filtered from allContacts or fetched
+  const [deals, setDeals] = useState<Deal[]>([]); // Will be filtered from allDeals or fetched
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [allCompaniesList] = useState<Company[]>(serverAllCompanies);
-  const [allContactsList] = useState<Contact[]>(serverAllContacts);
+  const [allCompaniesList, setAllCompaniesList] = useState<Company[]>(fallbackMockCompanies); // Placeholder, should be fetched
+  const [allContactsList, setAllContactsList] = useState<Contact[]>(mockContacts); // Placeholder, should be fetched
 
   const { toast } = useToast();
 
@@ -63,29 +62,52 @@ export function CompanyDetailsClient({
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'company' | 'note'; name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'note'; name: string } | null>(null);
+
+
+  const fetchCompanyDetails = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/companies/${companyId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch company details');
+      }
+      const data: Company = await response.json();
+      setCompany(data);
+      // For now, filter mock contacts and deals related to this company
+      // This will be replaced by API calls when Contacts/Deals are DB-driven
+      setContacts(mockContacts.filter(c => c.companyId === companyId));
+      setDeals(mockDeals.filter(d => d.companyId === companyId));
+
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(message);
+      toast({ title: "Error Fetching Company", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [companyId, toast]);
 
   useEffect(() => {
-    setCompany(initialCompany);
-  }, [initialCompany]);
+    fetchCompanyDetails();
+    // Fetch allCompanies and allContacts if needed for forms, or rely on props if passed from server
+    // setAllCompaniesList(someFetchedCompanies);
+    // setAllContactsList(someFetchedContacts);
+  }, [fetchCompanyDetails]);
 
-  useEffect(() => {
-    setContacts(serverContacts);
-  }, [serverContacts]);
 
-  useEffect(() => {
-    setDeals(serverDeals);
-  }, [serverDeals]);
-
-  const handleSaveCompany = (updatedCompany: Company) => {
-    setCompany(updatedCompany);
-    const index = mockCompanies.findIndex(c => c.id === updatedCompany.id);
-    if (index !== -1) mockCompanies[index] = updatedCompany;
-    toast({ title: "Company Updated", description: `${updatedCompany.name} details saved.` });
+  const handleSaveCompanyCallback = () => {
+    fetchCompanyDetails(); // Re-fetch company details after save
     setIsCompanyModalOpen(false);
   };
 
+
+  // Contact and Deal save/delete handlers remain using mock data for now
   const handleSaveContact = (contactToSave: Contact) => {
+    // TODO: Replace with API call when Contacts are DB-driven
     setContacts((prevContacts) => {
       const existingIndex = prevContacts.findIndex((c) => c.id === contactToSave.id);
       if (existingIndex > -1) {
@@ -93,16 +115,14 @@ export function CompanyDetailsClient({
         updated[existingIndex] = contactToSave;
         const mockIndex = mockContacts.findIndex(mc => mc.id === contactToSave.id);
         if (mockIndex !== -1) mockContacts[mockIndex] = contactToSave;
-        toast({ title: "Contact Updated", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
+        toast({ title: "Contact Updated (Locally)", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
         return updated;
       }
-      const newContact = { ...contactToSave, companyId: company.id };
-      mockContacts.push(newContact);
-      toast({ title: "Contact Created", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
+      const newContact = { ...contactToSave, companyId: company?.id };
+      mockContacts.push(newContact); // Add to global mock
+      toast({ title: "Contact Created (Locally)", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
       return [...prevContacts, newContact];
     });
-    // Also update allContactsList if a new contact is added or an existing one is modified
-    // This ensures the Account Manager dropdown is up-to-date if it relies on this list
     const globalContactIndex = allContactsList.findIndex(c => c.id === contactToSave.id);
     if (globalContactIndex > -1) {
         allContactsList[globalContactIndex] = contactToSave;
@@ -114,6 +134,7 @@ export function CompanyDetailsClient({
   };
 
   const handleSaveDeal = (dealToSave: Deal) => {
+    // TODO: Replace with API call when Deals are DB-driven
     setDeals((prevDeals) => {
       const existingIndex = prevDeals.findIndex((d) => d.id === dealToSave.id);
       if (existingIndex > -1) {
@@ -121,12 +142,12 @@ export function CompanyDetailsClient({
         updated[existingIndex] = dealToSave;
         const mockIndex = mockDeals.findIndex(md => md.id === dealToSave.id);
         if (mockIndex !== -1) mockDeals[mockIndex] = dealToSave;
-        toast({ title: "Deal Updated", description: `Deal "${dealToSave.name}" updated.` });
+        toast({ title: "Deal Updated (Locally)", description: `Deal "${dealToSave.name}" updated.` });
         return updated;
       }
-      const newDeal = { ...dealToSave, companyId: company.id };
-      mockDeals.push(newDeal);
-      toast({ title: "Deal Created", description: `New deal "${dealToSave.name}" added.` });
+      const newDeal = { ...dealToSave, companyId: company?.id };
+      mockDeals.push(newDeal); // Add to global mock
+      toast({ title: "Deal Created (Locally)", description: `New deal "${dealToSave.name}" added.` });
       return [...prevDeals, newDeal];
     });
     setIsDealModalOpen(false);
@@ -138,66 +159,103 @@ export function CompanyDetailsClient({
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteItem = () => {
-    if (!itemToDelete) return;
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete || !company) return;
 
-    if (itemToDelete.type === 'contact') {
+    if (itemToDelete.type === 'note') {
+      try {
+        const response = await fetch(`/api/companies/${company.id}/notes/${itemToDelete.id}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete note');
+        }
+        toast({ title: "Note Deleted", description: "Note has been deleted."});
+        setCompany(prevCompany => {
+            if (!prevCompany) return null;
+            return {...prevCompany, notes: prevCompany.notes.filter(note => note.id !== itemToDelete.id)}
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+        toast({ title: "Error Deleting Note", description: message, variant: "destructive" });
+      }
+    } else if (itemToDelete.type === 'contact') {
+      // TODO: API call for deleting contact when Contacts are DB-driven
       setContacts(prev => prev.filter(c => c.id !== itemToDelete.id));
       const mockIndex = mockContacts.findIndex(mc => mc.id === itemToDelete.id);
       if (mockIndex !== -1) mockContacts.splice(mockIndex, 1);
-      const globalContactIndex = allContactsList.findIndex(c => c.id === itemToDelete.id);
-      if (globalContactIndex > -1) allContactsList.splice(globalContactIndex, 1);
-      toast({ title: "Contact Deleted", description: `Contact "${itemToDelete.name}" deleted.`, variant: "destructive" });
+      toast({ title: "Contact Deleted (Locally)", description: `Contact "${itemToDelete.name}" deleted.`, variant: "destructive" });
     } else if (itemToDelete.type === 'deal') {
+      // TODO: API call for deleting deal when Deals are DB-driven
       setDeals(prev => prev.filter(d => d.id !== itemToDelete.id));
       const mockIndex = mockDeals.findIndex(md => md.id === itemToDelete.id);
       if (mockIndex !== -1) mockDeals.splice(mockIndex, 1);
-      toast({ title: "Deal Deleted", description: `Deal "${itemToDelete.name}" deleted.`, variant: "destructive" });
-    } else if (itemToDelete.type === 'note') {
-      setCompany(prevCompany => {
-        const updatedNotes = prevCompany.notes.filter(note => note.id !== itemToDelete.id);
-        const companyIndex = mockCompanies.findIndex(c => c.id === prevCompany.id);
-        if (companyIndex !== -1) {
-          mockCompanies[companyIndex].notes = updatedNotes;
-        }
-        return { ...prevCompany, notes: updatedNotes };
-      });
-      toast({ title: "Note Deleted", description: "Note has been deleted.", variant: "destructive" });
+      toast({ title: "Deal Deleted (Locally)", description: `Deal "${itemToDelete.name}" deleted.`, variant: "destructive" });
     }
     setShowDeleteDialog(false);
     setItemToDelete(null);
   };
 
-  const handleAddNote = () => {
-    if (newNoteContent.trim() === '') {
-      toast({ title: "Cannot add empty note", variant: "destructive" });
+  const handleAddNote = async () => {
+    if (!company || newNoteContent.trim() === '') {
+      toast({ title: "Cannot add empty note or no company context", variant: "destructive" });
       return;
     }
-    const newNote: Note = {
-      id: generateId(),
-      content: newNoteContent.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    setCompany(prevCompany => {
-      const updatedNotes = [newNote, ...(prevCompany.notes || [])];
-      const companyIndex = mockCompanies.findIndex(c => c.id === prevCompany.id);
-      if (companyIndex !== -1) {
-        mockCompanies[companyIndex].notes = updatedNotes;
+    try {
+      const response = await fetch(`/api/companies/${company.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newNoteContent.trim() }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add note');
       }
-      return { ...prevCompany, notes: updatedNotes };
-    });
-    setNewNoteContent('');
-    toast({ title: "Note Added", description: "New note saved for this company." });
+      const newNote: Note = await response.json();
+      setCompany(prevCompany => {
+          if(!prevCompany) return null;
+          return {...prevCompany, notes: [newNote, ...prevCompany.notes]}
+      });
+      setNewNoteContent('');
+      toast({ title: "Note Added", description: "New note saved for this company." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Adding Note", description: message, variant: "destructive" });
+    }
   };
-
-  const sortedNotes = company.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
   
-  const accountManager = company.accountManagerId ? allContactsList.find(c => c.id === company.accountManagerId) : undefined;
+  const accountManager = company?.accountManagerId ? allContactsList.find(c => c.id === company.accountManagerId) : undefined;
 
   const formatAddress = () => {
+    if (!company) return 'N/A';
     const parts = [company.street, company.city, company.state, company.postalCode, company.country].filter(Boolean);
     return parts.join(', ') || 'N/A';
   };
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto py-8">
+             <PageSectionHeader title="Loading Company..." />
+            <p>Loading details...</p>
+        </div>
+    );
+  }
+
+  if (error || !company) {
+    return (
+      <div className="container mx-auto py-8">
+        <Button variant="outline" asChild className="mb-4">
+          <Link href="/companies">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Companies
+          </Link>
+        </Button>
+        <PageSectionHeader title="Company Not Found" description={error || "The company you are looking for does not exist or could not be loaded."} />
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
@@ -218,7 +276,7 @@ export function CompanyDetailsClient({
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4"> {/* Updated for 3 tabs */}
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
@@ -306,10 +364,10 @@ export function CompanyDetailsClient({
                   </Button>
                 </div>
 
-                {sortedNotes.length > 0 ? (
+                {(company.notes || []).length > 0 ? (
                   <ScrollArea className="h-[250px] w-full pr-4">
                     <div className="space-y-3">
-                      {sortedNotes.map(note => (
+                      {company.notes.map(note => (
                         <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
                           <p className="whitespace-pre-wrap">{note.content}</p>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -400,7 +458,7 @@ export function CompanyDetailsClient({
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground text-center py-4">No contacts associated with this company yet.</p>
+                <p className="text-muted-foreground text-center py-4">No contacts associated with this company yet. (Mock data currently)</p>
               )}
             </CardContent>
           </Card>
@@ -487,7 +545,7 @@ export function CompanyDetailsClient({
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground text-center py-4">No deals associated with this company yet.</p>
+                <p className="text-muted-foreground text-center py-4">No deals associated with this company yet. (Mock data currently)</p>
               )}
             </CardContent>
           </Card>
@@ -497,25 +555,25 @@ export function CompanyDetailsClient({
       <CompanyFormModal
         isOpen={isCompanyModalOpen}
         onClose={() => setIsCompanyModalOpen(false)}
-        onSave={handleSaveCompany}
+        onSaveCallback={handleSaveCompanyCallback}
         company={company}
-        allContacts={allContactsList} // Pass all contacts
+        allContacts={allContactsList} // Pass all contacts (mock for now)
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }}
-        onSave={handleSaveContact}
+        onSave={handleSaveContact} // Still uses mock
         contact={editingContact}
-        companies={allCompaniesList}
+        companies={allCompaniesList} // mock for now
         defaultCompanyId={company.id}
       />
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
-        onSave={handleSaveDeal}
+        onSave={handleSaveDeal} // Still uses mock
         deal={editingDeal}
-        contacts={allContactsList}
-        companies={allCompaniesList}
+        contacts={allContactsList} // mock for now
+        companies={allCompaniesList} // mock for now
         defaultCompanyId={company.id}
       />
       <DeleteConfirmationDialog

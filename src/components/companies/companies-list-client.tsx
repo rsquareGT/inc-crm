@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -17,8 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
 import type { Company, Contact } from '@/lib/types';
-// import { mockCompanies, mockContacts } from '@/lib/mock-data'; // No longer using mockCompanies directly for the list
-import { mockContacts } from '@/lib/mock-data'; // Still need mockContacts for the form's Account Manager dropdown for now
+import { mockContacts } from '@/lib/mock-data'; // Still need mockContacts for the form's Account Manager dropdown for now, and until Contacts are DB driven
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -32,7 +31,7 @@ type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>(mockContacts); // For Account Manager dropdown
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,29 +46,32 @@ export function CompaniesListClient() {
   const [sortBy, setSortBy] = useState<SortByType>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch('/api/companies');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch companies: ${response.statusText}`);
-        }
-        const data: Company[] = await response.json();
-        setCompanies(data);
-      } catch (err) {
-        console.error(err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
-        toast({ title: "Error Fetching Companies", description: err instanceof Error ? err.message : 'Could not load company data.', variant: "destructive" });
-      } finally {
-        setIsLoading(false);
+  const fetchCompanies = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/companies');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to fetch companies: ${response.statusText}`);
       }
-    };
-
-    fetchCompanies();
-    setAllContacts(mockContacts); // Still using mock contacts for the form dropdown
+      const data: Company[] = await response.json();
+      setCompanies(data);
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(message);
+      toast({ title: "Error Fetching Companies", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchCompanies();
+    // In a real app, allContactsForForm would also be fetched from an API
+    // For now, we use mockContacts for the company form's Account Manager dropdown.
+  }, [fetchCompanies]);
 
   const handleOpenModal = (company: Company | null = null) => {
     setEditingCompany(company);
@@ -81,41 +83,38 @@ export function CompaniesListClient() {
     setEditingCompany(null);
   };
 
-  const handleSaveCompany = (companyToSave: Company) => {
-    // TODO: Implement API call to save/update company in the database
-    // For now, this only updates local state and shows a toast.
-    setCompanies((prevCompanies) => {
-      const existingIndex = prevCompanies.findIndex((c) => c.id === companyToSave.id);
-      if (existingIndex > -1) {
-        const updatedCompanies = [...prevCompanies];
-        updatedCompanies[existingIndex] = companyToSave;
-        toast({ title: "Company Updated (Locally)", description: `Company "${companyToSave.name}" updated in the list. Backend save not yet implemented.` });
-        return updatedCompanies;
-      }
-      toast({ title: "Company Created (Locally)", description: `New company "${companyToSave.name}" added to the list. Backend save not yet implemented.` });
-      // Ensure new companies have a temporary ID for local display if not provided by form
-      return [...prevCompanies, { ...companyToSave, id: companyToSave.id || `temp-${Date.now()}` }];
-    });
-    // Note: The `mockCompanies` array is no longer directly manipulated here for the list.
-    // This change needs to be reflected via an API call and re-fetch or optimistic update.
+  const handleSaveCompanyCallback = () => {
+    // After saving (create or update), re-fetch companies to update the list
+    fetchCompanies();
   };
-
+  
   const handleDeleteCompany = (companyId: string) => {
     setCompanyToDelete(companyId);
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteCompany = () => {
-    // TODO: Implement API call to delete company in the database
-    // For now, this only updates local state and shows a toast.
-    if (companyToDelete) {
-      const companyName = companies.find(c => c.id === companyToDelete)?.name || "Company";
+  const confirmDeleteCompany = async () => {
+    if (!companyToDelete) return;
+    
+    const companyName = companies.find(c => c.id === companyToDelete)?.name || "Company";
+    try {
+      const response = await fetch(`/api/companies/${companyToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete company: ${response.statusText}`);
+      }
+      toast({ title: "Company Deleted", description: `Company "${companyName}" has been deleted.`});
       setCompanies(prevCompanies => prevCompanies.filter(c => c.id !== companyToDelete));
-      toast({ title: "Company Deleted (Locally)", description: `Company "${companyName}" has been removed from the list. Backend delete not yet implemented.`, variant: "destructive" });
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Deleting Company", description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setCompanyToDelete(null);
     }
-    setShowDeleteDialog(false);
-    setCompanyToDelete(null);
-    // Note: The `mockCompanies` array is no longer directly manipulated here.
   };
 
   const displayedCompanies = useMemo(() => {
@@ -159,7 +158,7 @@ export function CompaniesListClient() {
     );
   }
 
-  if (error) {
+  if (error && companies.length === 0) { // Only show full error if no data could be loaded at all
     return (
       <div>
         <PageSectionHeader title="Companies" description="Manage your company directory." />
@@ -299,9 +298,9 @@ export function CompaniesListClient() {
       <CompanyFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSaveCompany}
+        onSaveCallback={handleSaveCompanyCallback} // Renamed from onSave
         company={editingCompany}
-        allContacts={allContacts}
+        allContacts={allContactsForForm} // Pass all contacts for Account Manager dropdown
       />
 
       <DeleteConfirmationDialog

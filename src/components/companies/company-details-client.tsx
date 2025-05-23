@@ -29,6 +29,7 @@ import { DEAL_STAGES } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
+import { Label } from '@/components/ui/label'; // Added import
 
 interface CompanyDetailsClientProps {
   initialCompany: Company;

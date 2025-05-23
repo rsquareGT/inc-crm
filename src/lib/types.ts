@@ -56,7 +56,6 @@ export interface Company {
   name: string;
   industry?: Industry;
   website?: string;
-  // Old address field removed
   street?: string;
   city?: string;
   state?: string; // Or province
@@ -101,4 +100,29 @@ export interface Task {
   tags: Tag[];
   createdAt: string;
   updatedAt: string;
+}
+
+// New types for Organization and User
+export interface Organization {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  // Add other organization-specific fields here if needed, e.g., ownerId, subscriptionStatus
+}
+
+export type UserRole = 'admin' | 'user';
+
+export interface User {
+  id: string;
+  organizationId: string;
+  email: string;
+  // hashedPassword will not be part of the client-side type for security.
+  // It's a backend concern.
+  firstName?: string;
+  lastName?: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+  // You might add fields like profilePictureUrl, lastLoginAt, etc.
 }

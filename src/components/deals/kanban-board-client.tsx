@@ -33,7 +33,7 @@ export function KanbanBoardClient() {
     try {
       const response = await fetch('/api/deals');
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: `Failed to fetch deals: ${response.statusText}` }));
         throw new Error(errorData.error || `Failed to fetch deals: ${response.statusText}`);
       }
       const data: Deal[] = await response.json();
@@ -55,8 +55,35 @@ export function KanbanBoardClient() {
         fetch('/api/contacts'),
         fetch('/api/companies')
       ]);
-      if (!contactsRes.ok) throw new Error('Failed to fetch contacts for form');
-      if (!companiesRes.ok) throw new Error('Failed to fetch companies for form');
+
+      if (!contactsRes.ok) {
+        let errorMsg = 'Failed to fetch contacts for form';
+        try {
+          const errorData = await contactsRes.json();
+          if (errorData && errorData.error) {
+            errorMsg = `Failed to fetch contacts for form: ${errorData.error}`;
+          } else {
+            errorMsg = `Failed to fetch contacts for form: Server responded with status ${contactsRes.status}`;
+          }
+        } catch (e) { 
+           errorMsg = `Failed to fetch contacts for form: Server responded with status ${contactsRes.status} and non-JSON body.`;
+        }
+        throw new Error(errorMsg);
+      }
+      if (!companiesRes.ok) {
+        let errorMsg = 'Failed to fetch companies for form';
+        try {
+          const errorData = await companiesRes.json();
+          if (errorData && errorData.error) {
+            errorMsg = `Failed to fetch companies for form: ${errorData.error}`;
+          } else {
+             errorMsg = `Failed to fetch companies for form: Server responded with status ${companiesRes.status}`;
+          }
+        } catch (e) { 
+          errorMsg = `Failed to fetch companies for form: Server responded with status ${companiesRes.status} and non-JSON body.`;
+        }
+        throw new Error(errorMsg);
+      }
       
       const contactsData = await contactsRes.json();
       const companiesData = await companiesRes.json();
@@ -96,30 +123,34 @@ export function KanbanBoardClient() {
     const originalDeal = deals.find(d => d.id === dealId);
     if (!originalDeal) return;
 
+    const updatedDealPayload = { ...originalDeal, stage: newStage, updatedAt: new Date().toISOString() };
+     // Optimistically update UI
     setDeals(prevDeals => 
       prevDeals.map(deal => 
-        deal.id === dealId ? { ...deal, stage: newStage, updatedAt: new Date().toISOString() } : deal
+        deal.id === dealId ? updatedDealPayload : deal
       )
     );
+
 
     try {
       const response = await fetch(`/api/deals/${dealId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...originalDeal, stage: newStage }), 
+        body: JSON.stringify(updatedDealPayload), 
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({error: "Failed to update deal stage"}));
         throw new Error(errorData.error || 'Failed to update deal stage');
       }
       toast({ title: "Deal Stage Updated", description: `"${originalDeal.name}" moved to ${newStage}.` });
-      fetchDeals(); 
+      // Optionally re-fetch to ensure consistency, or rely on optimistic update if response is minimal
+      // fetchDeals(); 
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Stage", description: message, variant: "destructive" });
-      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d)); 
+      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d)); // Revert on error
     }
   };
   
@@ -137,7 +168,7 @@ export function KanbanBoardClient() {
         method: 'DELETE',
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({error: "Failed to delete deal"}));
         throw new Error(errorData.error || `Failed to delete deal: ${response.statusText}`);
       }
       toast({ title: "Deal Deleted", description: `Deal "${dealName}" has been deleted.`});
@@ -159,7 +190,7 @@ export function KanbanBoardClient() {
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-lg text-muted-foreground">Loading deals...</p>
+            <p className="text-lg text-muted-foreground">Loading deals and form data...</p>
           </div>
         </div>
       </div>

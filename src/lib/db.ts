@@ -16,7 +16,8 @@ try {
   db = new Database(dbPath); // Add { verbose: console.log } for debugging if needed
   // It's good practice to enable WAL mode for better concurrency and performance.
   db.pragma('journal_mode = WAL');
-  console.log(`SQLite Connection Opened to: ${dbPath}`);
+  db.pragma('foreign_keys = ON'); // Enforce foreign key constraints
+  console.log(`SQLite Connection Opened to: ${dbPath}. Foreign keys ON.`);
 
   // Graceful shutdown
   // These handlers help ensure the database connection is closed when the Node.js process exits.

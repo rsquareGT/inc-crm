@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Added useRef
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,11 +22,12 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const { login: contextLogin, user: authUser, isLoading: authContextLoading } = useAuth();
-  
+
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [loginApiSuccess, setLoginApiSuccess] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false); // For button text: "Redirecting..."
+  const redirectInitiatedRef = useRef(false); // To ensure redirect is called only once
 
   const {
     register,
@@ -41,23 +42,28 @@ export function LoginForm() {
   });
 
   useEffect(() => {
-    if (loginApiSuccess && authUser && !authContextLoading && !isRedirecting) {
-      setIsRedirecting(true);
+    if (loginApiSuccess && authUser && !authContextLoading && !redirectInitiatedRef.current) {
+      redirectInitiatedRef.current = true; // Mark that we are initiating the redirect
+      setIsRedirecting(true); // Set state for button text
       router.push('/dashboard');
     }
-  }, [loginApiSuccess, authUser, authContextLoading, router, isRedirecting]);
+  }, [loginApiSuccess, authUser, authContextLoading, router]); // redirectInitiatedRef is not a dependency
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmittingForm(true);
     setFormError(null);
     setLoginApiSuccess(false);
     setIsRedirecting(false);
+    redirectInitiatedRef.current = false; // Reset ref on new submission
 
     try {
       const success = await contextLogin(data.email, data.password);
       if (success) {
         setLoginApiSuccess(true);
+        // Redirection is handled by the useEffect hook
       } else {
+        // contextLogin will throw an error if API call fails or returns success: false
+        // This block might not be reached if contextLogin throws.
         setFormError('Login failed. Please check your credentials.');
         setIsSubmittingForm(false);
       }
@@ -67,9 +73,16 @@ export function LoginForm() {
       setIsSubmittingForm(false);
       setLoginApiSuccess(false);
     }
+    // setIsSubmittingForm(false) is handled above or if loginApiSuccess becomes true
+    if (!loginApiSuccess) { // only set to false if it's not already going to be true
+        setIsSubmittingForm(false);
+    }
   };
 
+
   let buttonContent;
+  let isButtonDisabled = false;
+
   if (isRedirecting) {
     buttonContent = (
       <>
@@ -77,30 +90,33 @@ export function LoginForm() {
         Redirecting...
       </>
     );
-  } else if (loginApiSuccess) {
+    isButtonDisabled = true;
+  } else if (loginApiSuccess) { // API call succeeded, waiting for context and redirect effect
     buttonContent = (
       <>
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Validated. Please wait...
       </>
     );
-  } else if (isSubmittingForm) {
+    isButtonDisabled = true;
+  } else if (isSubmittingForm) { // API call in progress
     buttonContent = (
       <>
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Validating User...
       </>
     );
-  } else {
+    isButtonDisabled = true;
+  } else { // Initial state
     buttonContent = (
       <>
         <LogIn className="mr-2 h-4 w-4" />
         Sign In
       </>
     );
+    isButtonDisabled = false;
   }
 
-  const isButtonDisabled = isSubmittingForm || loginApiSuccess || isRedirecting;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

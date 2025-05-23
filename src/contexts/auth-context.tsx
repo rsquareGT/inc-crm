@@ -35,12 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to fetch user:', error);
       setUser(null);
     } finally {
-      if (isLoading) setIsLoading(false);
+      setIsLoading(false); // Ensure isLoading becomes false after attempt
     }
-  }, [isLoading]); 
+  }, []); // Empty dependency array makes fetchUser stable
 
   useEffect(() => {
-    fetchUser();
+    fetchUser(); // Runs once on mount due to stable fetchUser
   }, [fetchUser]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -52,44 +52,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await response.json();
       if (response.ok && data.success && data.user) {
-        setUser(data.user); 
-        if (isLoading) {
-          setIsLoading(false);
-        }
+        setUser(data.user);
+        // If the app was in its initial loading state, this login means we're done.
+        if (isLoading) setIsLoading(false);
         return true;
       } else {
-        setUser(null); 
+        setUser(null);
         throw new Error(data.error || 'Login failed');
       }
     } catch (error) {
-      setUser(null); 
+      setUser(null);
       console.error('Login error in context:', error);
-      throw error; 
+      if (isLoading) setIsLoading(false); // Also ensure loading is false on error
+      throw error;
     }
   };
 
   const logout = async () => {
-    setUser(null); 
+    setUser(null);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
       console.error('Logout API call failed:', error);
     } finally {
-      router.push('/login'); 
+      router.push('/login');
     }
   };
-  
+
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchUser(); 
+      if (document.visibilityState === 'visible' && !user) { // Check if user is already set
+        fetchUser();
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchUser]);
+  }, [fetchUser, user]); // Re-check user on visibility change if not logged in
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, fetchUser }}>

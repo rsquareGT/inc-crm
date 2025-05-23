@@ -27,8 +27,8 @@ import {
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Contact, Company } from '@/lib/types';
-// generateId removed as ID comes from backend
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -47,7 +47,7 @@ type ContactFormData = z.infer<typeof contactFormSchema>;
 interface ContactFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveCallback: () => void; // Changed from onSave to onSaveCallback
+  onSaveCallback: () => void; 
   contact?: Contact | null;
   companies: Company[];
   defaultCompanyId?: string;
@@ -90,12 +90,11 @@ export function ContactFormModal({ isOpen, onClose, onSaveCallback, contact, com
     const contactPayload = {
       ...data,
       tags: data.tags || [],
-      // notes will be handled by the backend or fetched separately
     };
 
     try {
       let response;
-      if (contact?.id) { // Editing existing contact
+      if (contact?.id) { 
         response = await fetch(`/api/contacts/${contact.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -106,7 +105,7 @@ export function ContactFormModal({ isOpen, onClose, onSaveCallback, contact, com
            throw new Error(errorData.error || 'Failed to update contact');
         }
         toast({ title: "Contact Updated", description: `${data.firstName} ${data.lastName} updated.` });
-      } else { // Creating new contact
+      } else { 
         response = await fetch('/api/contacts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -119,8 +118,8 @@ export function ContactFormModal({ isOpen, onClose, onSaveCallback, contact, com
         toast({ title: "Contact Created", description: `New contact ${data.firstName} ${data.lastName} added.` });
       }
       
-      onSaveCallback(); // Call callback to refresh list
-      // onClose(); // This is handled by onSaveCallback in the parent or should be here. For now, keep it.
+      onSaveCallback(); 
+      onClose();
     } catch (error) {
       console.error("Error saving contact:", error);
       toast({ title: "Error Saving Contact", description: error instanceof Error ? error.message : "Could not save contact.", variant: "destructive" });
@@ -167,7 +166,6 @@ export function ContactFormModal({ isOpen, onClose, onSaveCallback, contact, com
                 <Select 
                   onValueChange={field.onChange} 
                   value={field.value || undefined} 
-                  // defaultValue={contact?.companyId || defaultCompanyId || NONE_SELECT_VALUE}
                   disabled={isSubmitting}
                 >
                   <SelectTrigger id="companyId">
@@ -208,7 +206,14 @@ export function ContactFormModal({ isOpen, onClose, onSaveCallback, contact, com
               <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
             <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (contact ? 'Saving...' : 'Adding...') : (contact ? 'Save Contact' : 'Add Contact')}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {contact ? 'Saving...' : 'Adding...'}
+                  </>
+                ) : (
+                  contact ? 'Save Contact' : 'Add Contact'
+                )}
             </Button>
           </DialogFooter>
         </form>

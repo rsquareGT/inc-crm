@@ -11,9 +11,6 @@ import { ContactFormModal } from '@/components/contacts/contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-// mock data for contacts/deals list sections on company page is removed
-// generateId still needed for notes if client-side generation is used, but preferably server-side
-import { generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -23,11 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle, Loader2 } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
-import { DEAL_STAGES } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -41,13 +37,13 @@ interface CompanyDetailsClientProps {
 
 export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   const [company, setCompany] = useState<Company | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]); // Contacts related to this company
-  const [deals, setDeals] = useState<Deal[]>([]); // Deals related to this company
+  const [contacts, setContacts] = useState<Contact[]>([]); 
+  const [deals, setDeals] = useState<Deal[]>([]); 
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // For form dropdowns (Account Manager, linking in Contact/Deal forms)
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
   const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
 
@@ -75,7 +71,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       const data: Company = await response.json();
       setCompany(data);
 
-      // Fetch related contacts and deals
       const [contactsRes, dealsRes] = await Promise.all([
         fetch(`/api/contacts?companyId=${companyId}`),
         fetch(`/api/deals?companyId=${companyId}`)
@@ -96,8 +91,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const fetchFormDropdownData = useCallback(async () => {
     try {
-        // Fetch all companies (for contact/deal forms if they need to link to other companies)
-        // Fetch all contacts (for account manager, and for deal form's contact dropdown)
         const [companiesRes, contactsRes] = await Promise.all([
             fetch('/api/companies'),
             fetch('/api/contacts')
@@ -121,13 +114,13 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   };
 
   const handleSaveContactCallback = () => {
-    fetchCompanyDetails(); // Re-fetch company details to update contacts list
+    fetchCompanyDetails(); 
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
 
   const handleSaveDealCallback = () => {
-    fetchCompanyDetails(); // Re-fetch company details to update deals list
+    fetchCompanyDetails(); 
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -162,7 +155,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchCompanyDetails(); // Re-fetch all company details to update lists
+      fetchCompanyDetails(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -177,6 +170,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       toast({ title: "Cannot add empty note or no company context", variant: "destructive" });
       return;
     }
+    setIsAddingNote(true);
     try {
       const response = await fetch(`/api/companies/${company.id}/notes`, {
         method: 'POST',
@@ -190,14 +184,15 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       const newNote: Note = await response.json();
       setCompany(prevCompany => {
           if(!prevCompany) return null;
-          return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]} // Optimistic update
+          return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]} 
       });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this company." });
-      // fetchCompanyDetails(); // Or just update notes locally if preferred after optimistic update
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
+    } finally {
+      setIsAddingNote(false);
     }
   };
   
@@ -335,9 +330,19 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                     onChange={(e) => setNewNoteContent(e.target.value)}
                     placeholder="Type your note here..."
                     className="min-h-[80px]"
+                    disabled={isAddingNote}
                   />
-                  <Button onClick={handleAddNote} size="sm">
-                    <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                  <Button onClick={handleAddNote} size="sm" disabled={isAddingNote || newNoteContent.trim() === ''}>
+                    {isAddingNote ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                      </>
+                    )}
                   </Button>
                 </div>
 
@@ -505,7 +510,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                                 <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
-                                {/* Move to stage logic would require API call and state update for 'deals' list */}
                                 <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
                                   <Trash2 className="mr-2 h-4 w-4" /> Delete
                                 </DropdownMenuItem>
@@ -548,7 +552,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         contacts={allContactsList} 
         companies={allCompaniesList} 
         defaultCompanyId={company.id}
-        defaultContactId={editingDeal?.contactId} // Pass existing contact if editing, or undefined
+        defaultContactId={editingDeal?.contactId} 
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

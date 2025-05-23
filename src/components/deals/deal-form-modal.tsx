@@ -28,8 +28,8 @@ import {
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Deal, DealStage, Contact, Company } from '@/lib/types';
 import { DEAL_STAGES } from '@/lib/constants';
-// generateId removed as new IDs will come from backend or be handled by it
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -49,8 +49,8 @@ type DealFormData = z.infer<typeof dealSchema>;
 interface DealFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveCallback: () => void; // Callback to refresh list after save
-  deal?: Deal | null; // For editing
+  onSaveCallback: () => void; 
+  deal?: Deal | null; 
   contacts: Contact[];
   companies: Company[];
   defaultContactId?: string;
@@ -95,13 +95,12 @@ export function DealFormModal({ isOpen, onClose, onSaveCallback, deal, contacts,
   const onSubmit = async (data: DealFormData) => {
     const dealPayload = {
       ...data,
-      // Zod transform handles NONE_SELECT_VALUE to undefined
       tags: data.tags || [],
     };
 
     try {
       let response;
-      if (deal?.id) { // Editing existing deal
+      if (deal?.id) { 
         response = await fetch(`/api/deals/${deal.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -112,7 +111,7 @@ export function DealFormModal({ isOpen, onClose, onSaveCallback, deal, contacts,
           throw new Error(errorData.error || 'Failed to update deal');
         }
         toast({ title: "Deal Updated", description: `"${data.name}" details saved.` });
-      } else { // Creating new deal
+      } else { 
         response = await fetch('/api/deals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -250,7 +249,6 @@ export function DealFormModal({ isOpen, onClose, onSaveCallback, deal, contacts,
                         onChange={field.onChange}
                         textToSuggestFrom={descriptionForAISuggestions}
                         placeholder="Add relevant tags..."
-                        // disabled={isSubmitting} // TagInputField doesn't directly support disabled
                     />
                 )}
             />
@@ -261,7 +259,14 @@ export function DealFormModal({ isOpen, onClose, onSaveCallback, deal, contacts,
               <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (deal ? 'Saving...' : 'Adding...') : (deal ? 'Save Deal' : 'Add Deal')}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {deal ? 'Saving...' : 'Adding...'}
+                </>
+              ) : (
+                deal ? 'Save Deal' : 'Add Deal'
+              )}
             </Button>
           </DialogFooter>
         </form>

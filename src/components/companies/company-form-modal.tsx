@@ -27,9 +27,9 @@ import {
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Company, Contact, Industry, CompanySize } from '@/lib/types';
-// generateId removed as new IDs will come from backend or be handled by it
 import { INDUSTRY_OPTIONS, COMPANY_SIZE_OPTIONS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -55,14 +55,14 @@ type CompanyFormData = z.infer<typeof companyFormSchema>;
 interface CompanyFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveCallback: () => void; // Callback to refresh list after save
+  onSaveCallback: () => void; 
   company?: Company | null;
-  allContacts: Contact[]; // To populate Account Manager dropdown
+  allContacts: Contact[]; 
 }
 
 export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, allContacts }: CompanyFormModalProps) {
   const { toast } = useToast();
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<CompanyFormData>({
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<CompanyFormData>({
     resolver: zodResolver(companyFormSchema),
   });
 
@@ -110,14 +110,12 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
   const onSubmit = async (data: CompanyFormData) => {
     const companyToSave = {
       ...data,
-      // Zod transform handles NONE_SELECT_VALUE to undefined, so no need to adjust here
       tags: data.tags || [],
-      // notes will be handled by the backend or fetched separately, not part of form data
     };
 
     try {
       let response;
-      if (company?.id) { // Editing existing company
+      if (company?.id) { 
         response = await fetch(`/api/companies/${company.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -125,7 +123,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
         });
         if (!response.ok) throw new Error('Failed to update company');
         toast({ title: "Company Updated", description: `${data.name} details saved.` });
-      } else { // Creating new company
+      } else { 
         response = await fetch('/api/companies', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -135,7 +133,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
         toast({ title: "Company Created", description: `New company "${data.name}" added.` });
       }
       
-      onSaveCallback(); // Call callback to refresh list
+      onSaveCallback(); 
       onClose();
     } catch (error) {
       console.error("Error saving company:", error);
@@ -146,7 +144,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl"> {/* Increased width for more fields */}
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{company ? 'Edit Company' : 'Add New Company'}</DialogTitle>
           <DialogDescription>
@@ -156,7 +154,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2">
           <div>
             <Label htmlFor="name">Company Name</Label>
-            <Input id="name" {...register('name')} />
+            <Input id="name" {...register('name')} disabled={isSubmitting} />
             {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
           </div>
 
@@ -167,7 +165,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
                 name="industry"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value} disabled={isSubmitting}>
                     <SelectTrigger id="industry">
                       <SelectValue placeholder="Select industry" />
                     </SelectTrigger>
@@ -183,7 +181,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
             </div>
             <div>
               <Label htmlFor="website">Website</Label>
-              <Input id="website" {...register('website')} placeholder="https://example.com" />
+              <Input id="website" {...register('website')} placeholder="https://example.com" disabled={isSubmitting} />
               {errors.website && <p className="text-sm text-destructive mt-1">{errors.website.message}</p>}
             </div>
           </div>
@@ -192,23 +190,23 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
             <div>
               <Label htmlFor="street">Street Address</Label>
-              <Input id="street" {...register('street')} />
+              <Input id="street" {...register('street')} disabled={isSubmitting} />
             </div>
              <div>
               <Label htmlFor="city">City</Label>
-              <Input id="city" {...register('city')} />
+              <Input id="city" {...register('city')} disabled={isSubmitting} />
             </div>
             <div>
               <Label htmlFor="state">State / Province</Label>
-              <Input id="state" {...register('state')} />
+              <Input id="state" {...register('state')} disabled={isSubmitting} />
             </div>
              <div>
               <Label htmlFor="postalCode">Postal Code</Label>
-              <Input id="postalCode" {...register('postalCode')} />
+              <Input id="postalCode" {...register('postalCode')} disabled={isSubmitting} />
             </div>
             <div className="md:col-span-2">
               <Label htmlFor="country">Country</Label>
-              <Input id="country" {...register('country')} />
+              <Input id="country" {...register('country')} disabled={isSubmitting} />
             </div>
           </div>
 
@@ -216,11 +214,11 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
             <div>
               <Label htmlFor="contactPhone1">Contact Phone 1</Label>
-              <Input id="contactPhone1" {...register('contactPhone1')} />
+              <Input id="contactPhone1" {...register('contactPhone1')} disabled={isSubmitting} />
             </div>
             <div>
               <Label htmlFor="contactPhone2">Contact Phone 2</Label>
-              <Input id="contactPhone2" {...register('contactPhone2')} />
+              <Input id="contactPhone2" {...register('contactPhone2')} disabled={isSubmitting} />
             </div>
           </div>
           
@@ -232,7 +230,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
                 name="companySize"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value} disabled={isSubmitting}>
                     <SelectTrigger id="companySize">
                       <SelectValue placeholder="Select company size" />
                     </SelectTrigger>
@@ -252,7 +250,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
                 name="accountManagerId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value} disabled={isSubmitting}>
                     <SelectTrigger id="accountManagerId">
                       <SelectValue placeholder="Select account manager" />
                     </SelectTrigger>
@@ -271,7 +269,7 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
 
           <div>
             <Label htmlFor="description">Description (Internal Notes)</Label>
-            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this company..." />
+            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this company..." disabled={isSubmitting} />
           </div>
           <div>
             <Label htmlFor="tags">Tags</Label>
@@ -291,9 +289,18 @@ export function CompanyFormModal({ isOpen, onClose, onSaveCallback, company, all
           </div>
           <DialogFooter className="pt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
-            <Button type="submit">Save Company</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {company ? 'Saving...' : 'Adding...'}
+                </>
+              ) : (
+                company ? 'Save Company' : 'Add Company'
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

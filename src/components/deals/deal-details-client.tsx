@@ -9,8 +9,6 @@ import { DealFormModal } from './deal-form-modal';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-// generateId still needed for notes if client-side generation is used, but preferably server-side
-import { generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -20,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks, ExternalLink, Loader2 } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -28,7 +26,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DEAL_STAGES } from '@/lib/constants';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
 
@@ -43,6 +40,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [tasks, setTasks] = useState<Task[]>([]); 
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,7 +79,6 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         if (companyRes.ok) setCompany(await companyRes.json());
       } else setCompany(undefined);
 
-      // Fetch tasks related to this deal
       const tasksRes = await fetch(`/api/tasks?dealId=${dealId}`);
       if (tasksRes.ok) setTasks(await tasksRes.json()); else setTasks([]);
 
@@ -123,7 +120,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   };
   
   const handleSaveTaskCallback = () => {
-    fetchDealDetails(); // Re-fetch deal details to update tasks list
+    fetchDealDetails(); 
     setIsTaskModalOpen(false);
     setEditingTask(null); 
   };
@@ -134,7 +131,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
 
     const updatedTaskPayload = { ...task, completed: !task.completed };
     
-    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed, updatedAt: new Date().toISOString() } : t)); // Optimistic update
+    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed, updatedAt: new Date().toISOString() } : t)); 
 
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
@@ -146,12 +143,11 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to update task completion');
       }
-      // Optionally re-fetch tasks here or rely on optimistic update
       toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTaskPayload.completed ? 'complete' : 'incomplete'}.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
-      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t)); // Revert
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t)); 
     }
   };
 
@@ -182,7 +178,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchDealDetails(); // Re-fetch all deal details to update lists
+      fetchDealDetails(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -197,6 +193,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
       toast({ title: "Cannot add empty note or no deal context", variant: "destructive" });
       return;
     }
+    setIsAddingNote(true);
     try {
       const response = await fetch(`/api/deals/${deal.id}/notes`, {
         method: 'POST',
@@ -217,6 +214,8 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
+    } finally {
+      setIsAddingNote(false);
     }
   };
   
@@ -329,9 +328,19 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                     onChange={(e) => setNewNoteContent(e.target.value)}
                     placeholder="Type your note here..."
                     className="min-h-[80px]"
+                    disabled={isAddingNote}
                   />
-                  <Button onClick={handleAddNote} size="sm">
-                    <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                  <Button onClick={handleAddNote} size="sm" disabled={isAddingNote || newNoteContent.trim() === ''}>
+                     {isAddingNote ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                      </>
+                    )}
                   </Button>
                 </div>
                 

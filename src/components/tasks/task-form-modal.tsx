@@ -28,8 +28,8 @@ import {
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Task, Deal, Contact } from '@/lib/types';
-// generateId removed as new IDs will come from backend
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -48,7 +48,7 @@ type TaskFormData = z.infer<typeof taskSchema>;
 interface TaskFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaveCallback: () => void; // Changed from onSave to onSaveCallback for consistency
+  onSaveCallback: () => void; 
   task?: Task | null;
   deals: Deal[];
   contacts: Contact[];
@@ -94,7 +94,7 @@ export function TaskFormModal({ isOpen, onClose, onSaveCallback, task, deals, co
 
     try {
       let response;
-      if (task?.id) { // Editing existing task
+      if (task?.id) { 
         response = await fetch(`/api/tasks/${task.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -105,7 +105,7 @@ export function TaskFormModal({ isOpen, onClose, onSaveCallback, task, deals, co
           throw new Error(errorData.error || 'Failed to update task');
         }
         toast({ title: "Task Updated", description: `Task "${data.title}" details saved.` });
-      } else { // Creating new task
+      } else { 
         response = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -226,7 +226,14 @@ export function TaskFormModal({ isOpen, onClose, onSaveCallback, task, deals, co
               <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (task ? 'Saving...' : 'Adding...') : (task ? 'Save Task' : 'Add Task')}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {task ? 'Saving...' : 'Adding...'}
+                </>
+              ) : (
+                task ? 'Save Task' : 'Add Task'
+              )}
             </Button>
           </DialogFooter>
         </form>

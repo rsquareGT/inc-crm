@@ -9,8 +9,6 @@ import { ContactFormModal } from './contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-// generateId still needed for notes if client-side generation is used, but preferably server-side
-import { generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -20,11 +18,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
-import { DEAL_STAGES } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -39,14 +36,14 @@ interface ContactDetailsClientProps {
 export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | undefined>(undefined);
-  const [deals, setDeals] = useState<Deal[]>([]); // Deals related to this contact
+  const [deals, setDeals] = useState<Deal[]>([]); 
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // For form dropdowns
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); // For deal form
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); 
 
   const { toast } = useToast();
 
@@ -78,7 +75,6 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         setCompany(undefined);
       }
 
-      // Fetch related deals
       const dealsRes = await fetch(`/api/deals?contactId=${contactId}`);
       if (dealsRes.ok) setDeals(await dealsRes.json()); else setDeals([]);
 
@@ -96,10 +92,10 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     try {
         const [companiesRes, contactsRes] = await Promise.all([
             fetch('/api/companies'),
-            fetch('/api/contacts') // For DealForm's contact dropdown if needed (or could be filtered)
+            fetch('/api/contacts') 
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
-        if (contactsRes.ok) setAllContactsList(await contactsRes.json()); // all contacts for deal form
+        if (contactsRes.ok) setAllContactsList(await contactsRes.json()); 
     } catch (err) {
         toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
     }
@@ -117,7 +113,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   };
   
   const handleSaveDealCallback = () => {
-    fetchContactDetails(); // Re-fetch to update deals list
+    fetchContactDetails(); 
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -149,7 +145,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchContactDetails(); // Re-fetch all contact details to update lists
+      fetchContactDetails(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -164,6 +160,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       toast({ title: "Cannot add empty note or no contact context", variant: "destructive" });
       return;
     }
+    setIsAddingNote(true);
     try {
       const response = await fetch(`/api/contacts/${contact.id}/notes`, {
         method: 'POST',
@@ -184,6 +181,8 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
+    } finally {
+      setIsAddingNote(false);
     }
   };
   
@@ -288,9 +287,19 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                     onChange={(e) => setNewNoteContent(e.target.value)}
                     placeholder="Type your note here..."
                     className="min-h-[80px]"
+                    disabled={isAddingNote}
                   />
-                  <Button onClick={handleAddNote} size="sm">
-                    <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                  <Button onClick={handleAddNote} size="sm" disabled={isAddingNote || newNoteContent.trim() === ''}>
+                    {isAddingNote ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                      </>
+                    )}
                   </Button>
                 </div>
                 

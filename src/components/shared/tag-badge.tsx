@@ -10,7 +10,7 @@ interface TagBadgeProps {
 }
 
 // Simple hash function to get a color variant for tags
-functiongetTagVariant(tag: string): TagBadgeProps['variant'] {
+function getTagVariant(tag: string): TagBadgeProps['variant'] {
   let hash = 0;
   for (let i = 0; i < tag.length; i++) {
     hash = tag.charCodeAt(i) + ((hash << 5) - hash);

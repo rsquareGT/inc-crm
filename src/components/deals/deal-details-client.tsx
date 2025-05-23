@@ -25,10 +25,11 @@ import Link from 'next/link';
 import { Badge } from '../ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
+// import { format } from 'date-fns'; // No longer directly used here for notes
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DEAL_STAGES } from '@/lib/constants';
+import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 
 interface DealDetailsClientProps {
   initialDeal: Deal;
@@ -234,7 +235,7 @@ export function DealDetailsClient({
                 {deal.expectedCloseDate && (
                   <div className="flex items-center">
                     <CalendarDays className="mr-3 h-5 w-5 text-muted-foreground" />
-                    <span>Expected Close: {format(new Date(deal.expectedCloseDate), "MMM d, yyyy")}</span>
+                    <span>Expected Close: {new Date(deal.expectedCloseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </div>
                 )}
                 {deal.tags && deal.tags.length > 0 && (
@@ -281,7 +282,7 @@ export function DealDetailsClient({
                         <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
                           <p className="whitespace-pre-wrap">{note.content}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                            <FormattedNoteTimestamp createdAt={note.createdAt} />
                           </p>
                            <Button 
                               variant="ghost" 
@@ -344,7 +345,7 @@ export function DealDetailsClient({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            {task.dueDate && <p className="text-xs text-muted-foreground ml-6">Due: {format(new Date(task.dueDate), "MMM d, yyyy")}</p>}
+                            {task.dueDate && <p className="text-xs text-muted-foreground ml-6">Due: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
                             {task.description && <p className="text-xs text-muted-foreground ml-6 mt-1 line-clamp-2">{task.description}</p>}
                         </div>
                     ))}

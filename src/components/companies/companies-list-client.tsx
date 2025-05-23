@@ -15,9 +15,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Company, Contact } from '@/lib/types';
-// mockContacts removed, will fetch from API
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -31,7 +30,7 @@ type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]); // For Account Manager dropdown
+  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormRelatedDataLoading, setIsFormRelatedDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,9 +168,9 @@ export function CompaniesListClient() {
 
   if (isLoading || isFormRelatedDataLoading) {
     return (
-      <div>
-        <PageSectionHeader title="Companies" description="Manage your company directory." />
-        <p className="text-center py-10">Loading companies and related data...</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Loading companies and related data...</p>
       </div>
     );
   }
@@ -180,7 +179,9 @@ export function CompaniesListClient() {
     return (
       <div>
         <PageSectionHeader title="Companies" description="Manage your company directory." />
-        <p className="text-center py-10 text-destructive">Error loading companies: {error}</p>
+        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+            <p className="text-lg text-destructive">Error loading companies: {error}</p>
+        </div>
       </div>
     );
   }
@@ -330,5 +331,3 @@ export function CompaniesListClient() {
     </div>
   );
 }
-
-    

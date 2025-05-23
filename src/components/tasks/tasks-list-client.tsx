@@ -13,9 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; 
-import type { Task, Deal, Contact, Company } from '@/lib/types';
-// mock data for deals, contacts, companies is for form population only now
+import { MoreHorizontal, PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react'; 
+import type { Task, Deal, Contact } from '@/lib/types';
 import { TaskFormModal } from './task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -29,8 +28,8 @@ export function TasksListClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allDealsForForm, setAllDealsForForm] = useState<Deal[]>([]);
   const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
-  // const [allCompaniesForForm, setAllCompaniesForForm] = useState<Company[]>([]); // Not directly needed for task form, but good for context
   const [isLoading, setIsLoading] = useState(true);
+  const [isFormDataLoading, setIsFormDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,19 +60,22 @@ export function TasksListClient() {
   }, [toast]);
 
   const fetchFormData = useCallback(async () => {
+    setIsFormDataLoading(true);
     try {
       const [dealsRes, contactsRes] = await Promise.all([
         fetch('/api/deals'),
         fetch('/api/contacts'),
-        // fetch('/api/companies') // If needed for company context for contacts
       ]);
       if (dealsRes.ok) setAllDealsForForm(await dealsRes.json());
+      else throw new Error('Failed to fetch deals for form');
       if (contactsRes.ok) setAllContactsForForm(await contactsRes.json());
-      // if (companiesRes.ok) setAllCompaniesForForm(await companiesRes.json());
+      else throw new Error('Failed to fetch contacts for form');
     } catch (err) {
       console.error("Error fetching data for task form:", err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Loading Form Data", description: message, variant: "destructive" });
+    } finally {
+      setIsFormDataLoading(false);
     }
   }, [toast]);
 
@@ -93,7 +95,7 @@ export function TasksListClient() {
   };
 
   const handleSaveTaskCallback = () => {
-    fetchTasks(); // Re-fetch tasks to update the list
+    fetchTasks(); 
   };
   
   const handleDeleteTask = (taskId: string) => {
@@ -129,7 +131,6 @@ export function TasksListClient() {
 
     const updatedTask = { ...task, completed: !task.completed, updatedAt: new Date().toISOString() };
     
-    // Optimistic update
     setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? updatedTask : t));
 
     try {
@@ -142,12 +143,10 @@ export function TasksListClient() {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to update task completion');
       }
-      // fetchTasks(); // Re-fetch or rely on optimistic update. For now, rely on optimistic.
       toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTask.completed ? 'complete' : 'incomplete'}.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
-      // Revert optimistic update on error
       setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t));
     }
   };
@@ -160,7 +159,6 @@ export function TasksListClient() {
     if (task.relatedContactId) {
       const contact = allContactsForForm.find(c => c.id === task.relatedContactId);
       if (contact) {
-        // Future enhancement: Could also link company if contact has one and allCompaniesForForm is populated
         return <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link>;
       }
       return 'N/A';
@@ -168,19 +166,34 @@ export function TasksListClient() {
     return 'N/A';
   };
 
-  if (isLoading && tasks.length === 0) {
+  if ((isLoading && tasks.length === 0) || isFormDataLoading) {
     return (
       <div>
         <PageSectionHeader title="Tasks" description="Manage your to-do list."/>
-        <p className="text-center py-10">Loading tasks...</p>
+        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg text-muted-foreground">Loading tasks...</p>
+        </div>
       </div>
     );
   }
 
+  if (error && tasks.length === 0) {
+    return (
+      <div>
+        <PageSectionHeader title="Tasks" description="Manage your to-do list."/>
+         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+            <p className="text-lg text-destructive">Error loading tasks: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div>
       <PageSectionHeader title="Tasks" description="Manage your to-do list.">
-        <Button onClick={() => handleOpenModal()}>
+        <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
         </Button>
       </PageSectionHeader>
@@ -226,7 +239,7 @@ export function TasksListClient() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenModal(task)}>
+                        <DropdownMenuItem onClick={() => handleOpenModal(task)} disabled={isFormDataLoading}>
                            <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteTask(task.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
@@ -237,7 +250,7 @@ export function TasksListClient() {
                   </TableCell>
                 </TableRow>
               ))}
-              {tasks.length === 0 && (
+              {tasks.length === 0 && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center h-24">No tasks found.</TableCell>
                 </TableRow>

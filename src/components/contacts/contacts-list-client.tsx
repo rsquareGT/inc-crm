@@ -12,9 +12,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import type { Contact, Company } from '@/lib/types';
-// Removed import of mockContacts and mockCompanies
 import { ContactFormModal } from './contact-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -26,7 +25,7 @@ import Link from 'next/link';
 
 export function ContactsListClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]); // For the form modal
+  const [companies, setCompanies] = useState<Company[]>([]); 
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +92,7 @@ export function ContactsListClient() {
   };
 
   const handleSaveContactCallback = () => {
-    fetchContacts(); // Re-fetch contacts after save
+    fetchContacts(); 
     handleCloseModal();
   };
   
@@ -139,20 +138,22 @@ export function ContactsListClient() {
   
   const isLoading = isLoadingContacts || isLoadingCompanies;
 
-  if (isLoading && contacts.length === 0) { // Check contacts length as primary data for this page
+  if (isLoading && contacts.length === 0) { 
     return (
-      <div>
-        <PageSectionHeader title="Contacts" description="Manage your contacts."/>
-        <p className="text-center py-10">Loading contacts and related data...</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Loading contacts and related data...</p>
       </div>
     );
   }
   
-  if (error && contacts.length === 0) { // Display error primarily if contacts failed to load
+  if (error && contacts.length === 0) { 
      return (
       <div>
         <PageSectionHeader title="Contacts" description="Manage your contacts."/>
-        <p className="text-center py-10 text-destructive">Error loading contacts: {error}</p>
+        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+            <p className="text-lg text-destructive">Error loading contacts: {error}</p>
+        </div>
       </div>
     );
   }
@@ -237,7 +238,7 @@ export function ContactsListClient() {
         onClose={handleCloseModal}
         onSaveCallback={handleSaveContactCallback}
         contact={editingContact}
-        companies={companies} // Pass fetched companies
+        companies={companies}
       />
 
       <DeleteConfirmationDialog

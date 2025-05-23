@@ -63,14 +63,16 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       const response = await fetch(`/api/contacts/${contactId}`);
       if (!response.ok) {
         let errorJson;
+        let errorText = `Failed to fetch contact details (status ${response.status})`;
         try {
           errorJson = await response.json();
+          if (errorJson && errorJson.error) {
+            errorText = errorJson.error;
+          }
         } catch (e) {
-          const errorText = await response.text();
-          console.error("API error response (contact details) was not JSON:", errorText.substring(0, 500));
-          throw new Error(`Server error (status ${response.status}). Check server logs for contact details.`);
+          console.error("API error response (contact details) was not JSON:", (await response.text()).substring(0,500));
         }
-        throw new Error(errorJson.error || `Failed to fetch contact details (status ${response.status})`);
+        throw new Error(errorText);
       }
       const contactData: Contact = await response.json();
       setContact(contactData);
@@ -455,7 +457,9 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            <p className="text-sm text-muted-foreground">${deal.value.toLocaleString()} - <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' }>{deal.stage}</Badge></p>
+                            <div className="text-sm text-muted-foreground">
+                                ${deal.value.toLocaleString()} - <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' }>{deal.stage}</Badge>
+                            </div>
                         </div>
                     ))}
                     </div>

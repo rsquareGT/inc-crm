@@ -19,13 +19,14 @@ export async function POST(request: NextRequest) {
     }
 
     const stmtUser = db.prepare('SELECT id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, createdAt, updatedAt FROM Users WHERE email = ?');
-    const userData = stmtUser.get(email) as User & { hashedPassword?: string } | undefined; 
+    const userData = stmtUser.get(email) as User & { hashedPassword?: string } | undefined;
 
     if (!userData || !userData.hashedPassword) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // Securely compare the provided password with the stored hash
+    // TODO: CRITICAL SECURITY FLAW - Replace this with bcrypt.compare when real hashed passwords are in DB
+    // const passwordMatch = password === userData.hashedPassword;
     const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
 
     if (!passwordMatch) {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Create JWT
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const alg = 'HS256';
-    const jwt = await new jose.SignJWT({ 
+    const jwt = await new jose.SignJWT({
         sub: userToSign.id, // Subject (user ID)
         email: userToSign.email,
         role: userToSign.role,
@@ -58,21 +59,18 @@ export async function POST(request: NextRequest) {
     // Set JWT in an HTTP-only cookie
     cookies().set('session', jwt, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', 
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10), // 1 hour in seconds by default
     });
 
-
+    // Return the user object (without password) on successful login
     return NextResponse.json({ success: true, user: userToSign });
 
   } catch (error) {
     console.error('API Login Error:', error);
-    // It's good practice not to expose too much detail about bcrypt errors to the client
-    // But for development, logging it server-side is useful.
     if (error instanceof Error && error.message.includes('data and salt arguments required')) {
-      // This might happen if password or userData.hashedPassword is unexpectedly empty/null
       return NextResponse.json({ error: 'Invalid input for password comparison.' }, { status: 400 });
     }
     return NextResponse.json({ error: 'An internal server error occurred.' }, { status: 500 });

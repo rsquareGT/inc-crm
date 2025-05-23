@@ -7,7 +7,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'nextjs-toploader/app'; // Updated import
+import { useRouter } from 'next/navigation'; // Using standard Next.js router
 
 export default function TasksRedirectPage() {
   const router = useRouter();

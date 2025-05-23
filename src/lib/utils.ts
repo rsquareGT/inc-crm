@@ -7,9 +7,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Generates a 9-character random alphanumeric string.
- * Example: '4fzyo82u9'
+ * Generates a 6-character random alphanumeric string.
+ * Example: '4fzyo8'
  * Uniqueness in the database should be enforced by PRIMARY KEY or UNIQUE constraints on ID columns.
  */
-export const generateId = () => Math.random().toString(36).substr(2, 9);
-
+export function generateId() {
+  const length = 6;
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length }, () => characters.charAt(Math.floor(Math.random() * characters.length))).join('');
+}

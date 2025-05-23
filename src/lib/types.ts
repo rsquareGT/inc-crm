@@ -16,6 +16,7 @@ export interface Contact {
   companyId?: string;
   tags: Tag[];
   description?: string;
+  notes: Note[]; // Added notes field
   createdAt: string;
   updatedAt: string;
 }
@@ -28,7 +29,7 @@ export interface Company {
   address?: string;
   tags: Tag[];
   description?: string;
-  notes: Note[]; // Added notes field
+  notes: Note[];
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +46,7 @@ export interface Deal {
   expectedCloseDate?: string;
   tags: Tag[];
   description?: string;
+  notes: Note[]; // Added notes field
   createdAt: string;
   updatedAt: string;
 }

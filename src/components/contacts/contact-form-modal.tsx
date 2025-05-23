@@ -31,7 +31,7 @@ import { generateId } from '@/lib/mock-data';
 
 const NONE_SELECT_VALUE = "_none_";
 
-const contactSchema = z.object({
+const contactFormSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
@@ -41,7 +41,7 @@ const contactSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-type ContactFormData = z.infer<typeof contactSchema>;
+type ContactFormData = z.infer<typeof contactFormSchema>;
 
 interface ContactFormModalProps {
   isOpen: boolean;
@@ -49,23 +49,58 @@ interface ContactFormModalProps {
   onSave: (contact: Contact) => void;
   contact?: Contact | null;
   companies: Company[];
+  defaultCompanyId?: string; // To pre-select company if adding from company page
 }
 
-export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }: ContactFormModalProps) {
+export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, defaultCompanyId }: ContactFormModalProps) {
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<ContactFormData>({
-    resolver: zodResolver(contactSchema),
+    resolver: zodResolver(contactFormSchema),
     defaultValues: contact 
-      ? { ...contact, tags: contact.tags || [], description: contact.description || '' } 
-      : { firstName: '', lastName: '', email: '', tags: [], description: '' },
+      ? { 
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          phone: contact.phone || '',
+          companyId: contact.companyId || undefined,
+          description: contact.description || '',
+          tags: contact.tags || [] 
+        } 
+      : { 
+          firstName: '', 
+          lastName: '', 
+          email: '', 
+          phone: '',
+          companyId: defaultCompanyId || undefined,
+          description: '', 
+          tags: [] 
+        },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(contact ? { ...contact, companyId: contact.companyId || undefined, tags: contact.tags || [], description: contact.description || '' } : { firstName: '', lastName: '', email: '', tags: [], description: '', companyId: undefined });
+      reset(contact 
+        ? { 
+            firstName: contact.firstName,
+            lastName: contact.lastName,
+            email: contact.email,
+            phone: contact.phone || '',
+            companyId: contact.companyId || undefined,
+            description: contact.description || '',
+            tags: contact.tags || [] 
+          } 
+        : { 
+            firstName: '', 
+            lastName: '', 
+            email: '', 
+            phone: '',
+            companyId: defaultCompanyId || undefined,
+            description: '', 
+            tags: [] 
+          });
     }
-  }, [isOpen, contact, reset]);
+  }, [isOpen, contact, reset, defaultCompanyId]);
 
   const onSubmit = (data: ContactFormData) => {
     const now = new Date().toISOString();
@@ -74,6 +109,7 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
       ...data,
       companyId: data.companyId === NONE_SELECT_VALUE ? undefined : data.companyId,
       tags: data.tags || [],
+      notes: contact?.notes || [], // Preserve existing notes
       createdAt: contact?.createdAt || now,
       updatedAt: now,
     };
@@ -118,7 +154,11 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies }
               name="companyId"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value || undefined} 
+                  defaultValue={contact?.companyId || defaultCompanyId || undefined}
+                >
                   <SelectTrigger id="companyId">
                     <SelectValue placeholder="Select company" />
                   </SelectTrigger>

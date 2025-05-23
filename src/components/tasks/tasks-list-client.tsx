@@ -13,9 +13,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; // Removed Link2, not used
-import type { Task, Deal, Contact } from '@/lib/types';
-import { mockTasks, mockDeals, mockContacts } from '@/lib/mock-data';
+import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; 
+import type { Task, Deal, Contact, Company } from '@/lib/types';
+import { mockTasks, mockDeals, mockContacts, mockCompanies } from '@/lib/mock-data';
 import { TaskFormModal } from './task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -23,12 +23,13 @@ import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card'; // Import from ui
+import { Card, CardContent } from '@/components/ui/card'; 
 
 export function TasksListClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -40,6 +41,7 @@ export function TasksListClient() {
     setTasks(mockTasks);
     setDeals(mockDeals);
     setContacts(mockContacts);
+    setCompanies(mockCompanies);
   }, []);
 
   const handleOpenModal = (task: Task | null = null) => {
@@ -110,20 +112,21 @@ export function TasksListClient() {
   const getRelatedItemName = (task: Task): React.ReactNode => {
     if (task.relatedDealId) {
       const deal = deals.find(d => d.id === task.relatedDealId);
-      // For deals, we don't have a dedicated deal details page yet, so link to /deals for now.
-      return deal ? <Link href="/deals" className="hover:underline text-primary">{deal.name}</Link> : 'N/A';
+      return deal ? <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">{deal.name}</Link> : 'N/A';
     }
     if (task.relatedContactId) {
       const contact = contacts.find(c => c.id === task.relatedContactId);
-      // For contacts, we don't have a dedicated contact details page yet, so link to /contacts for now.
-      // If companyId exists, link to company details page.
-      if (contact?.companyId) {
-         const company = mockCompanies.find(c => c.id === contact.companyId);
-         if (company) {
-            return <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName} (via {company.name})</Link>;
-         }
+      if (contact) {
+        let contactDisplay = <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link>;
+        if (contact.companyId) {
+           const company = companies.find(c => c.id === contact.companyId);
+           if (company) {
+              return <><Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link> (via <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{company.name}</Link>)</>;
+           }
+        }
+        return contactDisplay;
       }
-      return contact ? <Link href="/contacts" className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link> : 'N/A';
+      return 'N/A';
     }
     return 'N/A';
   };
@@ -216,4 +219,3 @@ export function TasksListClient() {
     </div>
   );
 }
-// Removed dummy Card and CardContent as they are imported from ui

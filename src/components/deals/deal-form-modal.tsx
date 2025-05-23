@@ -52,23 +52,63 @@ interface DealFormModalProps {
   deal?: Deal | null; // For editing
   contacts: Contact[];
   companies: Company[];
+  defaultContactId?: string;
+  defaultCompanyId?: string;
 }
 
-export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, companies }: DealFormModalProps) {
+export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, companies, defaultContactId, defaultCompanyId }: DealFormModalProps) {
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<DealFormData>({
     resolver: zodResolver(dealSchema),
     defaultValues: deal 
-      ? { ...deal, tags: deal.tags || [], description: deal.description || '' } 
-      : { name: '', value: 0, stage: 'Opportunity', tags: [], description: '' },
+      ? { 
+          name: deal.name,
+          value: deal.value,
+          stage: deal.stage,
+          contactId: deal.contactId || undefined,
+          companyId: deal.companyId || undefined,
+          expectedCloseDate: deal.expectedCloseDate || '',
+          description: deal.description || '',
+          tags: deal.tags || [] 
+        } 
+      : { 
+          name: '', 
+          value: 0, 
+          stage: 'Opportunity', 
+          contactId: defaultContactId || undefined,
+          companyId: defaultCompanyId || undefined,
+          expectedCloseDate: '',
+          description: '', 
+          tags: [] 
+        },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(deal ? { ...deal, contactId: deal.contactId || undefined, companyId: deal.companyId || undefined, tags: deal.tags || [], description: deal.description || '' } : { name: '', value: 0, stage: 'Opportunity', tags: [], description: '', expectedCloseDate: '', contactId: undefined, companyId: undefined });
+      reset(deal 
+        ? { 
+            name: deal.name,
+            value: deal.value,
+            stage: deal.stage,
+            contactId: deal.contactId || undefined,
+            companyId: deal.companyId || undefined,
+            expectedCloseDate: deal.expectedCloseDate || '',
+            description: deal.description || '',
+            tags: deal.tags || [] 
+          } 
+        : { 
+            name: '', 
+            value: 0, 
+            stage: 'Opportunity', 
+            contactId: defaultContactId || undefined,
+            companyId: defaultCompanyId || undefined,
+            expectedCloseDate: '',
+            description: '', 
+            tags: [] 
+          });
     }
-  }, [isOpen, deal, reset]);
+  }, [isOpen, deal, reset, defaultContactId, defaultCompanyId]);
 
   const onSubmit = (data: DealFormData) => {
     const now = new Date().toISOString();
@@ -78,6 +118,7 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
       contactId: data.contactId === NONE_SELECT_VALUE ? undefined : data.contactId,
       companyId: data.companyId === NONE_SELECT_VALUE ? undefined : data.companyId,
       tags: data.tags || [],
+      notes: deal?.notes || [], // Preserve existing notes
       createdAt: deal?.createdAt || now,
       updatedAt: now,
     };
@@ -136,7 +177,11 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 name="contactId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || undefined} 
+                    defaultValue={deal?.contactId || defaultContactId || undefined}
+                  >
                     <SelectTrigger id="contactId">
                       <SelectValue placeholder="Select contact" />
                     </SelectTrigger>
@@ -156,7 +201,11 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 name="companyId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value || undefined} 
+                    defaultValue={deal?.companyId || defaultCompanyId || undefined}
+                  >
                     <SelectTrigger id="companyId">
                       <SelectValue placeholder="Select company" />
                     </SelectTrigger>

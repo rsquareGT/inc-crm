@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/shared/tag-badge';
-import { DollarSign, User, Building, Edit3, Trash2 } from 'lucide-react';
+import { DollarSign, User, Building, Edit3, Trash2, ExternalLink } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DEAL_STAGES } from '@/lib/constants';
 import type { DealStage } from '@/lib/types';
+import Link from 'next/link';
 
 
 interface DealCardProps {
@@ -38,7 +39,11 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
     <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow duration-200 bg-card">
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-lg font-semibold leading-tight">{deal.name}</CardTitle>
+          <CardTitle className="text-lg font-semibold leading-tight">
+            <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
+                {deal.name}
+            </Link>
+          </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="p-1 h-auto">
@@ -46,6 +51,11 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                   <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(deal)}>
                 <Edit3 className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
@@ -74,13 +84,17 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
         {contact && (
           <div className="flex items-center text-muted-foreground">
             <User className="h-4 w-4 mr-2" />
-            <span>{contact.firstName} {contact.lastName}</span>
+             <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
+                {contact.firstName} {contact.lastName}
+            </Link>
           </div>
         )}
         {company && (
           <div className="flex items-center text-muted-foreground">
             <Building className="h-4 w-4 mr-2" />
-            <span>{company.name}</span>
+            <Link href={`/companies/${company.id}`} className="hover:underline text-primary">
+                {company.name}
+            </Link>
           </div>
         )}
       </CardContent>
@@ -94,4 +108,3 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
     </Card>
   );
 }
-

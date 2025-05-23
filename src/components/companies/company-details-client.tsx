@@ -11,7 +11,7 @@ import { ContactFormModal } from '@/components/contacts/contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { mockCompanies, mockContacts, mockDeals, generateId } from '@/lib/mock-data'; // For updates
+import { mockCompanies, mockContacts, mockDeals, generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -29,7 +29,7 @@ import { DEAL_STAGES } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
-import { Label } from '@/components/ui/label'; // Added import
+import { Label } from '@/components/ui/label'; 
 
 interface CompanyDetailsClientProps {
   initialCompany: Company;
@@ -80,7 +80,7 @@ export function CompanyDetailsClient({
   const handleSaveCompany = (updatedCompany: Company) => {
     setCompany(updatedCompany);
     const index = mockCompanies.findIndex(c => c.id === updatedCompany.id);
-    if (index !== -1) mockCompanies[index] = { ...mockCompanies[index], ...updatedCompany }; // Preserve notes if not handled by form
+    if (index !== -1) mockCompanies[index] = updatedCompany; 
     toast({ title: "Company Updated", description: `${updatedCompany.name} details saved.` });
     setIsCompanyModalOpen(false);
   };
@@ -96,7 +96,7 @@ export function CompanyDetailsClient({
         toast({ title: "Contact Updated", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
         return updated;
       }
-      const newContact = { ...contactToSave, companyId: company.id };
+      const newContact = { ...contactToSave, companyId: company.id }; // Ensure companyId is set
       mockContacts.push(newContact);
       toast({ title: "Contact Created", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
       return [...prevContacts, newContact];
@@ -116,7 +116,7 @@ export function CompanyDetailsClient({
         toast({ title: "Deal Updated", description: `Deal "${dealToSave.name}" updated.` });
         return updated;
       }
-      const newDeal = { ...dealToSave, companyId: company.id };
+      const newDeal = { ...dealToSave, companyId: company.id }; // Ensure companyId is set
       mockDeals.push(newDeal);
       toast({ title: "Deal Created", description: `New deal "${dealToSave.name}" added.` });
       return [...prevDeals, newDeal];
@@ -169,7 +169,7 @@ export function CompanyDetailsClient({
       createdAt: new Date().toISOString(),
     };
     setCompany(prevCompany => {
-      const updatedNotes = [newNote, ...prevCompany.notes]; // Add to beginning for descending order
+      const updatedNotes = [newNote, ...prevCompany.notes]; 
       const companyIndex = mockCompanies.findIndex(c => c.id === prevCompany.id);
       if (companyIndex !== -1) {
         mockCompanies[companyIndex].notes = updatedNotes;
@@ -320,7 +320,11 @@ export function CompanyDetailsClient({
                   <TableBody>
                     {contacts.map((contact) => (
                       <TableRow key={contact.id}>
-                        <TableCell className="font-medium">{contact.firstName} {contact.lastName}</TableCell>
+                        <TableCell className="font-medium">
+                            <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
+                                {contact.firstName} {contact.lastName}
+                            </Link>
+                        </TableCell>
                         <TableCell>{contact.email}</TableCell>
                         <TableCell>{contact.phone || 'N/A'}</TableCell>
                         <TableCell>
@@ -337,6 +341,11 @@ export function CompanyDetailsClient({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                               <DropdownMenuItem asChild>
+                                <Link href={`/contacts/${contact.id}`} className="flex items-center w-full">
+                                   <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                </Link>
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }}>
                                 <Edit className="mr-2 h-4 w-4" /> Edit
                               </DropdownMenuItem>
@@ -385,10 +394,20 @@ export function CompanyDetailsClient({
                       const contact = allContactsList.find(c => c.id === deal.contactId);
                       return (
                         <TableRow key={deal.id}>
-                          <TableCell className="font-medium">{deal.name}</TableCell>
+                          <TableCell className="font-medium">
+                            <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
+                                {deal.name}
+                            </Link>
+                          </TableCell>
                           <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' }>{deal.stage}</Badge></TableCell>
                           <TableCell>${deal.value.toLocaleString()}</TableCell>
-                          <TableCell>{contact ? `${contact.firstName} ${contact.lastName}` : 'N/A'}</TableCell>
+                          <TableCell>
+                            {contact ? (
+                                 <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
+                                    {contact.firstName} {contact.lastName}
+                                </Link>
+                            ): 'N/A'}
+                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {deal.tags.slice(0,2).map(tag => <TagBadge key={tag} tag={tag} />)}
@@ -403,6 +422,11 @@ export function CompanyDetailsClient({
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                    <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                                    <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                    </Link>
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
@@ -434,7 +458,7 @@ export function CompanyDetailsClient({
         isOpen={isCompanyModalOpen}
         onClose={() => setIsCompanyModalOpen(false)}
         onSave={handleSaveCompany}
-        company={company} // Pass the full company object, notes will be preserved if not edited by form
+        company={company} 
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
@@ -442,6 +466,7 @@ export function CompanyDetailsClient({
         onSave={handleSaveContact}
         contact={editingContact}
         companies={allCompanies}
+        defaultCompanyId={company.id} // Pre-fill current company when adding contact
       />
       <DealFormModal
         isOpen={isDealModalOpen}
@@ -450,6 +475,7 @@ export function CompanyDetailsClient({
         deal={editingDeal}
         contacts={allContactsList}
         companies={allCompanies}
+        defaultCompanyId={company.id} // Pre-fill current company when adding deal
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

@@ -21,7 +21,7 @@ import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmatio
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card'; // Import from ui
+import { Card, CardContent } from '@/components/ui/card'; 
 import Link from 'next/link';
 
 export function ContactsListClient() {
@@ -122,7 +122,11 @@ export function ContactsListClient() {
             <TableBody>
               {contacts.map((contact) => (
                 <TableRow key={contact.id}>
-                  <TableCell className="font-medium">{contact.firstName} {contact.lastName}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
+                        {contact.firstName} {contact.lastName}
+                    </Link>
+                  </TableCell>
                   <TableCell>{contact.email}</TableCell>
                   <TableCell>{contact.phone || 'N/A'}</TableCell>
                   <TableCell>{getCompanyName(contact.companyId)}</TableCell>
@@ -141,6 +145,11 @@ export function ContactsListClient() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                            <Link href={`/contacts/${contact.id}`} className="flex items-center w-full">
+                               <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                            </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenModal(contact)}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
@@ -180,5 +189,3 @@ export function ContactsListClient() {
     </div>
   );
 }
-
-// Removed dummy Card and CardContent as they are imported from ui

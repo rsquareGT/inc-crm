@@ -12,18 +12,20 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  fetchUser: () => Promise<void>; // Exposed to allow manual refresh if needed
+  fetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // True until initial user check is done
   const router = useRouter();
 
   const fetchUser = useCallback(async () => {
-    setIsLoading(true);
+    // Don't set isLoading to true here for every call, only for initial load.
+    // Or if it's a deliberate refresh action.
+    // For now, initial setIsLoading(true) above handles the first load.
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
@@ -31,22 +33,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData.user);
       } else {
         setUser(null);
-        // Don't redirect here, let middleware or page components handle it
       }
     } catch (error) {
       console.error('Failed to fetch user:', error);
       setUser(null);
     } finally {
-      setIsLoading(false);
+      // This finally block ensures isLoading is set to false after the initial fetch attempt,
+      // regardless of success or failure.
+      if (isLoading) setIsLoading(false);
     }
-  }, []);
+  }, [isLoading]); // Include isLoading to prevent re-setting it to false if already false.
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
+    // This login function is responsible for the API call and then updating the context's user.
+    // The form itself will handle its own "submitting" state.
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -55,19 +59,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await response.json();
       if (response.ok && data.success && data.user) {
-        setUser(data.user);
-        setIsLoading(false);
+        setUser(data.user); // Directly set the user state from API response
+        // If the context was still in its initial loading phase, mark it as loaded.
+        if (isLoading) {
+          setIsLoading(false);
+        }
         return true;
       } else {
-        setUser(null);
-        setIsLoading(false);
+        setUser(null); // Clear user on failed login attempt
         throw new Error(data.error || 'Login failed');
       }
     } catch (error) {
-      setUser(null);
-      setIsLoading(false);
+      setUser(null); // Ensure user is cleared on any error
       console.error('Login error in context:', error);
-      throw error; // Re-throw for the form to handle
+      throw error; // Re-throw for the form to handle and display message
     }
   };
 
@@ -77,17 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
       console.error('Logout API call failed:', error);
-      // User is already cleared client-side, so this is mostly for server session
     } finally {
       router.push('/login'); // Redirect to login after logout
     }
   };
   
-  // Re-fetch user on window focus to catch session changes
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchUser();
+        fetchUser(); // Re-fetch user on tab focus to catch external session changes
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -95,7 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchUser]);
-
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, fetchUser }}>

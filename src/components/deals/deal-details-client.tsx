@@ -104,7 +104,7 @@ export function DealDetailsClient({
       }
       toast({ title: "Task Updated", description: `Task "${taskFromForm.title}" updated.` });
     } else { // Adding a new task
-      // Ensure relatedDealId is set to the current deal.id
+      // Ensure relatedDealId is set to the current deal.id (taskFromForm will have it if pre-filled)
       const newTaskWithRelation = { ...taskFromForm, relatedDealId: deal.id };
       mockTasks.push(newTaskWithRelation); // Add to global mockTasks
       toast({ title: "Task Created", description: `New task "${newTaskWithRelation.title}" added for this deal.` });
@@ -371,10 +371,11 @@ export function DealDetailsClient({
         isOpen={isTaskModalOpen}
         onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
         onSave={handleSaveTask}
-        task={editingTask} // Pass editingTask here
+        task={editingTask}
         deals={allDeals}
         contacts={allContacts}
-        // defaultDealId={deal.id} // No longer strictly needed if handleSaveTask sets it
+        defaultDealId={deal.id} 
+        defaultContactId={contact?.id}
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

@@ -51,23 +51,50 @@ interface TaskFormModalProps {
   task?: Task | null;
   deals: Deal[];
   contacts: Contact[];
+  defaultDealId?: string;
+  defaultContactId?: string;
 }
 
-export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }: TaskFormModalProps) {
+export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, defaultDealId, defaultContactId }: TaskFormModalProps) {
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
     defaultValues: task 
       ? { ...task, tags: task.tags || [] } 
-      : { title: '', completed: false, tags: [] },
+      : { 
+          title: '', 
+          completed: false, 
+          tags: [], 
+          description: '', 
+          dueDate: '', 
+          relatedDealId: defaultDealId || undefined, 
+          relatedContactId: defaultContactId || undefined 
+        },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(task ? { ...task, relatedDealId: task.relatedDealId || undefined, relatedContactId: task.relatedContactId || undefined, tags: task.tags || [] } : { title: '', completed: false, tags: [], description: '', dueDate: '', relatedDealId: undefined, relatedContactId: undefined });
+      if (task) { // Editing existing task
+        reset({ 
+          ...task, 
+          relatedDealId: task.relatedDealId || undefined, 
+          relatedContactId: task.relatedContactId || undefined, 
+          tags: task.tags || [] 
+        });
+      } else { // Adding new task, use defaults
+        reset({ 
+          title: '', 
+          completed: false, 
+          tags: [], 
+          description: '', 
+          dueDate: '', 
+          relatedDealId: defaultDealId || undefined, 
+          relatedContactId: defaultContactId || undefined 
+        });
+      }
     }
-  }, [isOpen, task, reset]);
+  }, [isOpen, task, reset, defaultDealId, defaultContactId]);
 
   const onSubmit = (data: TaskFormData) => {
     const now = new Date().toISOString();
@@ -128,7 +155,7 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
                 name="relatedDealId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} >
                     <SelectTrigger id="relatedDealId">
                       <SelectValue placeholder="Select deal" />
                     </SelectTrigger>
@@ -148,7 +175,7 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
                 name="relatedContactId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} defaultValue={field.value || undefined}>
+                  <Select onValueChange={field.onChange} value={field.value || undefined} >
                     <SelectTrigger id="relatedContactId">
                       <SelectValue placeholder="Select contact" />
                     </SelectTrigger>
@@ -190,3 +217,4 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts }
     </Dialog>
   );
 }
+

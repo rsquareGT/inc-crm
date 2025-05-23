@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from 'next/link'; // Import Link
 
 interface CompanyCardProps {
   company: Company;
@@ -27,7 +28,11 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 bg-card flex flex-col h-full">
       <CardHeader className="pb-3 pt-4 px-4">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-lg font-semibold leading-tight text-primary">{company.name}</CardTitle>
+          <CardTitle className="text-lg font-semibold leading-tight">
+            <Link href={`/companies/${company.id}`} className="hover:underline text-primary">
+              {company.name}
+            </Link>
+          </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="p-1 h-auto">
@@ -35,6 +40,11 @@ export function CompanyCard({ company, onEdit, onDelete }: CompanyCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/companies/${company.id}`} className="flex items-center w-full">
+                   <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(company)}>
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>

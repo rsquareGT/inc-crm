@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card'; // Import from ui
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
 import type { Company } from '@/lib/types';
 import { mockCompanies } from '@/lib/mock-data';
@@ -25,6 +25,7 @@ import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmatio
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link'; // Import Link
 
 type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
@@ -67,6 +68,13 @@ export function CompaniesListClient() {
       toast({ title: "Company Created", description: `New company "${companyToSave.name}" added.` });
       return [...prevCompanies, companyToSave];
     });
+     // Update mockCompanies array directly
+    const mockIndex = mockCompanies.findIndex(c => c.id === companyToSave.id);
+    if (mockIndex !== -1) {
+      mockCompanies[mockIndex] = companyToSave;
+    } else {
+      mockCompanies.push(companyToSave);
+    }
   };
 
   const handleDeleteCompany = (companyId: string) => {
@@ -78,6 +86,11 @@ export function CompaniesListClient() {
     if (companyToDelete) {
       const companyName = companies.find(c => c.id === companyToDelete)?.name || "Company";
       setCompanies(prevCompanies => prevCompanies.filter(c => c.id !== companyToDelete));
+       // Remove from mockCompanies array
+      const mockIndex = mockCompanies.findIndex(c => c.id === companyToDelete);
+      if (mockIndex !== -1) {
+        mockCompanies.splice(mockIndex, 1);
+      }
       toast({ title: "Company Deleted", description: `Company "${companyName}" has been deleted.`, variant: "destructive" });
     }
     setShowDeleteDialog(false);
@@ -167,7 +180,11 @@ export function CompaniesListClient() {
               <TableBody>
                 {displayedCompanies.map((company) => (
                   <TableRow key={company.id}>
-                    <TableCell className="font-medium">{company.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/companies/${company.id}`} className="hover:underline text-primary">
+                        {company.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>{company.industry || 'N/A'}</TableCell>
                     <TableCell>
                       {company.website ? (
@@ -191,6 +208,11 @@ export function CompaniesListClient() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                           <DropdownMenuItem asChild>
+                            <Link href={`/companies/${company.id}`} className="flex items-center">
+                               <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleOpenModal(company)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>

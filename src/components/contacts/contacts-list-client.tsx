@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
 import type { Contact, Company } from '@/lib/types';
 import { mockContacts, mockCompanies } from '@/lib/mock-data';
 import { ContactFormModal } from './contact-form-modal';
@@ -20,6 +21,8 @@ import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmatio
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card'; // Import from ui
+import Link from 'next/link';
 
 export function ContactsListClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -57,6 +60,13 @@ export function ContactsListClient() {
       toast({ title: "Contact Created", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
       return [...prevContacts, contactToSave];
     });
+    // Update mockContacts array directly
+    const mockIndex = mockContacts.findIndex(c => c.id === contactToSave.id);
+    if (mockIndex !== -1) {
+      mockContacts[mockIndex] = contactToSave;
+    } else {
+      mockContacts.push(contactToSave);
+    }
   };
   
   const handleDeleteContact = (contactId: string) => {
@@ -68,6 +78,11 @@ export function ContactsListClient() {
     if (contactToDelete) {
       const contact = contacts.find(c => c.id === contactToDelete);
       setContacts(prevContacts => prevContacts.filter(c => c.id !== contactToDelete));
+      // Remove from mockContacts array
+      const mockIndex = mockContacts.findIndex(c => c.id === contactToDelete);
+      if (mockIndex !== -1) {
+        mockContacts.splice(mockIndex, 1);
+      }
       toast({ title: "Contact Deleted", description: `${contact?.firstName} ${contact?.lastName} has been deleted.`, variant: "destructive" });
     }
     setShowDeleteDialog(false);
@@ -76,7 +91,11 @@ export function ContactsListClient() {
 
 
   const getCompanyName = (companyId?: string) => {
-    return companies.find(c => c.id === companyId)?.name || 'N/A';
+    const company = companies.find(c => c.id === companyId);
+    if (company) {
+      return <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{company.name}</Link>;
+    }
+    return 'N/A';
   };
 
   return (
@@ -162,7 +181,4 @@ export function ContactsListClient() {
   );
 }
 
-// Dummy Card components if not imported from shadcn/ui directly or for structure
-const Card = ({className, children}: {className?: string, children: React.ReactNode}) => <div className={`rounded-lg border bg-card text-card-foreground ${className}`}>{children}</div>;
-const CardContent = ({className, children}: {className?: string, children: React.ReactNode}) => <div className={`${className}`}>{children}</div>;
-
+// Removed dummy Card and CardContent as they are imported from ui

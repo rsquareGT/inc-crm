@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -12,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, Link2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; // Removed Link2, not used
 import type { Task, Deal, Contact } from '@/lib/types';
 import { mockTasks, mockDeals, mockContacts } from '@/lib/mock-data';
 import { TaskFormModal } from './task-form-modal';
@@ -22,6 +23,7 @@ import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card'; // Import from ui
 
 export function TasksListClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -62,6 +64,13 @@ export function TasksListClient() {
       toast({ title: "Task Created", description: `New task "${taskToSave.title}" added.` });
       return [...prevTasks, taskToSave];
     });
+    // Update mockTasks array directly
+    const mockIndex = mockTasks.findIndex(t => t.id === taskToSave.id);
+    if (mockIndex !== -1) {
+      mockTasks[mockIndex] = taskToSave;
+    } else {
+      mockTasks.push(taskToSave);
+    }
   };
   
   const handleDeleteTask = (taskId: string) => {
@@ -73,6 +82,11 @@ export function TasksListClient() {
     if (taskToDelete) {
       const taskTitle = tasks.find(t => t.id === taskToDelete)?.title || "Task";
       setTasks(prevTasks => prevTasks.filter(t => t.id !== taskToDelete));
+      // Remove from mockTasks array
+      const mockIndex = mockTasks.findIndex(t => t.id === taskToDelete);
+      if (mockIndex !== -1) {
+        mockTasks.splice(mockIndex, 1);
+      }
       toast({ title: "Task Deleted", description: `Task "${taskTitle}" has been deleted.`, variant: "destructive" });
     }
     setShowDeleteDialog(false);
@@ -85,15 +99,30 @@ export function TasksListClient() {
         task.id === taskId ? { ...task, completed: !task.completed, updatedAt: new Date().toISOString() } : task
       )
     );
+    // Update mockTasks array directly
+    const mockIndex = mockTasks.findIndex(t => t.id === taskId);
+    if (mockIndex !== -1) {
+      mockTasks[mockIndex].completed = !mockTasks[mockIndex].completed;
+      mockTasks[mockIndex].updatedAt = new Date().toISOString();
+    }
   };
 
   const getRelatedItemName = (task: Task): React.ReactNode => {
     if (task.relatedDealId) {
       const deal = deals.find(d => d.id === task.relatedDealId);
+      // For deals, we don't have a dedicated deal details page yet, so link to /deals for now.
       return deal ? <Link href="/deals" className="hover:underline text-primary">{deal.name}</Link> : 'N/A';
     }
     if (task.relatedContactId) {
       const contact = contacts.find(c => c.id === task.relatedContactId);
+      // For contacts, we don't have a dedicated contact details page yet, so link to /contacts for now.
+      // If companyId exists, link to company details page.
+      if (contact?.companyId) {
+         const company = mockCompanies.find(c => c.id === contact.companyId);
+         if (company) {
+            return <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName} (via {company.name})</Link>;
+         }
+      }
       return contact ? <Link href="/contacts" className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link> : 'N/A';
     }
     return 'N/A';
@@ -187,8 +216,4 @@ export function TasksListClient() {
     </div>
   );
 }
-
-// Dummy Card components if not imported from shadcn/ui directly or for structure
-const Card = ({className, children}: {className?: string, children: React.ReactNode}) => <div className={`rounded-lg border bg-card text-card-foreground ${className}`}>{children}</div>;
-const CardContent = ({className, children}: {className?: string, children: React.ReactNode}) => <div className={`${className}`}>{children}</div>;
-
+// Removed dummy Card and CardContent as they are imported from ui

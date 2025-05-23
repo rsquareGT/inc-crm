@@ -1,3 +1,4 @@
+
 import type { Deal, Contact, Company } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,8 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(deal.value);
+
+  const tags = deal.tags || [];
 
   return (
     <Card className="mb-4 shadow-md hover:shadow-lg transition-shadow duration-200 bg-card">
@@ -81,9 +84,9 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
           </div>
         )}
       </CardContent>
-      {deal.tags.length > 0 && (
+      {tags.length > 0 && (
         <CardFooter className="px-4 pb-4 flex flex-wrap gap-1">
-          {deal.tags.map((tag) => (
+          {tags.map((tag) => (
             <TagBadge key={tag} tag={tag} />
           ))}
         </CardFooter>
@@ -91,3 +94,4 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
     </Card>
   );
 }
+

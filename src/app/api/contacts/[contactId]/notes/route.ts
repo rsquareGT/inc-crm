@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Note } from '@/lib/types';
-import { generateId } from '@/lib/mock-data'; // Using generateId for new entities
+import { generateId } from '@/lib/utils'; // Updated import
 
 // POST a new note for a contact
 export async function POST(request: NextRequest, { params }: { params: { contactId: string } }) {

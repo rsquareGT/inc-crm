@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Contact, Note } from '@/lib/types';
-import { generateId } from '@/lib/mock-data'; // For generating IDs
+import { generateId } from '@/lib/utils'; // Updated import
 
 // GET all contacts or contacts by companyId
 export async function GET(request: NextRequest) {

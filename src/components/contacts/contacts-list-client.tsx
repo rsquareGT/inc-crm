@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
 import type { Contact, Company } from '@/lib/types';
 import { ContactFormModal } from './contact-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function ContactsListClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -136,13 +137,42 @@ export function ContactsListClient() {
     return 'N/A';
   };
   
-  const isLoading = isLoadingContacts || isLoadingCompanies;
-
-  if (isLoading && contacts.length === 0) { 
+  if (isLoadingContacts || isLoadingCompanies) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Loading contacts and related data...</p>
+      <div>
+        <PageSectionHeader title="Contacts" description="Manage your contacts.">
+          <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Contact
+          </Button>
+        </PageSectionHeader>
+        <Card className="shadow-sm">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={`skeleton-row-${index}`}>
+                    <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                    <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -150,7 +180,11 @@ export function ContactsListClient() {
   if (error && contacts.length === 0) { 
      return (
       <div>
-        <PageSectionHeader title="Contacts" description="Manage your contacts."/>
+        <PageSectionHeader title="Contacts" description="Manage your contacts.">
+           <Button onClick={() => handleOpenModal()} disabled={isLoadingCompanies}>
+             <PlusCircle className="mr-2 h-4 w-4" /> Add New Contact
+           </Button>
+        </PageSectionHeader>
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
             <p className="text-lg text-destructive">Error loading contacts: {error}</p>
         </div>
@@ -250,3 +284,5 @@ export function ContactsListClient() {
     </div>
   );
 }
+
+    

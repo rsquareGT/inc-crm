@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'; // Ensure CardHeader and CardFooter are imported
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
 import type { Company, Contact } from '@/lib/types';
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
@@ -25,6 +25,7 @@ import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
@@ -168,9 +169,76 @@ export function CompaniesListClient() {
 
   if (isLoading || isFormRelatedDataLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Loading companies and related data...</p>
+      <div>
+        <PageSectionHeader title="Companies" description="Manage your company directory.">
+          <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Company
+          </Button>
+        </PageSectionHeader>
+        <div className="flex flex-col md:flex-row justify-between items-center gap-2 mb-6">
+          <Skeleton className="h-10 w-full md:max-w-xs lg:max-w-sm" />
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Skeleton className="h-10 w-[160px]" />
+            <Skeleton className="h-10 w-10" />
+            <div className="flex items-center border rounded-md">
+              <Skeleton className="h-10 w-10" />
+              <Skeleton className="h-10 w-10" />
+            </div>
+            <Skeleton className="h-10 w-[150px]" /> {/* Matches Add Company button width approx */}
+          </div>
+        </div>
+        <Card className="shadow-sm">
+          <CardContent className={viewMode === 'list' ? "p-0" : "pt-6"}>
+            {viewMode === 'list' ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Industry</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Website</TableHead>
+                    <TableHead>Tags</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={`skeleton-row-${index}`}>
+                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
+                      <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <Card key={`skeleton-card-${index}`} className="shadow-md flex flex-col">
+                    <CardHeader className="pb-3 pt-4 px-4">
+                      <div className="flex justify-between items-start">
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-6 w-6" />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 space-y-2 text-sm flex-grow">
+                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
+                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-4/5" /></div>
+                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
+                    </CardContent>
+                    <CardFooter className="px-4 pt-2 pb-4 flex flex-wrap gap-1 border-t mt-auto">
+                      <Skeleton className="h-5 w-12 rounded-full" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -178,7 +246,11 @@ export function CompaniesListClient() {
   if (error && companies.length === 0) {
     return (
       <div>
-        <PageSectionHeader title="Companies" description="Manage your company directory." />
+        <PageSectionHeader title="Companies" description="Manage your company directory.">
+         <Button onClick={() => handleOpenModal()} disabled={isFormRelatedDataLoading}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Company
+          </Button>
+        </PageSectionHeader>
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
             <p className="text-lg text-destructive">Error loading companies: {error}</p>
         </div>
@@ -188,7 +260,11 @@ export function CompaniesListClient() {
 
   return (
     <div>
-      <PageSectionHeader title="Companies" description="Manage your company directory." />
+      <PageSectionHeader title="Companies" description="Manage your company directory.">
+         <Button onClick={() => handleOpenModal()} disabled={isFormRelatedDataLoading}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Company
+          </Button>
+      </PageSectionHeader>
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-2 mb-6">
         <Input
@@ -219,9 +295,7 @@ export function CompaniesListClient() {
               <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
-          <Button onClick={() => handleOpenModal()} className="w-full md:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Company
-          </Button>
+          {/* This button is moved into PageSectionHeader */}
         </div>
       </div>
 
@@ -331,3 +405,5 @@ export function CompaniesListClient() {
     </div>
   );
 }
+
+    

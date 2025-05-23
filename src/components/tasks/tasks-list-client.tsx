@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react'; 
+import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; 
 import type { Task, Deal, Contact } from '@/lib/types';
 import { TaskFormModal } from './task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card'; 
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function TasksListClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -166,14 +167,42 @@ export function TasksListClient() {
     return 'N/A';
   };
 
-  if ((isLoading && tasks.length === 0) || isFormDataLoading) {
+  if (isLoading || isFormDataLoading) {
     return (
       <div>
-        <PageSectionHeader title="Tasks" description="Manage your to-do list."/>
-        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-lg text-muted-foreground">Loading tasks...</p>
-        </div>
+        <PageSectionHeader title="Tasks" description="Manage your to-do list.">
+          <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
+          </Button>
+        </PageSectionHeader>
+        <Card className="shadow-sm">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">Status</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Related To</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={`skeleton-row-${index}`}>
+                    <TableCell><Skeleton className="h-6 w-6 rounded-sm" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                    <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -181,7 +210,11 @@ export function TasksListClient() {
   if (error && tasks.length === 0) {
     return (
       <div>
-        <PageSectionHeader title="Tasks" description="Manage your to-do list."/>
+        <PageSectionHeader title="Tasks" description="Manage your to-do list.">
+          <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading}>
+             <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
+          </Button>
+        </PageSectionHeader>
          <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
             <p className="text-lg text-destructive">Error loading tasks: {error}</p>
         </div>
@@ -278,3 +311,5 @@ export function TasksListClient() {
     </div>
   );
 }
+
+    

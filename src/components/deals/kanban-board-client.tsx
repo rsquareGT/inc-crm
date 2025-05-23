@@ -7,10 +7,13 @@ import { DEAL_STAGES } from '@/lib/constants';
 import type { Deal, Contact, Company, DealStage } from '@/lib/types';
 import { DealFormModal } from './deal-form-modal';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'; // For skeleton
+import { ScrollArea } from '@/components/ui/scroll-area'; // For skeleton
 
 export function KanbanBoardClient() {
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -183,15 +186,45 @@ export function KanbanBoardClient() {
     }
   };
 
-  if ((isLoading && deals.length === 0) || isFormDataLoading) {
+  if (isLoading || isFormDataLoading) {
     return (
       <div className="flex flex-col h-full">
-        <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages."/>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="flex flex-col items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-lg text-muted-foreground">Loading deals and form data...</p>
-          </div>
+        <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages.">
+          <Button disabled>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Deal
+          </Button>
+        </PageSectionHeader>
+        
+        <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
+          {DEAL_STAGES.map((stage) => (
+            <div key={`skeleton-col-${stage}`} className={`flex-shrink-0 w-80 bg-secondary/50 rounded-lg p-1`}>
+              <div className="p-3">
+                <Skeleton className="h-5 w-3/4 mb-1" />
+                <Skeleton className="h-3 w-1/2 mb-3" />
+              </div>
+              <ScrollArea className="h-[calc(100vh-20rem)] pr-1">
+                <div className="p-3 pt-0 space-y-3">
+                  {Array.from({ length: 2 }).map((_, index) => ( // Show 2 skeleton cards per column
+                    <Card key={`skeleton-deal-card-${stage}-${index}`} className="shadow-sm">
+                      <CardHeader className="pb-2 pt-4 px-4">
+                        <div className="flex justify-between items-start">
+                          <Skeleton className="h-5 w-3/5" />
+                          <Skeleton className="h-6 w-6" />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-3 space-y-2 text-sm">
+                        <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-2/5" /></div>
+                        <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
+                      </CardContent>
+                      <CardFooter className="px-4 pb-4 flex flex-wrap gap-1">
+                        <Skeleton className="h-5 w-12 rounded-full" />
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -200,7 +233,11 @@ export function KanbanBoardClient() {
   if (error && deals.length === 0) {
     return (
       <div className="flex flex-col h-full">
-        <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages."/>
+        <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages.">
+          <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Deal
+          </Button>
+        </PageSectionHeader>
         <div className="flex flex-1 items-center justify-center">
           <p className="text-lg text-destructive">Error loading deals: {error}</p>
         </div>
@@ -250,3 +287,5 @@ export function KanbanBoardClient() {
     </div>
   );
 }
+
+    

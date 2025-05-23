@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -11,15 +12,21 @@ import {
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
 import type { Company } from '@/lib/types';
 import { mockCompanies } from '@/lib/mock-data';
 import { CompanyFormModal } from './company-form-modal';
+import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+
+type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -28,6 +35,11 @@ export function CompaniesListClient() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<SortByType>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     setCompanies(mockCompanies);
@@ -72,71 +84,148 @@ export function CompaniesListClient() {
     setCompanyToDelete(null);
   };
 
+  const displayedCompanies = useMemo(() => {
+    let items = [...companies];
+
+    if (searchTerm) {
+      items = items.filter(company =>
+        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (company.industry && company.industry.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    if (sortBy) {
+      items.sort((a, b) => {
+        let comparison = 0;
+        const factor = sortOrder === 'asc' ? 1 : -1;
+
+        if (sortBy === 'createdAt') {
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        } else if (sortBy === 'name') {
+          comparison = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+        } else if (sortBy === 'industry') {
+          comparison = (a.industry || '').toLowerCase().localeCompare((b.industry || '').toLowerCase());
+        }
+        return comparison * factor;
+      });
+    }
+    return items;
+  }, [companies, searchTerm, sortBy, sortOrder]);
+
   return (
     <div>
-      <PageSectionHeader title="Companies" description="Manage your company directory.">
-        <Button onClick={() => handleOpenModal()}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Company
-        </Button>
-      </PageSectionHeader>
+      <PageSectionHeader title="Companies" description="Manage your company directory." />
+
+      <div className="flex flex-col md:flex-row justify-between items-center gap-2 mb-6">
+        <Input
+          placeholder="Filter by name or industry..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-full md:max-w-xs lg:max-w-sm"
+        />
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortByType)}>
+            <SelectTrigger className="w-full md:w-[160px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="industry">Industry</SelectItem>
+              <SelectItem value="createdAt">Date Created</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} aria-label="Toggle sort order">
+            <ArrowUpDown className={`h-4 w-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+          </Button>
+          <div className="flex items-center border rounded-md">
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} aria-label="List view">
+              <ListFilter className="h-4 w-4" />
+            </Button>
+            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} aria-label="Grid view">
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button onClick={() => handleOpenModal()} className="w-full md:w-auto">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Company
+          </Button>
+        </div>
+      </div>
 
       <Card className="shadow-sm">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Industry</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companies.map((company) => (
-                <TableRow key={company.id}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell>{company.industry || 'N/A'}</TableCell>
-                  <TableCell>
-                    {company.website ? (
-                      <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center">
-                        {company.website} <ExternalLink className="h-3 w-3 ml-1" />
-                      </a>
-                    ) : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {company.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                      {company.tags.length > 2 && <Badge variant="outline">+{company.tags.length - 2}</Badge>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenModal(company)}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeleteCompany(company.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {companies.length === 0 && (
+        <CardContent className={viewMode === 'list' ? "p-0" : "pt-6"}>
+          {viewMode === 'list' ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">No companies found.</TableCell>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Industry</TableHead>
+                  <TableHead>Website</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayedCompanies.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="font-medium">{company.name}</TableCell>
+                    <TableCell>{company.industry || 'N/A'}</TableCell>
+                    <TableCell>
+                      {company.website ? (
+                        <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center">
+                          {company.website} <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      ) : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {company.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                        {company.tags.length > 2 && <Badge variant="outline">+{company.tags.length - 2}</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenModal(company)}>
+                            <Edit className="mr-2 h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteCompany(company.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {displayedCompanies.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">No companies found.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {displayedCompanies.map((company) => (
+                <CompanyCard
+                  key={company.id}
+                  company={company}
+                  onEdit={() => handleOpenModal(company)}
+                  onDelete={() => handleDeleteCompany(company.id)}
+                />
+              ))}
+              {displayedCompanies.length === 0 && (
+                <p className="col-span-full text-center text-muted-foreground py-10">
+                  No companies found matching your criteria.
+                </p>
               )}
-            </TableBody>
-          </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -156,8 +245,3 @@ export function CompaniesListClient() {
     </div>
   );
 }
-
-// Dummy Card components if not imported from shadcn/ui directly or for structure
-const Card = ({className, children}: {className?: string, children: React.ReactNode}) => <div className={`rounded-lg border bg-card text-card-foreground ${className}`}>{children}</div>;
-const CardContent = ({className, children}: {className?: string, children: React.ReactNode}) => <div className={`${className}`}>{children}</div>;
-

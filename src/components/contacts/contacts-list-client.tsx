@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -14,29 +14,73 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
 import type { Contact, Company } from '@/lib/types';
-import { mockContacts, mockCompanies } from '@/lib/mock-data';
+// Removed import of mockContacts and mockCompanies
 import { ContactFormModal } from './contact-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card'; 
+import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 
 export function ContactsListClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]); // For the form modal
+  const [isLoadingContacts, setIsLoadingContacts] = useState(true);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const fetchContacts = useCallback(async () => {
+    setIsLoadingContacts(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/contacts');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to fetch contacts: ${response.statusText}`);
+      }
+      const data: Contact[] = await response.json();
+      setContacts(data);
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(message);
+      toast({ title: "Error Fetching Contacts", description: message, variant: "destructive" });
+    } finally {
+      setIsLoadingContacts(false);
+    }
+  }, [toast]);
+
+  const fetchCompaniesForForm = useCallback(async () => {
+    setIsLoadingCompanies(true);
+    try {
+      const response = await fetch('/api/companies');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to fetch companies for form: ${response.statusText}`);
+      }
+      const data: Company[] = await response.json();
+      setCompanies(data);
+    } catch (err) {
+      console.error("Error loading companies for ContactFormModal:", err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred loading companies for form.';
+      toast({ title: "Error Loading Companies for Form", description: message, variant: "destructive" });
+    } finally {
+      setIsLoadingCompanies(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    setContacts(mockContacts);
-    setCompanies(mockCompanies);
-  }, []);
+    fetchContacts();
+    fetchCompaniesForForm();
+  }, [fetchContacts, fetchCompaniesForForm]);
 
   const handleOpenModal = (contact: Contact | null = null) => {
     setEditingContact(contact);
@@ -48,25 +92,9 @@ export function ContactsListClient() {
     setEditingContact(null);
   };
 
-  const handleSaveContact = (contactToSave: Contact) => {
-    setContacts((prevContacts) => {
-      const existingIndex = prevContacts.findIndex((c) => c.id === contactToSave.id);
-      if (existingIndex > -1) {
-        const updatedContacts = [...prevContacts];
-        updatedContacts[existingIndex] = contactToSave;
-        toast({ title: "Contact Updated", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
-        return updatedContacts;
-      }
-      toast({ title: "Contact Created", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
-      return [...prevContacts, contactToSave];
-    });
-    // Update mockContacts array directly
-    const mockIndex = mockContacts.findIndex(c => c.id === contactToSave.id);
-    if (mockIndex !== -1) {
-      mockContacts[mockIndex] = contactToSave;
-    } else {
-      mockContacts.push(contactToSave);
-    }
+  const handleSaveContactCallback = () => {
+    fetchContacts(); // Re-fetch contacts after save
+    handleCloseModal();
   };
   
   const handleDeleteContact = (contactId: string) => {
@@ -74,19 +102,30 @@ export function ContactsListClient() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteContact = () => {
-    if (contactToDelete) {
-      const contact = contacts.find(c => c.id === contactToDelete);
-      setContacts(prevContacts => prevContacts.filter(c => c.id !== contactToDelete));
-      // Remove from mockContacts array
-      const mockIndex = mockContacts.findIndex(c => c.id === contactToDelete);
-      if (mockIndex !== -1) {
-        mockContacts.splice(mockIndex, 1);
+  const confirmDeleteContact = async () => {
+    if (!contactToDelete) return;
+    
+    const contact = contacts.find(c => c.id === contactToDelete);
+    const contactName = contact ? `${contact.firstName} ${contact.lastName}` : "Contact";
+
+    try {
+      const response = await fetch(`/api/contacts/${contactToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete contact: ${response.statusText}`);
       }
-      toast({ title: "Contact Deleted", description: `${contact?.firstName} ${contact?.lastName} has been deleted.`, variant: "destructive" });
+      toast({ title: "Contact Deleted", description: `Contact "${contactName}" has been deleted.`});
+      setContacts(prevContacts => prevContacts.filter(c => c.id !== contactToDelete));
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Deleting Contact", description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setContactToDelete(null);
     }
-    setShowDeleteDialog(false);
-    setContactToDelete(null);
   };
 
 
@@ -97,11 +136,32 @@ export function ContactsListClient() {
     }
     return 'N/A';
   };
+  
+  const isLoading = isLoadingContacts || isLoadingCompanies;
+
+  if (isLoading && contacts.length === 0) { // Check contacts length as primary data for this page
+    return (
+      <div>
+        <PageSectionHeader title="Contacts" description="Manage your contacts."/>
+        <p className="text-center py-10">Loading contacts and related data...</p>
+      </div>
+    );
+  }
+  
+  if (error && contacts.length === 0) { // Display error primarily if contacts failed to load
+     return (
+      <div>
+        <PageSectionHeader title="Contacts" description="Manage your contacts."/>
+        <p className="text-center py-10 text-destructive">Error loading contacts: {error}</p>
+      </div>
+    );
+  }
+
 
   return (
     <div>
       <PageSectionHeader title="Contacts" description="Manage your contacts.">
-        <Button onClick={() => handleOpenModal()}>
+        <Button onClick={() => handleOpenModal()} disabled={isLoadingCompanies}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Contact
         </Button>
       </PageSectionHeader>
@@ -132,8 +192,8 @@ export function ContactsListClient() {
                   <TableCell>{getCompanyName(contact.companyId)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {contact.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                      {contact.tags.length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
+                      {(contact.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                      {(contact.tags || []).length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -150,7 +210,7 @@ export function ContactsListClient() {
                                <ExternalLink className="mr-2 h-4 w-4" /> View Details
                             </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenModal(contact)}>
+                        <DropdownMenuItem onClick={() => handleOpenModal(contact)} disabled={isLoadingCompanies}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteContact(contact.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
@@ -161,7 +221,7 @@ export function ContactsListClient() {
                   </TableCell>
                 </TableRow>
               ))}
-              {contacts.length === 0 && (
+              {contacts.length === 0 && !isLoadingContacts && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center h-24">No contacts found.</TableCell>
                 </TableRow>
@@ -175,9 +235,9 @@ export function ContactsListClient() {
       <ContactFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSaveContact}
+        onSaveCallback={handleSaveContactCallback}
         contact={editingContact}
-        companies={companies}
+        companies={companies} // Pass fetched companies
       />
 
       <DeleteConfirmationDialog

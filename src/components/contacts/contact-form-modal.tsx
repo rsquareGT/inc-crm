@@ -27,7 +27,8 @@ import {
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Contact, Company } from '@/lib/types';
-import { generateId } from '@/lib/mock-data';
+// generateId removed as ID comes from backend
+import { useToast } from '@/hooks/use-toast';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -36,7 +37,7 @@ const contactFormSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
-  companyId: z.string().optional(),
+  companyId: z.string().optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -46,47 +47,29 @@ type ContactFormData = z.infer<typeof contactFormSchema>;
 interface ContactFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (contact: Contact) => void;
+  onSaveCallback: () => void; // Changed from onSave to onSaveCallback
   contact?: Contact | null;
   companies: Company[];
-  defaultCompanyId?: string; // To pre-select company if adding from company page
+  defaultCompanyId?: string;
 }
 
-export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, defaultCompanyId }: ContactFormModalProps) {
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<ContactFormData>({
+export function ContactFormModal({ isOpen, onClose, onSaveCallback, contact, companies, defaultCompanyId }: ContactFormModalProps) {
+  const { toast } = useToast();
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<ContactFormData>({
     resolver: zodResolver(contactFormSchema),
-    defaultValues: contact 
-      ? { 
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.email,
-          phone: contact.phone || '',
-          companyId: contact.companyId || undefined,
-          description: contact.description || '',
-          tags: contact.tags || [] 
-        } 
-      : { 
-          firstName: '', 
-          lastName: '', 
-          email: '', 
-          phone: '',
-          companyId: defaultCompanyId || undefined,
-          description: '', 
-          tags: [] 
-        },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(contact 
+      const defaultValues = contact 
         ? { 
             firstName: contact.firstName,
             lastName: contact.lastName,
             email: contact.email,
             phone: contact.phone || '',
-            companyId: contact.companyId || undefined,
+            companyId: contact.companyId || NONE_SELECT_VALUE,
             description: contact.description || '',
             tags: contact.tags || [] 
           } 
@@ -95,26 +78,53 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, 
             lastName: '', 
             email: '', 
             phone: '',
-            companyId: defaultCompanyId || undefined,
+            companyId: defaultCompanyId || NONE_SELECT_VALUE,
             description: '', 
             tags: [] 
-          });
+          };
+      reset(defaultValues);
     }
   }, [isOpen, contact, reset, defaultCompanyId]);
 
-  const onSubmit = (data: ContactFormData) => {
-    const now = new Date().toISOString();
-    const contactToSave: Contact = {
-      id: contact?.id || generateId(),
+  const onSubmit = async (data: ContactFormData) => {
+    const contactPayload = {
       ...data,
-      companyId: data.companyId === NONE_SELECT_VALUE ? undefined : data.companyId,
       tags: data.tags || [],
-      notes: contact?.notes || [], // Preserve existing notes
-      createdAt: contact?.createdAt || now,
-      updatedAt: now,
+      // notes will be handled by the backend or fetched separately
     };
-    onSave(contactToSave);
-    onClose();
+
+    try {
+      let response;
+      if (contact?.id) { // Editing existing contact
+        response = await fetch(`/api/contacts/${contact.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contactPayload),
+        });
+        if (!response.ok) {
+           const errorData = await response.json();
+           throw new Error(errorData.error || 'Failed to update contact');
+        }
+        toast({ title: "Contact Updated", description: `${data.firstName} ${data.lastName} updated.` });
+      } else { // Creating new contact
+        response = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contactPayload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create contact');
+        }
+        toast({ title: "Contact Created", description: `New contact ${data.firstName} ${data.lastName} added.` });
+      }
+      
+      onSaveCallback(); // Call callback to refresh list
+      // onClose(); // This is handled by onSaveCallback in the parent or should be here. For now, keep it.
+    } catch (error) {
+      console.error("Error saving contact:", error);
+      toast({ title: "Error Saving Contact", description: error instanceof Error ? error.message : "Could not save contact.", variant: "destructive" });
+    }
   };
 
   return (
@@ -126,27 +136,27 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, 
             {contact ? 'Update the details of this contact.' : 'Enter the details for the new contact.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" {...register('firstName')} />
+              <Input id="firstName" {...register('firstName')} disabled={isSubmitting}/>
               {errors.firstName && <p className="text-sm text-destructive mt-1">{errors.firstName.message}</p>}
             </div>
             <div>
               <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" {...register('lastName')} />
+              <Input id="lastName" {...register('lastName')} disabled={isSubmitting}/>
               {errors.lastName && <p className="text-sm text-destructive mt-1">{errors.lastName.message}</p>}
             </div>
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" {...register('email')} />
+            <Input id="email" type="email" {...register('email')} disabled={isSubmitting}/>
             {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
           </div>
           <div>
             <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" {...register('phone')} />
+            <Input id="phone" {...register('phone')} disabled={isSubmitting}/>
           </div>
           <div>
             <Label htmlFor="companyId">Company</Label>
@@ -157,7 +167,8 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, 
                 <Select 
                   onValueChange={field.onChange} 
                   value={field.value || undefined} 
-                  defaultValue={contact?.companyId || defaultCompanyId || undefined}
+                  // defaultValue={contact?.companyId || defaultCompanyId || NONE_SELECT_VALUE}
+                  disabled={isSubmitting}
                 >
                   <SelectTrigger id="companyId">
                     <SelectValue placeholder="Select company" />
@@ -174,7 +185,7 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, 
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this contact..."/>
+            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this contact..." disabled={isSubmitting}/>
           </div>
           <div>
             <Label htmlFor="tags">Tags</Label>
@@ -192,11 +203,13 @@ export function ContactFormModal({ isOpen, onClose, onSave, contact, companies, 
                 )}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
-            <Button type="submit">Save Contact</Button>
+            <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (contact ? 'Saving...' : 'Adding...') : (contact ? 'Save Contact' : 'Add Contact')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,4 +1,6 @@
 
+'use client';
+
 import type { Deal, Contact, Company } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,17 +51,17 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
   };
 
   return (
-    <Card 
-      className="mb-2 shadow-md hover:shadow-lg transition-shadow duration-200 bg-card cursor-grab active:cursor-grabbing" // Reduced mb-4 to mb-2
+    <Card
+      className="mb-1.5 shadow-sm hover:shadow-md transition-shadow duration-150 bg-card cursor-grab active:cursor-grabbing"
       draggable={true}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <CardHeader className="pb-1 pt-3 px-3"> {/* Reduced padding */}
+      <CardHeader className="pb-1 pt-2 px-2">
         <div className="flex justify-between items-start">
-          <div className="flex items-center">
-            <GripVertical className="h-4 w-4 mr-1 text-muted-foreground flex-shrink-0" /> {/* Slightly smaller grip */}
-            <CardTitle className="text-base font-semibold leading-tight"> {/* Reduced text-lg to text-base */}
+          <div className="flex items-center min-w-0">
+            <GripVertical className="h-3.5 w-3.5 mr-1 text-muted-foreground flex-shrink-0" />
+            <CardTitle className="text-sm font-semibold leading-tight truncate">
               <Link href={`/deals/${deal.id}`} className="hover:underline text-primary" onClick={(e) => e.stopPropagation()}>
                   {deal.name}
               </Link>
@@ -67,63 +69,64 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-0.5 h-auto w-auto" onClick={(e) => e.stopPropagation()}> {/* Smaller button */}
-                <Edit3 className="h-3.5 w-3.5 text-muted-foreground" /> {/* Smaller icon */}
+              <Button variant="ghost" size="sm" className="p-0.5 h-auto w-auto ml-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <Edit3 className="h-3 w-3 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem asChild>
-                <Link href={`/deals/${deal.id}`} className="flex items-center w-full text-xs"> {/* Smaller text */}
-                   <ExternalLink className="mr-2 h-3.5 w-3.5" /> View Details
+                <Link href={`/deals/${deal.id}`} className="flex items-center w-full text-xs">
+                   <ExternalLink className="mr-1.5 h-3 w-3" /> View Details
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(deal)} className="text-xs"> {/* Smaller text */}
-                <Edit3 className="mr-2 h-3.5 w-3.5" /> Edit
+              <DropdownMenuItem onClick={() => onEdit(deal)} className="text-xs">
+                <Edit3 className="mr-1.5 h-3 w-3" /> Edit
               </DropdownMenuItem>
               {DEAL_STAGES.filter(s => s !== deal.stage).map(stage => (
-                <DropdownMenuItem key={stage} onClick={() => onChangeStage(deal.id, stage)} className="text-xs"> {/* Smaller text */}
+                <DropdownMenuItem key={stage} onClick={() => onChangeStage(deal.id, stage)} className="text-xs">
                   Move to {stage}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuItem onClick={() => onDelete(deal.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground text-xs"> {/* Smaller text */}
-                <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+              <DropdownMenuItem onClick={() => onDelete(deal.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground text-xs">
+                <Trash2 className="mr-1.5 h-3 w-3" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="px-3 pb-2 space-y-1.5 text-xs"> {/* Reduced padding, space, and text size */}
+      <CardContent className="px-2 pb-1.5 space-y-1 text-xs">
         <div className="flex items-center text-muted-foreground">
-          <DollarSign className="h-3.5 w-3.5 mr-1.5 text-green-500" /> {/* Smaller icon */}
+          <DollarSign className="h-3 w-3 mr-1 text-green-500 flex-shrink-0" />
           <span>{formattedValue}</span>
           {deal.expectedCloseDate && (
-            <Badge variant="outline" className="ml-auto text-xs px-1.5 py-0"> {/* Smaller badge */}
-              Closes: {new Date(deal.expectedCloseDate).toLocaleDateString()}
+            <Badge variant="outline" className="ml-auto text-xs px-1.5 py-0 leading-tight">
+              Closes: {new Date(deal.expectedCloseDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
             </Badge>
           )}
         </div>
         {contact && (
-          <div className="flex items-center text-muted-foreground">
-            <User className="h-3.5 w-3.5 mr-1.5" /> {/* Smaller icon */}
-             <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center text-muted-foreground truncate">
+            <User className="h-3 w-3 mr-1 flex-shrink-0" />
+             <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary truncate" onClick={(e) => e.stopPropagation()}>
                 {contact.firstName} {contact.lastName}
             </Link>
           </div>
         )}
         {company && (
-          <div className="flex items-center text-muted-foreground">
-            <Building className="h-3.5 w-3.5 mr-1.5" /> {/* Smaller icon */}
-            <Link href={`/companies/${company.id}`} className="hover:underline text-primary" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center text-muted-foreground truncate">
+            <Building className="h-3 w-3 mr-1 flex-shrink-0" />
+            <Link href={`/companies/${company.id}`} className="hover:underline text-primary truncate" onClick={(e) => e.stopPropagation()}>
                 {company.name}
             </Link>
           </div>
         )}
       </CardContent>
       {tags.length > 0 && (
-        <CardFooter className="px-3 pb-2 flex flex-wrap gap-1"> {/* Reduced padding */}
-          {tags.map((tag) => (
-            <TagBadge key={tag} tag={tag} className="text-xs px-1.5 py-0"/> /* Smaller tags */
+        <CardFooter className="px-2 pt-1 pb-1.5 flex flex-wrap gap-0.5">
+          {tags.slice(0, 3).map((tag) => (
+            <TagBadge key={tag} tag={tag} className="text-xs px-1.5 py-0 leading-tight"/>
           ))}
+          {tags.length > 3 && <Badge variant="outline" className="text-xs px-1 py-0 leading-tight">+{tags.length-3}</Badge>}
         </CardFooter>
       )}
     </Card>

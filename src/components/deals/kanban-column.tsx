@@ -47,7 +47,6 @@ export function KanbanColumn({
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    // Check if the mouse is truly leaving the column or just entering a child (deal card)
     if (e.currentTarget.contains(e.relatedTarget as Node)) {
       return;
     }
@@ -68,7 +67,7 @@ export function KanbanColumn({
   return (
     <div
       className={cn(
-        `flex-shrink-0 w-60 bg-secondary/50 rounded-lg p-1 border-t-4 transition-colors duration-150 ease-in-out`,
+        `flex-shrink-0 w-60 bg-secondary/50 rounded-lg p-0.5 border-t-4 transition-colors duration-150 ease-in-out`, // Reduced outer padding
         stageColors[stage],
         isOver ? 'bg-primary/10 ring-2 ring-primary ring-offset-2 ring-offset-background' : 'border-transparent'
       )}
@@ -77,13 +76,13 @@ export function KanbanColumn({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="p-2"> {/* Reduced padding from p-3 to p-2 */}
-        <h3 className="text-md font-semibold mb-1">{stage} ({deals.length})</h3>
-        <p className="text-xs text-muted-foreground mb-2">{formattedTotalValue}</p> {/* Reduced margin-bottom from mb-3 to mb-2 */}
+      <div className="p-1.5"> {/* Reduced padding */}
+        <h3 className="text-sm font-semibold mb-0.5">{stage} ({deals.length})</h3> {/* Reduced font-size and margin */}
+        <p className="text-xs text-muted-foreground mb-1.5">{formattedTotalValue}</p> {/* Reduced margin */}
       </div>
-      <ScrollArea className="h-[calc(100vh-18.5rem)] pr-1"> {/* Adjusted height slightly for reduced header */}
-        <div className="px-2 pb-2 pt-0 space-y-1.5"> {/* Reduced padding and space-y */}
-        {deals.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No deals in this stage.</p>}
+      <ScrollArea className="h-[calc(100vh-17.5rem)] pr-0.5"> {/* Adjusted height, reduced pr */}
+        <div className="px-1.5 pb-1.5 pt-0 space-y-1"> {/* Reduced padding and space-y */}
+        {deals.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No deals here.</p>} {/* Reduced font-size and padding */}
         {deals.map((deal) => {
           const contact = contacts.find((c) => c.id === deal.contactId);
           const company = companies.find((c) => c.id === deal.companyId);

@@ -34,7 +34,7 @@ interface DealDetailsClientProps {
   initialDeal: Deal;
   initialContact?: Contact;
   initialCompany?: Company;
-  initialTasks: Task[];
+  initialTasks: Task[]; // This prop might become less critical if we always filter from global
   allContacts: Contact[];
   allCompanies: Company[];
   allDeals: Deal[]; // For task form
@@ -44,7 +44,7 @@ export function DealDetailsClient({
   initialDeal,
   initialContact,
   initialCompany,
-  initialTasks,
+  // initialTasks, // We will primarily rely on filtering mockTasks directly
   allContacts,
   allCompanies,
   allDeals,
@@ -52,7 +52,7 @@ export function DealDetailsClient({
   const [deal, setDeal] = useState<Deal>(initialDeal);
   const [contact, setContact] = useState<Contact | undefined>(initialContact);
   const [company, setCompany] = useState<Company | undefined>(initialCompany);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>([]); // Initialize as empty, will be populated by useEffect
   const [newNoteContent, setNewNoteContent] = useState('');
 
   const { toast } = useToast();
@@ -68,8 +68,15 @@ export function DealDetailsClient({
     setDeal(initialDeal);
     setContact(initialContact);
     setCompany(initialCompany);
-    setTasks(initialTasks);
-  }, [initialDeal, initialContact, initialCompany, initialTasks]);
+    // Always filter tasks from global mockTasks based on the current deal
+    if (initialDeal?.id) {
+      const currentDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === initialDeal.id);
+      setTasks(currentDealRelatedTasks);
+    } else {
+      setTasks([]); // Handle case where initialDeal might not be fully loaded or valid
+    }
+  }, [initialDeal, initialContact, initialCompany]);
+
 
   const handleSaveDeal = (updatedDeal: Deal) => {
     setDeal(updatedDeal);
@@ -89,37 +96,37 @@ export function DealDetailsClient({
     setIsDealModalOpen(false);
   };
 
-  const handleSaveTask = (taskToSave: Task) => {
-    setTasks((prevTasks) => {
-      const existingIndex = prevTasks.findIndex((t) => t.id === taskToSave.id);
-      if (existingIndex > -1) {
-        const updated = [...prevTasks];
-        updated[existingIndex] = taskToSave;
-        const mockIndex = mockTasks.findIndex(mt => mt.id === taskToSave.id);
-        if (mockIndex !== -1) mockTasks[mockIndex] = taskToSave;
-        toast({ title: "Task Updated", description: `Task "${taskToSave.title}" updated.` });
-        return updated;
+  const handleSaveTask = (taskFromForm: Task) => {
+    if (editingTask) { // Editing an existing task
+      const taskIndexInMock = mockTasks.findIndex(mt => mt.id === editingTask.id);
+      if (taskIndexInMock !== -1) {
+        mockTasks[taskIndexInMock] = { ...taskFromForm }; // Update in global mockTasks
       }
-      const newTask = { ...taskToSave, relatedDealId: deal.id };
-      mockTasks.push(newTask);
-      toast({ title: "Task Created", description: `New task "${taskToSave.title}" added for this deal.` });
-      return [...prevTasks, newTask];
-    });
+      toast({ title: "Task Updated", description: `Task "${taskFromForm.title}" updated.` });
+    } else { // Adding a new task
+      // Ensure relatedDealId is set to the current deal.id
+      const newTaskWithRelation = { ...taskFromForm, relatedDealId: deal.id };
+      mockTasks.push(newTaskWithRelation); // Add to global mockTasks
+      toast({ title: "Task Created", description: `New task "${newTaskWithRelation.title}" added for this deal.` });
+    }
+  
+    // Refresh local tasks state for this deal directly from the (now updated) global mockTasks
+    const updatedDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === deal.id);
+    setTasks(updatedDealRelatedTasks);
+  
     setIsTaskModalOpen(false);
-    setEditingTask(null);
+    setEditingTask(null); // Clear editingTask state
   };
   
   const toggleTaskCompletion = (taskId: string) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === taskId ? { ...task, completed: !task.completed, updatedAt: new Date().toISOString() } : task
-      )
-    );
-    const mockIndex = mockTasks.findIndex(t => t.id === taskId);
-    if (mockIndex !== -1) {
-      mockTasks[mockIndex].completed = !mockTasks[mockIndex].completed;
-      mockTasks[mockIndex].updatedAt = new Date().toISOString();
+    const taskIndexInMock = mockTasks.findIndex(t => t.id === taskId);
+    if (taskIndexInMock !== -1) {
+      mockTasks[taskIndexInMock].completed = !mockTasks[taskIndexInMock].completed;
+      mockTasks[taskIndexInMock].updatedAt = new Date().toISOString();
     }
+    // Refresh local tasks state
+    const updatedDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === deal.id);
+    setTasks(updatedDealRelatedTasks);
   };
 
   const handleDeleteRequest = (id: string, type: 'task' | 'note', name: string) => {
@@ -131,9 +138,13 @@ export function DealDetailsClient({
     if (!itemToDelete) return;
 
     if (itemToDelete.type === 'task') {
-      setTasks(prev => prev.filter(t => t.id !== itemToDelete.id));
       const mockIndex = mockTasks.findIndex(mt => mt.id === itemToDelete.id);
-      if (mockIndex !== -1) mockTasks.splice(mockIndex, 1);
+      if (mockIndex !== -1) {
+        mockTasks.splice(mockIndex, 1); // Remove from global mockTasks
+      }
+      // Refresh local tasks state
+      const updatedDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === deal.id);
+      setTasks(updatedDealRelatedTasks);
       toast({ title: "Task Deleted", description: `Task "${itemToDelete.name}" deleted.`, variant: "destructive" });
     } else if (itemToDelete.type === 'note') {
       setDeal(prevDeal => {
@@ -313,8 +324,9 @@ export function DealDetailsClient({
                                         onCheckedChange={() => toggleTaskCompletion(task.id)}
                                         aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
                                         className="mr-2"
+                                        id={`task-completed-${task.id}`}
                                     />
-                                    <span className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
+                                    <label htmlFor={`task-completed-${task.id}`} className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</label>
                                 </div>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -339,7 +351,7 @@ export function DealDetailsClient({
                     </div>
                     </ScrollArea>
                 ) : (
-                    <p className="text-muted-foreground text-center py-4">No tasks associated with this deal yet.</p>
+                  <p className="text-muted-foreground text-center py-4">No tasks associated with this deal yet.</p>
                 )}
                 </CardContent>
             </Card>
@@ -359,10 +371,10 @@ export function DealDetailsClient({
         isOpen={isTaskModalOpen}
         onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
         onSave={handleSaveTask}
-        task={editingTask}
+        task={editingTask} // Pass editingTask here
         deals={allDeals}
         contacts={allContacts}
-        // defaultDealId={deal.id} //This causes issues if task form is opened with no deal preselected
+        // defaultDealId={deal.id} // No longer strictly needed if handleSaveTask sets it
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}
@@ -374,3 +386,4 @@ export function DealDetailsClient({
     </div>
   );
 }
+

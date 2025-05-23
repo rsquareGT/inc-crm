@@ -5,13 +5,13 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Standard Next.js App Router import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
-import type { User } from '@/lib/types';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
@@ -20,16 +20,13 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-interface LoginApiResponse {
-  success: boolean;
-  user?: User;
-  error?: string;
-}
-
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const { login: contextLogin } = useAuth(); // Get login function from AuthContext
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
 
   const {
     register,
@@ -41,27 +38,22 @@ export function LoginForm() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
+    setFormError(null);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      const result: LoginApiResponse = await response.json();
-
-      if (response.ok && result.success && result.user) {
+      const loginSuccessful = await contextLogin(data.email, data.password);
+      if (loginSuccessful) {
         toast({
           title: 'Login Successful',
-          description: `Welcome back, ${result.user.firstName || result.user.email}!`,
+          description: `Welcome back!`, // User details will be in context
         });
-        // In a real app, you'd store session/token here and update global auth state
         router.push('/dashboard'); // Redirect to dashboard
       } else {
-        throw new Error(result.error || 'Login failed. Please check your credentials.');
+        // This case might not be hit if contextLogin throws an error handled below
+        setFormError('Login failed. Please check your credentials.');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      setFormError(message); // Display error on the form
       toast({
         title: 'Login Error',
         description: message,
@@ -74,6 +66,11 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {formError && (
+        <div className="p-3 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-md">
+          {formError}
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="email">Email Address</Label>
         <Input
@@ -82,7 +79,7 @@ export function LoginForm() {
           placeholder="you@example.com"
           {...register('email')}
           disabled={isLoading}
-          className={errors.email ? 'border-destructive' : ''}
+          className={errors.email || formError ? 'border-destructive' : ''}
         />
         {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
       </div>
@@ -94,7 +91,7 @@ export function LoginForm() {
           placeholder="••••••••"
           {...register('password')}
           disabled={isLoading}
-          className={errors.password ? 'border-destructive' : ''}
+          className={errors.password || formError ? 'border-destructive' : ''}
         />
         {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
       </div>

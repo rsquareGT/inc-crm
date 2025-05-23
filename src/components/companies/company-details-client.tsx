@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Company, Contact, Deal } from '@/lib/types';
+import type { Company, Contact, Deal, Note } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,18 +21,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
 import { DEAL_STAGES } from '@/lib/constants';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { format } from 'date-fns';
 
 interface CompanyDetailsClientProps {
   initialCompany: Company;
   initialContacts: Contact[];
   initialDeals: Deal[];
-  allCompanies: Company[]; // Needed for contact/deal forms if they could link to other companies
-  allContacts: Contact[];  // Needed for deal forms
+  allCompanies: Company[];
+  allContacts: Contact[];
 }
 
 export function CompanyDetailsClient({
@@ -45,25 +48,22 @@ export function CompanyDetailsClient({
   const [company, setCompany] = useState<Company>(initialCompany);
   const [contacts, setContacts] = useState<Contact[]>(serverContacts);
   const [deals, setDeals] = useState<Deal[]>(serverDeals);
+  const [newNoteContent, setNewNoteContent] = useState('');
 
-  // These are relatively static, but could be updated if global data changes
   const [allCompanies] = useState<Company[]>(serverAllCompanies);
   const [allContactsList] = useState<Contact[]>(serverAllContacts);
 
   const { toast } = useToast();
 
-  // Modals state
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
 
-  // Delete dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'company'; name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'company' | 'note'; name: string } | null>(null);
   
-  // Effect to update local state if initial props change (e.g., after a server action refresh)
   useEffect(() => {
     setCompany(initialCompany);
   }, [initialCompany]);
@@ -76,12 +76,10 @@ export function CompanyDetailsClient({
     setDeals(serverDeals);
   }, [serverDeals]);
 
-
   const handleSaveCompany = (updatedCompany: Company) => {
     setCompany(updatedCompany);
-    // Update mockCompanies - in a real app, this would be an API call
     const index = mockCompanies.findIndex(c => c.id === updatedCompany.id);
-    if (index !== -1) mockCompanies[index] = updatedCompany;
+    if (index !== -1) mockCompanies[index] = { ...mockCompanies[index], ...updatedCompany }; // Preserve notes if not handled by form
     toast({ title: "Company Updated", description: `${updatedCompany.name} details saved.` });
     setIsCompanyModalOpen(false);
   };
@@ -92,14 +90,13 @@ export function CompanyDetailsClient({
       if (existingIndex > -1) {
         const updated = [...prevContacts];
         updated[existingIndex] = contactToSave;
-        // Update mockContacts
         const mockIndex = mockContacts.findIndex(mc => mc.id === contactToSave.id);
         if (mockIndex !== -1) mockContacts[mockIndex] = contactToSave;
         toast({ title: "Contact Updated", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
         return updated;
       }
       const newContact = { ...contactToSave, companyId: company.id };
-      mockContacts.push(newContact); // Add to mock data
+      mockContacts.push(newContact);
       toast({ title: "Contact Created", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
       return [...prevContacts, newContact];
     });
@@ -113,14 +110,13 @@ export function CompanyDetailsClient({
       if (existingIndex > -1) {
         const updated = [...prevDeals];
         updated[existingIndex] = dealToSave;
-        // Update mockDeals
         const mockIndex = mockDeals.findIndex(md => md.id === dealToSave.id);
         if (mockIndex !== -1) mockDeals[mockIndex] = dealToSave;
         toast({ title: "Deal Updated", description: `Deal "${dealToSave.name}" updated.` });
         return updated;
       }
       const newDeal = { ...dealToSave, companyId: company.id };
-      mockDeals.push(newDeal); // Add to mock data
+      mockDeals.push(newDeal);
       toast({ title: "Deal Created", description: `New deal "${dealToSave.name}" added.` });
       return [...prevDeals, newDeal];
     });
@@ -128,7 +124,7 @@ export function CompanyDetailsClient({
     setEditingDeal(null);
   };
   
-  const handleDeleteRequest = (id: string, type: 'contact' | 'deal', name: string) => {
+  const handleDeleteRequest = (id: string, type: 'contact' | 'deal' | 'note', name: string) => {
     setItemToDelete({ id, type, name });
     setShowDeleteDialog(true);
   };
@@ -146,10 +142,44 @@ export function CompanyDetailsClient({
       const mockIndex = mockDeals.findIndex(md => md.id === itemToDelete.id);
       if (mockIndex !== -1) mockDeals.splice(mockIndex, 1);
       toast({ title: "Deal Deleted", description: `Deal "${itemToDelete.name}" deleted.`, variant: "destructive" });
+    } else if (itemToDelete.type === 'note') {
+      setCompany(prevCompany => {
+        const updatedNotes = prevCompany.notes.filter(note => note.id !== itemToDelete.id);
+        const companyIndex = mockCompanies.findIndex(c => c.id === prevCompany.id);
+        if (companyIndex !== -1) {
+          mockCompanies[companyIndex].notes = updatedNotes;
+        }
+        return { ...prevCompany, notes: updatedNotes };
+      });
+      toast({ title: "Note Deleted", description: "Note has been deleted.", variant: "destructive" });
     }
     setShowDeleteDialog(false);
     setItemToDelete(null);
   };
+
+  const handleAddNote = () => {
+    if (newNoteContent.trim() === '') {
+      toast({ title: "Cannot add empty note", variant: "destructive" });
+      return;
+    }
+    const newNote: Note = {
+      id: generateId(),
+      content: newNoteContent.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setCompany(prevCompany => {
+      const updatedNotes = [newNote, ...prevCompany.notes]; // Add to beginning for descending order
+      const companyIndex = mockCompanies.findIndex(c => c.id === prevCompany.id);
+      if (companyIndex !== -1) {
+        mockCompanies[companyIndex].notes = updatedNotes;
+      }
+      return { ...prevCompany, notes: updatedNotes };
+    });
+    setNewNoteContent('');
+    toast({ title: "Note Added", description: "New note saved for this company." });
+  };
+  
+  const sortedNotes = company.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
 
   return (
@@ -172,47 +202,96 @@ export function CompanyDetailsClient({
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="overview">Overview & Description</TabsTrigger>
+          <TabsTrigger value="overview">Overview & Notes</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {company.website && (
-                <div className="flex items-center">
-                  <Globe className="mr-2 h-5 w-5 text-muted-foreground" />
-                  <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                    {company.website}
-                  </a>
-                </div>
-              )}
-              {company.address && (
-                <div className="flex items-center">
-                  <MapPin className="mr-2 h-5 w-5 text-muted-foreground" />
-                  <span>{company.address}</span>
-                </div>
-              )}
-              {company.tags && company.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 items-center">
-                   <span className="text-sm text-muted-foreground">Tags:</span>
-                  {company.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
-                </div>
-              )}
-              <div className="space-y-2 pt-2">
-                <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
-                {company.description ? (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{company.description}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No description for this company.</p>
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Company Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {company.website && (
+                  <div className="flex items-center">
+                    <Globe className="mr-2 h-5 w-5 text-muted-foreground" />
+                    <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                      {company.website}
+                    </a>
+                  </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+                {company.address && (
+                  <div className="flex items-center">
+                    <MapPin className="mr-2 h-5 w-5 text-muted-foreground" />
+                    <span>{company.address}</span>
+                  </div>
+                )}
+                {company.tags && company.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm text-muted-foreground">Tags:</span>
+                    {company.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
+                  </div>
+                )}
+                <div className="space-y-2 pt-2">
+                  <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
+                  {company.description ? (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{company.description}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No description for this company.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
+                <CardDescription>Chronological notes related to this company.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-note">Add a new note</Label>
+                  <Textarea
+                    id="new-note"
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    placeholder="Type your note here..."
+                    className="min-h-[80px]"
+                  />
+                  <Button onClick={handleAddNote} size="sm">
+                    <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                  </Button>
+                </div>
+                
+                {sortedNotes.length > 0 ? (
+                  <ScrollArea className="h-[300px] w-full pr-4">
+                    <div className="space-y-3">
+                      {sortedNotes.map(note => (
+                        <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
+                          <p className="whitespace-pre-wrap">{note.content}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(note.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                          </p>
+                           <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                              onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                           </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No notes yet for this company.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="contacts">
@@ -354,33 +433,29 @@ export function CompanyDetailsClient({
         isOpen={isCompanyModalOpen}
         onClose={() => setIsCompanyModalOpen(false)}
         onSave={handleSaveCompany}
-        company={company}
+        company={company} // Pass the full company object, notes will be preserved if not edited by form
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }}
         onSave={handleSaveContact}
         contact={editingContact}
-        companies={allCompanies} // Pass all companies for selection
-        // Pre-fill company if adding new
-        // Note: The ContactFormModal's useEffect for reset will need to handle `companyId` from `contact` prop or a new prop.
-        // For simplicity, current `ContactFormModal` is used. If `editingContact` is null, a new contact is created.
-        // We can ensure new contacts are linked by setting `companyId: company.id` in `handleSaveContact`.
+        companies={allCompanies}
       />
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
         onSave={handleSaveDeal}
         deal={editingDeal}
-        contacts={allContactsList} // Pass all contacts for selection
-        companies={allCompanies}   // Pass all companies for selection
-         // Similar to ContactFormModal, ensure new deals are linked by setting `companyId: company.id` in `handleSaveDeal`.
+        contacts={allContactsList}
+        companies={allCompanies}
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={confirmDeleteItem}
         itemName={itemToDelete?.name || "this item"}
+        description={itemToDelete?.type === 'note' ? 'This action cannot be undone. This will permanently delete this note.' : undefined}
       />
     </div>
   );

@@ -1,8 +1,24 @@
 
-import type { Contact, Company, Deal, Task, DealStage } from './types';
+import type { Contact, Company, Deal, Task, Note } from './types';
 import { DEAL_STAGES } from './constants';
 
 const now = new Date().toISOString();
+const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+// Helper to generate unique IDs
+export const generateId = () => `id-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
+
+export const mockNotesCompany1: Note[] = [
+  { id: generateId(), content: 'Initial meeting scheduled for next week.', createdAt: now },
+  { id: generateId(), content: 'Followed up via email regarding the proposal.', createdAt: oneDayAgo },
+];
+
+export const mockNotesCompany2: Note[] = [
+  { id: generateId(), content: 'Sent them the new brochure.', createdAt: now },
+  { id: generateId(), content: 'Discussed potential expansion project.', createdAt: twoDaysAgo },
+];
+
 
 export const mockContacts: Contact[] = [
   { id: 'contact-1', firstName: 'Alice', lastName: 'Smith', email: 'alice@example.com', phone: '555-1234', companyId: 'company-1', tags: ['Lead', 'Tech'], description: 'Interested in Product A', createdAt: now, updatedAt: now },
@@ -11,8 +27,8 @@ export const mockContacts: Contact[] = [
 ];
 
 export const mockCompanies: Company[] = [
-  { id: 'company-1', name: 'Innovatech Ltd.', industry: 'Technology', website: 'innovatech.com', address: '123 Tech Park', tags: ['Enterprise', 'SaaS'], description: 'Key client for new products', createdAt: now, updatedAt: now },
-  { id: 'company-2', name: 'Service Solutions Inc.', industry: 'Consulting', website: 'servicesolutions.com', address: '456 Consult Ave', tags: ['SMB'], createdAt: now, updatedAt: now },
+  { id: 'company-1', name: 'Innovatech Ltd.', industry: 'Technology', website: 'innovatech.com', address: '123 Tech Park', tags: ['Enterprise', 'SaaS'], description: 'Key client for new products', notes: mockNotesCompany1, createdAt: now, updatedAt: now },
+  { id: 'company-2', name: 'Service Solutions Inc.', industry: 'Consulting', website: 'servicesolutions.com', address: '456 Consult Ave', tags: ['SMB'], description: 'Growing SMB with potential for larger contracts.', notes: mockNotesCompany2, createdAt: now, updatedAt: now },
 ];
 
 export const mockDeals: Deal[] = [
@@ -29,6 +45,3 @@ export const mockTasks: Task[] = [
   { id: 'task-2', title: 'Prepare Q2 report for Bob', relatedContactId: 'contact-2', completed: true, tags: ['Reporting'], createdAt: now, updatedAt: now },
   { id: 'task-3', title: 'Schedule demo for Deal Alpha', relatedDealId: 'deal-4', dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], completed: false, tags: [], createdAt: now, updatedAt: now },
 ];
-
-// Helper to generate unique IDs
-export const generateId = () => `id-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;

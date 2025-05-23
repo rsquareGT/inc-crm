@@ -1,6 +1,12 @@
 
 export type Tag = string;
 
+export interface Note {
+  id: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface Contact {
   id: string;
   firstName: string;
@@ -20,9 +26,9 @@ export interface Company {
   industry?: string;
   website?: string;
   address?: string;
-  // contactIds: string[]; // Removed, contacts will link to company
   tags: Tag[];
   description?: string;
+  notes: Note[]; // Added notes field
   createdAt: string;
   updatedAt: string;
 }

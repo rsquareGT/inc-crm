@@ -22,7 +22,8 @@ import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Company } from '@/lib/types';
 import { generateId } from '@/lib/mock-data';
 
-const companySchema = z.object({
+// Schema for the form - does not include 'notes' as they are managed separately
+const companyFormSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
   industry: z.string().optional(),
   website: z.string().url('Invalid URL').or(z.literal('')).optional(),
@@ -31,36 +32,56 @@ const companySchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-type CompanyFormData = z.infer<typeof companySchema>;
+type CompanyFormData = z.infer<typeof companyFormSchema>;
 
 interface CompanyFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (company: Company) => void;
-  company?: Company | null;
+  onSave: (company: Company) => void; // Will pass the full Company object
+  company?: Company | null; // Expects the full Company object
 }
 
 export function CompanyFormModal({ isOpen, onClose, onSave, company }: CompanyFormModalProps) {
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<CompanyFormData>({
-    resolver: zodResolver(companySchema),
+    resolver: zodResolver(companyFormSchema),
+    // Default values only for fields managed by this form
     defaultValues: company 
-      ? { ...company, tags: company.tags || [], description: company.description || '' } 
-      : { name: '', tags: [], description: '' },
+      ? { 
+          name: company.name, 
+          industry: company.industry || '', 
+          website: company.website || '',
+          address: company.address || '',
+          description: company.description || '', 
+          tags: company.tags || [] 
+        } 
+      : { name: '', industry: '', website: '', address: '', description: '', tags: [] },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      reset(company ? { ...company, tags: company.tags || [], description: company.description || '' } : { name: '', tags: [], description: '', industry: '', website: '', address: '' });
+      // Reset with only the fields this form manages
+      reset(company 
+        ? { 
+            name: company.name, 
+            industry: company.industry || '', 
+            website: company.website || '',
+            address: company.address || '',
+            description: company.description || '', 
+            tags: company.tags || [] 
+          } 
+        : { name: '', industry: '', website: '', address: '', description: '', tags: [] });
     }
   }, [isOpen, company, reset]);
 
   const onSubmit = (data: CompanyFormData) => {
     const now = new Date().toISOString();
+    // Construct the company object to save, preserving existing notes and createdAt
     const companyToSave: Company = {
       id: company?.id || generateId(),
-      ...data,
+      ...data, // Form data
+      notes: company?.notes || [], // Preserve existing notes
       tags: data.tags || [],
       createdAt: company?.createdAt || now,
       updatedAt: now,

@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import type { Task, Deal, Contact, DealStage } from '@/lib/types';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatsCard } from './stats-card';
 import { format, subDays, isWithinInterval } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function DashboardClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -75,8 +76,6 @@ export function DashboardClient() {
     const fetchFormDropdownData = async () => {
         setIsFormDataLoading(true);
         // Deals and Contacts are already being fetched for stats, no need to refetch if already loaded
-        // This is a simplification; in a real app, you might use a more robust state management (e.g. React Query)
-        // For now, we assume `deals` and `contacts` states will be populated by the main fetches.
         if (!isLoadingDeals && !isLoadingContacts) {
             setIsFormDataLoading(false);
         }
@@ -101,6 +100,7 @@ export function DashboardClient() {
 
   const handleSaveTaskCallback = () => {
     fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks'); // Refresh tasks list
+    handleCloseTaskModal();
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -176,7 +176,7 @@ export function DashboardClient() {
     const openDealsValue = openDeals.reduce((sum, deal) => sum + deal.value, 0);
     const pendingTasksCount = tasks.filter(t => !t.completed).length;
     const sevenDaysAgo = subDays(new Date(), 7);
-    const newContactsLast7Days = contacts.filter(c => isWithinInterval(new Date(c.createdAt), { start: sevenDaysAgo, end: new Date() })).length;
+    const newContactsLast7Days = contacts.filter(c => new Date(c.createdAt) >= sevenDaysAgo).length;
     
     return {
       openDealsCount: openDeals.length,
@@ -185,8 +185,6 @@ export function DashboardClient() {
       newContactsLast7Days
     };
   }, [deals, tasks, contacts]);
-
-  const isLoadingOverall = isLoadingTasks || isLoadingDeals || isLoadingContacts;
 
   if (error && tasks.length === 0 && deals.length === 0 && contacts.length === 0) {
     return (
@@ -232,99 +230,100 @@ export function DashboardClient() {
         />
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>My Tasks</CardTitle>
-            <Button onClick={() => handleOpenTaskModal()} disabled={isFormDataLoading || isLoadingDeals || isLoadingContacts}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
-            </Button>
-          </div>
-          <CardContent className="p-0 pt-4">
-             {isLoadingTasks ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">Status</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Related To</TableHead>
-                      <TableHead>Tags</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.from({ length: 3 }).map((_, index) => (
-                      <TableRow key={`skeleton-task-${index}`}>
-                        <TableCell><Checkbox disabled /></TableCell>
-                        <TableCell>Loading task...</TableCell>
-                        <TableCell>Loading...</TableCell>
-                        <TableCell>Loading...</TableCell>
-                        <TableCell>...</TableCell>
-                        <TableCell className="text-right"><MoreHorizontal className="h-4 w-4" /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : tasks.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">Status</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Related To</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+      <div className="mt-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold tracking-tight">My Tasks</h2>
+          <Button onClick={() => handleOpenTaskModal()} disabled={isFormDataLoading || isLoadingDeals || isLoadingContacts}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
+          </Button>
+        </div>
+        
+        {isLoadingTasks ? (
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">Status</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Related To</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <TableRow key={`skeleton-task-${index}`}>
+                    <TableCell><Checkbox disabled className="opacity-50" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                    <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tasks.map((task) => (
-                    <TableRow key={task.id} className={task.completed ? 'opacity-60' : ''}>
-                      <TableCell>
-                        <Checkbox
-                          checked={task.completed}
-                          onCheckedChange={() => toggleTaskCompletion(task.id)}
-                          aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
-                        />
-                      </TableCell>
-                      <TableCell className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</TableCell>
-                      <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
-                      <TableCell>{getRelatedItemName(task)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(task.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                          {(task.tags || []).length > 2 && <Badge variant="outline">+{task.tags.length - 2}</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenTaskModal(task)} disabled={isFormDataLoading}>
-                              <Edit className="mr-2 h-4 w-4" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteTask(task.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-muted-foreground text-center py-10">No tasks found. Get started by adding one!</p>
-            )}
-          </CardContent>
-        </CardHeader>
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : tasks.length > 0 ? (
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">Status</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Related To</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tasks.map((task) => (
+                  <TableRow key={task.id} className={task.completed ? 'opacity-60' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={task.completed}
+                        onCheckedChange={() => toggleTaskCompletion(task.id)}
+                        aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+                      />
+                    </TableCell>
+                    <TableCell className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</TableCell>
+                    <TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell>{getRelatedItemName(task)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(task.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                        {(task.tags || []).length > 2 && <Badge variant="outline">+{task.tags.length - 2}</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenTaskModal(task)} disabled={isFormDataLoading}>
+                            <Edit className="mr-2 h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteTask(task.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-center py-10">No tasks found. Get started by adding one!</p>
+        )}
+      </div>
 
       <TaskFormModal
         isOpen={isTaskModalOpen}
@@ -344,3 +343,5 @@ export function DashboardClient() {
     </div>
   );
 }
+
+    

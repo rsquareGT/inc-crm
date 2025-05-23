@@ -66,9 +66,9 @@ export function KanbanColumn({
   };
 
   return (
-    <div 
+    <div
       className={cn(
-        `flex-shrink-0 w-80 bg-secondary/50 rounded-lg p-1 border-t-4 transition-colors duration-150 ease-in-out`, 
+        `flex-shrink-0 w-60 bg-secondary/50 rounded-lg p-1 border-t-4 transition-colors duration-150 ease-in-out`, // Changed w-80 to w-60
         stageColors[stage],
         isOver ? 'bg-primary/10 ring-2 ring-primary ring-offset-2 ring-offset-background' : 'border-transparent'
       )}

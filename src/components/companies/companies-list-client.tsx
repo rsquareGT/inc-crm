@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
 import type { Company, Contact } from '@/lib/types';
-import { mockContacts } from '@/lib/mock-data'; // Still need mockContacts for the form's Account Manager dropdown for now, and until Contacts are DB driven
+// mockContacts removed, will fetch from API
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -31,8 +31,9 @@ type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>(mockContacts); // For Account Manager dropdown
+  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]); // For Account Manager dropdown
   const [isLoading, setIsLoading] = useState(true);
+  const [isFormRelatedDataLoading, setIsFormRelatedDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,11 +68,29 @@ export function CompaniesListClient() {
     }
   }, [toast]);
 
+  const fetchFormData = useCallback(async () => {
+    setIsFormRelatedDataLoading(true);
+    try {
+      const contactsResponse = await fetch('/api/contacts');
+      if(!contactsResponse.ok) {
+        const errorData = await contactsResponse.json();
+        throw new Error(errorData.error || `Failed to fetch contacts for form: ${contactsResponse.statusText}`);
+      }
+      const contactsData: Contact[] = await contactsResponse.json();
+      setAllContactsForForm(contactsData);
+    } catch (err) {
+      console.error("Error fetching form data for Companies List:", err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred fetching form data.';
+      toast({ title: "Error Loading Form Dependencies", description: message, variant: "destructive" });
+    } finally {
+      setIsFormRelatedDataLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     fetchCompanies();
-    // In a real app, allContactsForForm would also be fetched from an API
-    // For now, we use mockContacts for the company form's Account Manager dropdown.
-  }, [fetchCompanies]);
+    fetchFormData();
+  }, [fetchCompanies, fetchFormData]);
 
   const handleOpenModal = (company: Company | null = null) => {
     setEditingCompany(company);
@@ -84,7 +103,6 @@ export function CompaniesListClient() {
   };
 
   const handleSaveCompanyCallback = () => {
-    // After saving (create or update), re-fetch companies to update the list
     fetchCompanies();
   };
   
@@ -149,16 +167,16 @@ export function CompaniesListClient() {
     return [company.city, company.state, company.country].filter(Boolean).join(', ') || 'N/A';
   };
 
-  if (isLoading) {
+  if (isLoading || isFormRelatedDataLoading) {
     return (
       <div>
         <PageSectionHeader title="Companies" description="Manage your company directory." />
-        <p className="text-center py-10">Loading companies...</p>
+        <p className="text-center py-10">Loading companies and related data...</p>
       </div>
     );
   }
 
-  if (error && companies.length === 0) { // Only show full error if no data could be loaded at all
+  if (error && companies.length === 0) {
     return (
       <div>
         <PageSectionHeader title="Companies" description="Manage your company directory." />
@@ -298,9 +316,9 @@ export function CompaniesListClient() {
       <CompanyFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSaveCallback={handleSaveCompanyCallback} // Renamed from onSave
+        onSaveCallback={handleSaveCompanyCallback}
         company={editingCompany}
-        allContacts={allContactsForForm} // Pass all contacts for Account Manager dropdown
+        allContacts={allContactsForForm}
       />
 
       <DeleteConfirmationDialog
@@ -312,3 +330,5 @@ export function CompaniesListClient() {
     </div>
   );
 }
+
+    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Deal, Contact, Company, Note, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,8 @@ import { DealFormModal } from './deal-form-modal';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { mockDeals, mockContacts, mockCompanies, mockTasks, generateId } from '@/lib/mock-data';
+// generateId still needed for notes if client-side generation is used, but preferably server-side
+import { generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -19,42 +20,35 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks, ExternalLink } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-// import { format } from 'date-fns'; // No longer directly used here for notes
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DEAL_STAGES } from '@/lib/constants';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
+import { PageSectionHeader } from '../shared/page-section-header';
+
 
 interface DealDetailsClientProps {
-  initialDeal: Deal;
-  initialContact?: Contact;
-  initialCompany?: Company;
-  initialTasks: Task[]; // This prop might become less critical if we always filter from global
-  allContacts: Contact[];
-  allCompanies: Company[];
-  allDeals: Deal[]; // For task form
+  dealId: string;
 }
 
-export function DealDetailsClient({
-  initialDeal,
-  initialContact,
-  initialCompany,
-  // initialTasks, // We will primarily rely on filtering mockTasks directly
-  allContacts,
-  allCompanies,
-  allDeals,
-}: DealDetailsClientProps) {
-  const [deal, setDeal] = useState<Deal>(initialDeal);
-  const [contact, setContact] = useState<Contact | undefined>(initialContact);
-  const [company, setCompany] = useState<Company | undefined>(initialCompany);
-  const [tasks, setTasks] = useState<Task[]>([]); // Initialize as empty, will be populated by useEffect
+export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
+  const [deal, setDeal] = useState<Deal | null>(null);
+  const [contact, setContact] = useState<Contact | undefined>(undefined);
+  const [company, setCompany] = useState<Company | undefined>(undefined);
+  const [tasks, setTasks] = useState<Task[]>([]); 
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
+  const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
+  const [allDealsList, setAllDealsList] = useState<Deal[]>([]); 
 
   const { toast } = useToast();
 
@@ -65,69 +59,100 @@ export function DealDetailsClient({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'task' | 'note'; name: string } | null>(null);
 
+  const fetchDealDetails = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/deals/${dealId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch deal details');
+      }
+      const dealData: Deal = await response.json();
+      setDeal(dealData);
+
+      if (dealData.contactId) {
+        const contactRes = await fetch(`/api/contacts/${dealData.contactId}`);
+        if (contactRes.ok) setContact(await contactRes.json());
+      } else setContact(undefined);
+
+      if (dealData.companyId) {
+        const companyRes = await fetch(`/api/companies/${dealData.companyId}`);
+        if (companyRes.ok) setCompany(await companyRes.json());
+      } else setCompany(undefined);
+
+      // Fetch tasks related to this deal
+      const tasksRes = await fetch(`/api/tasks?dealId=${dealId}`);
+      if (tasksRes.ok) setTasks(await tasksRes.json()); else setTasks([]);
+
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(message);
+      toast({ title: "Error Fetching Deal Data", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dealId, toast]);
+
+  const fetchFormDropdownData = useCallback(async () => {
+    try {
+        const [contactsRes, companiesRes, dealsRes] = await Promise.all([
+            fetch('/api/contacts'),
+            fetch('/api/companies'),
+            fetch('/api/deals') 
+        ]);
+        if (contactsRes.ok) setAllContactsList(await contactsRes.json());
+        if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
+        if (dealsRes.ok) setAllDealsList(await dealsRes.json());
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'An unknown error occurred';
+        toast({ title: "Error Loading Form Data", description: message, variant: "destructive" });
+    }
+  }, [toast]);
+
   useEffect(() => {
-    setDeal(initialDeal);
-    setContact(initialContact);
-    setCompany(initialCompany);
-    // Always filter tasks from global mockTasks based on the current deal
-    if (initialDeal?.id) {
-      const currentDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === initialDeal.id);
-      setTasks(currentDealRelatedTasks);
-    } else {
-      setTasks([]); // Handle case where initialDeal might not be fully loaded or valid
-    }
-  }, [initialDeal, initialContact, initialCompany]);
+    fetchDealDetails();
+    fetchFormDropdownData();
+  }, [fetchDealDetails, fetchFormDropdownData]);
 
 
-  const handleSaveDeal = (updatedDeal: Deal) => {
-    setDeal(updatedDeal);
-    const index = mockDeals.findIndex(d => d.id === updatedDeal.id);
-    if (index !== -1) mockDeals[index] = updatedDeal;
-    if (updatedDeal.contactId) {
-        setContact(allContacts.find(c => c.id === updatedDeal.contactId));
-    } else {
-        setContact(undefined);
-    }
-    if (updatedDeal.companyId) {
-        setCompany(allCompanies.find(c => c.id === updatedDeal.companyId));
-    } else {
-        setCompany(undefined);
-    }
-    toast({ title: "Deal Updated", description: `Deal "${updatedDeal.name}" details saved.` });
+  const handleSaveDealCallback = () => {
+    fetchDealDetails(); 
     setIsDealModalOpen(false);
   };
-
-  const handleSaveTask = (taskFromForm: Task) => {
-    if (editingTask) { // Editing an existing task
-      const taskIndexInMock = mockTasks.findIndex(mt => mt.id === editingTask.id);
-      if (taskIndexInMock !== -1) {
-        mockTasks[taskIndexInMock] = { ...taskFromForm }; // Update in global mockTasks
-      }
-      toast({ title: "Task Updated", description: `Task "${taskFromForm.title}" updated.` });
-    } else { // Adding a new task
-      // Ensure relatedDealId is set to the current deal.id (taskFromForm will have it if pre-filled)
-      const newTaskWithRelation = { ...taskFromForm, relatedDealId: deal.id };
-      mockTasks.push(newTaskWithRelation); // Add to global mockTasks
-      toast({ title: "Task Created", description: `New task "${newTaskWithRelation.title}" added for this deal.` });
-    }
   
-    // Refresh local tasks state for this deal directly from the (now updated) global mockTasks
-    const updatedDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === deal.id);
-    setTasks(updatedDealRelatedTasks);
-  
+  const handleSaveTaskCallback = () => {
+    fetchDealDetails(); // Re-fetch deal details to update tasks list
     setIsTaskModalOpen(false);
-    setEditingTask(null); // Clear editingTask state
+    setEditingTask(null); 
   };
   
-  const toggleTaskCompletion = (taskId: string) => {
-    const taskIndexInMock = mockTasks.findIndex(t => t.id === taskId);
-    if (taskIndexInMock !== -1) {
-      mockTasks[taskIndexInMock].completed = !mockTasks[taskIndexInMock].completed;
-      mockTasks[taskIndexInMock].updatedAt = new Date().toISOString();
+  const toggleTaskCompletion = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const updatedTaskPayload = { ...task, completed: !task.completed };
+    
+    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed, updatedAt: new Date().toISOString() } : t)); // Optimistic update
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTaskPayload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update task completion');
+      }
+      // Optionally re-fetch tasks here or rely on optimistic update
+      toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTaskPayload.completed ? 'complete' : 'incomplete'}.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Updating Task", description: message, variant: "destructive" });
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t)); // Revert
     }
-    // Refresh local tasks state
-    const updatedDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === deal.id);
-    setTasks(updatedDealRelatedTasks);
   };
 
   const handleDeleteRequest = (id: string, type: 'task' | 'note', name: string) => {
@@ -135,56 +160,91 @@ export function DealDetailsClient({
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteItem = () => {
-    if (!itemToDelete) return;
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete || !deal) return;
+    let endpoint = '';
+    let successMessage = '';
 
-    if (itemToDelete.type === 'task') {
-      const mockIndex = mockTasks.findIndex(mt => mt.id === itemToDelete.id);
-      if (mockIndex !== -1) {
-        mockTasks.splice(mockIndex, 1); // Remove from global mockTasks
-      }
-      // Refresh local tasks state
-      const updatedDealRelatedTasks = mockTasks.filter(t => t.relatedDealId === deal.id);
-      setTasks(updatedDealRelatedTasks);
-      toast({ title: "Task Deleted", description: `Task "${itemToDelete.name}" deleted.`, variant: "destructive" });
-    } else if (itemToDelete.type === 'note') {
-      setDeal(prevDeal => {
-        const updatedNotes = prevDeal.notes.filter(note => note.id !== itemToDelete.id);
-        const dealIndex = mockDeals.findIndex(d => d.id === prevDeal.id);
-        if (dealIndex !== -1) {
-          mockDeals[dealIndex].notes = updatedNotes;
-        }
-        return { ...prevDeal, notes: updatedNotes };
-      });
-      toast({ title: "Note Deleted", description: "Note has been deleted.", variant: "destructive" });
+    if (itemToDelete.type === 'note') {
+      endpoint = `/api/deals/${deal.id}/notes/${itemToDelete.id}`;
+      successMessage = "Note has been deleted.";
+    } else if (itemToDelete.type === 'task') {
+      endpoint = `/api/tasks/${itemToDelete.id}`;
+      successMessage = `Task "${itemToDelete.name}" deleted.`;
     }
-    setShowDeleteDialog(false);
-    setItemToDelete(null);
+    
+    if (!endpoint) return;
+
+    try {
+      const response = await fetch(endpoint, { method: 'DELETE' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
+      }
+      toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
+      fetchDealDetails(); // Re-fetch all deal details to update lists
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setItemToDelete(null);
+    }
   };
 
-  const handleAddNote = () => {
-    if (newNoteContent.trim() === '') {
-      toast({ title: "Cannot add empty note", variant: "destructive" });
+  const handleAddNote = async () => {
+    if (!deal || newNoteContent.trim() === '') {
+      toast({ title: "Cannot add empty note or no deal context", variant: "destructive" });
       return;
     }
-    const newNote: Note = {
-      id: generateId(),
-      content: newNoteContent.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    setDeal(prevDeal => {
-      const updatedNotes = [newNote, ...prevDeal.notes];
-      const dealIndex = mockDeals.findIndex(d => d.id === prevDeal.id);
-      if (dealIndex !== -1) {
-        mockDeals[dealIndex].notes = updatedNotes;
+    try {
+      const response = await fetch(`/api/deals/${deal.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newNoteContent.trim() }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add note');
       }
-      return { ...prevDeal, notes: updatedNotes };
-    });
-    setNewNoteContent('');
-    toast({ title: "Note Added", description: "New note saved for this deal." });
+      const newNote: Note = await response.json();
+      setDeal(prevDeal => {
+          if(!prevDeal) return null;
+          return {...prevDeal, notes: [newNote, ...(prevDeal.notes || [])]}
+      });
+      setNewNoteContent('');
+      toast({ title: "Note Added", description: "New note saved for this deal." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Adding Note", description: message, variant: "destructive" });
+    }
   };
   
-  const sortedNotes = deal.notes ? [...deal.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  const sortedNotes = deal?.notes ? [...deal.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto py-8">
+             <PageSectionHeader title="Loading Deal..." />
+            <p>Loading details...</p>
+        </div>
+    );
+  }
+
+  if (error || !deal) {
+    return (
+      <div className="container mx-auto py-8">
+        <Button variant="outline" asChild className="mb-4">
+          <Link href="/deals">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Deals
+          </Link>
+        </Button>
+        <PageSectionHeader title="Deal Not Found" description={error || "The deal you are looking for does not exist or could not be loaded."} />
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
@@ -207,16 +267,16 @@ export function DealDetailsClient({
                 <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' } className="ml-2">{deal.stage}</Badge>
             </div>
             {company && (
-                <p className="text-muted-foreground flex items-center">
+                <div className="text-muted-foreground flex items-center">
                 <Building className="mr-2 h-4 w-4" />
                 <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{company.name}</Link>
-                </p>
+                </div>
             )}
             {contact && (
-                <p className="text-muted-foreground flex items-center">
+                <div className="text-muted-foreground flex items-center">
                 <User className="mr-2 h-4 w-4" />
                 <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link>
-                </p>
+                </div>
             )}
           </div>
         </div>
@@ -363,18 +423,18 @@ export function DealDetailsClient({
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => setIsDealModalOpen(false)}
-        onSave={handleSaveDeal}
+        onSaveCallback={handleSaveDealCallback}
         deal={deal}
-        contacts={allContacts}
-        companies={allCompanies}
+        contacts={allContactsList}
+        companies={allCompaniesList}
       />
       <TaskFormModal
         isOpen={isTaskModalOpen}
         onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
-        onSave={handleSaveTask}
+        onSaveCallback={handleSaveTaskCallback}
         task={editingTask}
-        deals={allDeals}
-        contacts={allContacts}
+        deals={allDealsList} 
+        contacts={allContactsList}
         defaultDealId={deal.id} 
         defaultContactId={contact?.id}
       />
@@ -388,4 +448,3 @@ export function DealDetailsClient({
     </div>
   );
 }
-

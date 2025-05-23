@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; 
 import type { Task, Deal, Contact, Company } from '@/lib/types';
-import { mockTasks, mockDeals, mockContacts, mockCompanies } from '@/lib/mock-data';
+// mock data for deals, contacts, companies is for form population only now
 import { TaskFormModal } from './task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -27,9 +27,11 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export function TasksListClient() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [allDealsForForm, setAllDealsForForm] = useState<Deal[]>([]);
+  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
+  // const [allCompaniesForForm, setAllCompaniesForForm] = useState<Company[]>([]); // Not directly needed for task form, but good for context
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -37,12 +39,48 @@ export function TasksListClient() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const fetchTasks = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/tasks');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to fetch tasks: ${response.statusText}`);
+      }
+      const data: Task[] = await response.json();
+      setTasks(data);
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(message);
+      toast({ title: "Error Fetching Tasks", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  const fetchFormData = useCallback(async () => {
+    try {
+      const [dealsRes, contactsRes] = await Promise.all([
+        fetch('/api/deals'),
+        fetch('/api/contacts'),
+        // fetch('/api/companies') // If needed for company context for contacts
+      ]);
+      if (dealsRes.ok) setAllDealsForForm(await dealsRes.json());
+      if (contactsRes.ok) setAllContactsForForm(await contactsRes.json());
+      // if (companiesRes.ok) setAllCompaniesForForm(await companiesRes.json());
+    } catch (err) {
+      console.error("Error fetching data for task form:", err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Loading Form Data", description: message, variant: "destructive" });
+    }
+  }, [toast]);
+
   useEffect(() => {
-    setTasks(mockTasks);
-    setDeals(mockDeals);
-    setContacts(mockContacts);
-    setCompanies(mockCompanies);
-  }, []);
+    fetchTasks();
+    fetchFormData();
+  }, [fetchTasks, fetchFormData]);
 
   const handleOpenModal = (task: Task | null = null) => {
     setEditingTask(task);
@@ -54,25 +92,8 @@ export function TasksListClient() {
     setEditingTask(null);
   };
 
-  const handleSaveTask = (taskToSave: Task) => {
-    setTasks((prevTasks) => {
-      const existingIndex = prevTasks.findIndex((t) => t.id === taskToSave.id);
-      if (existingIndex > -1) {
-        const updatedTasks = [...prevTasks];
-        updatedTasks[existingIndex] = taskToSave;
-        toast({ title: "Task Updated", description: `Task "${taskToSave.title}" updated.` });
-        return updatedTasks;
-      }
-      toast({ title: "Task Created", description: `New task "${taskToSave.title}" added.` });
-      return [...prevTasks, taskToSave];
-    });
-    // Update mockTasks array directly
-    const mockIndex = mockTasks.findIndex(t => t.id === taskToSave.id);
-    if (mockIndex !== -1) {
-      mockTasks[mockIndex] = taskToSave;
-    } else {
-      mockTasks.push(taskToSave);
-    }
+  const handleSaveTaskCallback = () => {
+    fetchTasks(); // Re-fetch tasks to update the list
   };
   
   const handleDeleteTask = (taskId: string) => {
@@ -80,56 +101,81 @@ export function TasksListClient() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteTask = () => {
-    if (taskToDelete) {
-      const taskTitle = tasks.find(t => t.id === taskToDelete)?.title || "Task";
-      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskToDelete));
-      // Remove from mockTasks array
-      const mockIndex = mockTasks.findIndex(t => t.id === taskToDelete);
-      if (mockIndex !== -1) {
-        mockTasks.splice(mockIndex, 1);
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    const taskTitle = tasks.find(t => t.id === taskToDelete)?.title || "Task";
+    try {
+      const response = await fetch(`/api/tasks/${taskToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete task');
       }
-      toast({ title: "Task Deleted", description: `Task "${taskTitle}" has been deleted.`, variant: "destructive" });
+      toast({ title: "Task Deleted", description: `Task "${taskTitle}" has been deleted.` });
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskToDelete));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Deleting Task", description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setTaskToDelete(null);
     }
-    setShowDeleteDialog(false);
-    setTaskToDelete(null);
   };
 
-  const toggleTaskCompletion = (taskId: string) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === taskId ? { ...task, completed: !task.completed, updatedAt: new Date().toISOString() } : task
-      )
-    );
-    // Update mockTasks array directly
-    const mockIndex = mockTasks.findIndex(t => t.id === taskId);
-    if (mockIndex !== -1) {
-      mockTasks[mockIndex].completed = !mockTasks[mockIndex].completed;
-      mockTasks[mockIndex].updatedAt = new Date().toISOString();
+  const toggleTaskCompletion = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const updatedTask = { ...task, completed: !task.completed, updatedAt: new Date().toISOString() };
+    
+    // Optimistic update
+    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? updatedTask : t));
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTask),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update task completion');
+      }
+      // fetchTasks(); // Re-fetch or rely on optimistic update. For now, rely on optimistic.
+      toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTask.completed ? 'complete' : 'incomplete'}.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Updating Task", description: message, variant: "destructive" });
+      // Revert optimistic update on error
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t));
     }
   };
 
   const getRelatedItemName = (task: Task): React.ReactNode => {
     if (task.relatedDealId) {
-      const deal = deals.find(d => d.id === task.relatedDealId);
+      const deal = allDealsForForm.find(d => d.id === task.relatedDealId);
       return deal ? <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">{deal.name}</Link> : 'N/A';
     }
     if (task.relatedContactId) {
-      const contact = contacts.find(c => c.id === task.relatedContactId);
+      const contact = allContactsForForm.find(c => c.id === task.relatedContactId);
       if (contact) {
-        let contactDisplay = <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link>;
-        if (contact.companyId) {
-           const company = companies.find(c => c.id === contact.companyId);
-           if (company) {
-              return <><Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link> (via <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{company.name}</Link>)</>;
-           }
-        }
-        return contactDisplay;
+        // Future enhancement: Could also link company if contact has one and allCompaniesForForm is populated
+        return <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">{contact.firstName} {contact.lastName}</Link>;
       }
       return 'N/A';
     }
     return 'N/A';
   };
+
+  if (isLoading && tasks.length === 0) {
+    return (
+      <div>
+        <PageSectionHeader title="Tasks" description="Manage your to-do list."/>
+        <p className="text-center py-10">Loading tasks...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -167,8 +213,8 @@ export function TasksListClient() {
                   <TableCell>{getRelatedItemName(task)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {task.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                      {task.tags.length > 2 && <Badge variant="outline">+{task.tags.length - 2}</Badge>}
+                      {(task.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                      {(task.tags || []).length > 2 && <Badge variant="outline">+{task.tags.length - 2}</Badge>}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -204,10 +250,10 @@ export function TasksListClient() {
       <TaskFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSaveTask}
+        onSaveCallback={handleSaveTaskCallback}
         task={editingTask}
-        deals={deals}
-        contacts={contacts}
+        deals={allDealsForForm}
+        contacts={allContactsForForm}
       />
 
       <DeleteConfirmationDialog

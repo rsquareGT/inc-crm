@@ -28,7 +28,8 @@ import {
 } from '@/components/ui/select';
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Task, Deal, Contact } from '@/lib/types';
-import { generateId } from '@/lib/mock-data';
+// generateId removed as new IDs will come from backend
+import { useToast } from '@/hooks/use-toast';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -36,8 +37,8 @@ const taskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   dueDate: z.string().optional(),
-  relatedDealId: z.string().optional(),
-  relatedContactId: z.string().optional(),
+  relatedDealId: z.string().optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
+  relatedContactId: z.string().optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
   completed: z.boolean().default(false),
   tags: z.array(z.string()).optional(),
 });
@@ -47,7 +48,7 @@ type TaskFormData = z.infer<typeof taskSchema>;
 interface TaskFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (task: Task) => void;
+  onSaveCallback: () => void; // Changed from onSave to onSaveCallback for consistency
   task?: Task | null;
   deals: Deal[];
   contacts: Contact[];
@@ -55,60 +56,74 @@ interface TaskFormModalProps {
   defaultContactId?: string;
 }
 
-export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, defaultDealId, defaultContactId }: TaskFormModalProps) {
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<TaskFormData>({
+export function TaskFormModal({ isOpen, onClose, onSaveCallback, task, deals, contacts, defaultDealId, defaultContactId }: TaskFormModalProps) {
+  const { toast } = useToast();
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
-    defaultValues: task 
-      ? { ...task, tags: task.tags || [] } 
-      : { 
-          title: '', 
-          completed: false, 
-          tags: [], 
-          description: '', 
-          dueDate: '', 
-          relatedDealId: defaultDealId || undefined, 
-          relatedContactId: defaultContactId || undefined 
-        },
   });
 
   const descriptionForAISuggestions = watch('description');
 
   useEffect(() => {
     if (isOpen) {
-      if (task) { // Editing existing task
-        reset({ 
+      const defaultValues = task 
+      ? { 
           ...task, 
-          relatedDealId: task.relatedDealId || undefined, 
-          relatedContactId: task.relatedContactId || undefined, 
+          relatedDealId: task.relatedDealId || NONE_SELECT_VALUE, 
+          relatedContactId: task.relatedContactId || NONE_SELECT_VALUE, 
           tags: task.tags || [] 
-        });
-      } else { // Adding new task, use defaults
-        reset({ 
+        } 
+      : { 
           title: '', 
           completed: false, 
           tags: [], 
           description: '', 
           dueDate: '', 
-          relatedDealId: defaultDealId || undefined, 
-          relatedContactId: defaultContactId || undefined 
-        });
-      }
+          relatedDealId: defaultDealId || NONE_SELECT_VALUE, 
+          relatedContactId: defaultContactId || NONE_SELECT_VALUE 
+        };
+      reset(defaultValues);
     }
   }, [isOpen, task, reset, defaultDealId, defaultContactId]);
 
-  const onSubmit = (data: TaskFormData) => {
-    const now = new Date().toISOString();
-    const taskToSave: Task = {
-      id: task?.id || generateId(),
+  const onSubmit = async (data: TaskFormData) => {
+    const taskPayload = {
       ...data,
-      relatedDealId: data.relatedDealId === NONE_SELECT_VALUE ? undefined : data.relatedDealId,
-      relatedContactId: data.relatedContactId === NONE_SELECT_VALUE ? undefined : data.relatedContactId,
       tags: data.tags || [],
-      createdAt: task?.createdAt || now,
-      updatedAt: now,
     };
-    onSave(taskToSave);
-    onClose();
+
+    try {
+      let response;
+      if (task?.id) { // Editing existing task
+        response = await fetch(`/api/tasks/${task.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taskPayload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update task');
+        }
+        toast({ title: "Task Updated", description: `Task "${data.title}" details saved.` });
+      } else { // Creating new task
+        response = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taskPayload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create task');
+        }
+        toast({ title: "Task Created", description: `New task "${data.title}" added.` });
+      }
+      
+      onSaveCallback();
+      onClose();
+    } catch (error) {
+      console.error("Error saving task:", error);
+      toast({ title: "Error Saving Task", description: error instanceof Error ? error.message : "Could not save task.", variant: "destructive" });
+    }
   };
 
   return (
@@ -120,20 +135,20 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, 
             {task ? 'Update the details of this task.' : 'Enter the details for the new task.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2">
           <div>
             <Label htmlFor="title">Title</Label>
-            <Input id="title" {...register('title')} />
+            <Input id="title" {...register('title')} disabled={isSubmitting} />
             {errors.title && <p className="text-sm text-destructive mt-1">{errors.title.message}</p>}
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" {...register('description')} placeholder="Describe the task..."/>
+            <Textarea id="description" {...register('description')} placeholder="Describe the task..." disabled={isSubmitting}/>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
-              <Input id="dueDate" type="date" {...register('dueDate')} />
+              <Input id="dueDate" type="date" {...register('dueDate')} disabled={isSubmitting} />
             </div>
             <div className="flex items-end">
               <Controller
@@ -141,7 +156,7 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, 
                 control={control}
                 render={({ field }) => (
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="completed" checked={field.value} onCheckedChange={field.onChange} />
+                    <Checkbox id="completed" checked={field.value} onCheckedChange={field.onChange} disabled={isSubmitting} />
                     <Label htmlFor="completed" className="font-normal">Completed</Label>
                   </div>
                 )}
@@ -155,7 +170,7 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, 
                 name="relatedDealId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} >
+                  <Select onValueChange={field.onChange} value={field.value || undefined} disabled={isSubmitting}>
                     <SelectTrigger id="relatedDealId">
                       <SelectValue placeholder="Select deal" />
                     </SelectTrigger>
@@ -175,7 +190,7 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, 
                 name="relatedContactId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || undefined} >
+                  <Select onValueChange={field.onChange} value={field.value || undefined} disabled={isSubmitting}>
                     <SelectTrigger id="relatedContactId">
                       <SelectValue placeholder="Select contact" />
                     </SelectTrigger>
@@ -206,15 +221,16 @@ export function TaskFormModal({ isOpen, onClose, onSave, task, deals, contacts, 
                 )}
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
-            <Button type="submit">Save Task</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (task ? 'Saving...' : 'Adding...') : (task ? 'Save Task' : 'Add Task')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
-

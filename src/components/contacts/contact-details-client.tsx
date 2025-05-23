@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Contact, Company, Deal, Note } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,8 @@ import { ContactFormModal } from './contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { mockContacts, mockCompanies, mockDeals, generateId } from '@/lib/mock-data';
+// generateId still needed for notes if client-side generation is used, but preferably server-side
+import { generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -26,29 +27,26 @@ import { Badge } from '../ui/badge';
 import { DEAL_STAGES } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-// import { format } from 'date-fns'; // No longer directly used here for notes
 import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
+import { PageSectionHeader } from '../shared/page-section-header';
+
 
 interface ContactDetailsClientProps {
-  initialContact: Contact;
-  initialCompany?: Company;
-  initialDeals: Deal[];
-  allCompanies: Company[];
-  allContacts: Contact[]; // For deal form, if needed for other contacts
+  contactId: string;
 }
 
-export function ContactDetailsClient({
-  initialContact,
-  initialCompany,
-  initialDeals,
-  allCompanies,
-  allContacts,
-}: ContactDetailsClientProps) {
-  const [contact, setContact] = useState<Contact>(initialContact);
-  const [company, setCompany] = useState<Company | undefined>(initialCompany);
-  const [deals, setDeals] = useState<Deal[]>(initialDeals);
+export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
+  const [contact, setContact] = useState<Contact | null>(null);
+  const [company, setCompany] = useState<Company | undefined>(undefined);
+  const [deals, setDeals] = useState<Deal[]>([]); // Deals related to this contact
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // For form dropdowns
+  const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); // For deal form
 
   const { toast } = useToast();
 
@@ -59,41 +57,67 @@ export function ContactDetailsClient({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'deal' | 'note'; name: string } | null>(null);
 
-  useEffect(() => {
-    setContact(initialContact);
-    setCompany(initialCompany);
-    setDeals(initialDeals);
-  }, [initialContact, initialCompany, initialDeals]);
 
-  const handleSaveContact = (updatedContact: Contact) => {
-    setContact(updatedContact);
-    const index = mockContacts.findIndex(c => c.id === updatedContact.id);
-    if (index !== -1) mockContacts[index] = updatedContact;
-    if (updatedContact.companyId) {
-        setCompany(allCompanies.find(c => c.id === updatedContact.companyId));
-    } else {
+  const fetchContactDetails = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/contacts/${contactId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch contact details');
+      }
+      const contactData: Contact = await response.json();
+      setContact(contactData);
+
+      if (contactData.companyId) {
+        const companyRes = await fetch(`/api/companies/${contactData.companyId}`);
+        if (companyRes.ok) setCompany(await companyRes.json());
+        else setCompany(undefined);
+      } else {
         setCompany(undefined);
+      }
+
+      // Fetch related deals
+      const dealsRes = await fetch(`/api/deals?contactId=${contactId}`);
+      if (dealsRes.ok) setDeals(await dealsRes.json()); else setDeals([]);
+
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(message);
+      toast({ title: "Error Fetching Contact Data", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
-    toast({ title: "Contact Updated", description: `${updatedContact.firstName} ${updatedContact.lastName} details saved.` });
+  }, [contactId, toast]);
+  
+  const fetchFormDropdownData = useCallback(async () => {
+    try {
+        const [companiesRes, contactsRes] = await Promise.all([
+            fetch('/api/companies'),
+            fetch('/api/contacts') // For DealForm's contact dropdown if needed (or could be filtered)
+        ]);
+        if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
+        if (contactsRes.ok) setAllContactsList(await contactsRes.json()); // all contacts for deal form
+    } catch (err) {
+        toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
+    }
+  }, [toast]);
+
+
+  useEffect(() => {
+    fetchContactDetails();
+    fetchFormDropdownData();
+  }, [fetchContactDetails, fetchFormDropdownData]);
+
+  const handleSaveContactCallback = () => {
+    fetchContactDetails(); 
     setIsContactModalOpen(false);
   };
   
-  const handleSaveDeal = (dealToSave: Deal) => {
-    setDeals((prevDeals) => {
-      const existingIndex = prevDeals.findIndex((d) => d.id === dealToSave.id);
-      if (existingIndex > -1) {
-        const updated = [...prevDeals];
-        updated[existingIndex] = dealToSave;
-        const mockIndex = mockDeals.findIndex(md => md.id === dealToSave.id);
-        if (mockIndex !== -1) mockDeals[mockIndex] = dealToSave;
-        toast({ title: "Deal Updated", description: `Deal "${dealToSave.name}" updated.` });
-        return updated;
-      }
-      const newDeal = { ...dealToSave, contactId: contact.id, companyId: contact.companyId };
-      mockDeals.push(newDeal);
-      toast({ title: "Deal Created", description: `New deal "${dealToSave.name}" added for this contact.` });
-      return [...prevDeals, newDeal];
-    });
+  const handleSaveDealCallback = () => {
+    fetchContactDetails(); // Re-fetch to update deals list
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -103,52 +127,90 @@ export function ContactDetailsClient({
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteItem = () => {
-    if (!itemToDelete) return;
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete || !contact) return;
+    let endpoint = '';
+    let successMessage = '';
 
-    if (itemToDelete.type === 'deal') {
-      setDeals(prev => prev.filter(d => d.id !== itemToDelete.id));
-      const mockIndex = mockDeals.findIndex(md => md.id === itemToDelete.id);
-      if (mockIndex !== -1) mockDeals.splice(mockIndex, 1);
-      toast({ title: "Deal Deleted", description: `Deal "${itemToDelete.name}" deleted.`, variant: "destructive" });
-    } else if (itemToDelete.type === 'note') {
-      setContact(prevContact => {
-        const updatedNotes = prevContact.notes.filter(note => note.id !== itemToDelete.id);
-        const contactIndex = mockContacts.findIndex(c => c.id === prevContact.id);
-        if (contactIndex !== -1) {
-          mockContacts[contactIndex].notes = updatedNotes;
-        }
-        return { ...prevContact, notes: updatedNotes };
-      });
-      toast({ title: "Note Deleted", description: "Note has been deleted.", variant: "destructive" });
+    if (itemToDelete.type === 'note') {
+      endpoint = `/api/contacts/${contact.id}/notes/${itemToDelete.id}`;
+      successMessage = "Note has been deleted.";
+    } else if (itemToDelete.type === 'deal') {
+      endpoint = `/api/deals/${itemToDelete.id}`;
+      successMessage = `Deal "${itemToDelete.name}" deleted.`;
     }
-    setShowDeleteDialog(false);
-    setItemToDelete(null);
+
+    if (!endpoint) return;
+
+    try {
+      const response = await fetch(endpoint, { method: 'DELETE' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
+      }
+      toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
+      fetchContactDetails(); // Re-fetch all contact details to update lists
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setItemToDelete(null);
+    }
   };
 
-  const handleAddNote = () => {
-    if (newNoteContent.trim() === '') {
-      toast({ title: "Cannot add empty note", variant: "destructive" });
+  const handleAddNote = async () => {
+    if (!contact || newNoteContent.trim() === '') {
+      toast({ title: "Cannot add empty note or no contact context", variant: "destructive" });
       return;
     }
-    const newNote: Note = {
-      id: generateId(),
-      content: newNoteContent.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    setContact(prevContact => {
-      const updatedNotes = [newNote, ...prevContact.notes];
-      const contactIndex = mockContacts.findIndex(c => c.id === prevContact.id);
-      if (contactIndex !== -1) {
-        mockContacts[contactIndex].notes = updatedNotes;
+    try {
+      const response = await fetch(`/api/contacts/${contact.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newNoteContent.trim() }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add note');
       }
-      return { ...prevContact, notes: updatedNotes };
-    });
-    setNewNoteContent('');
-    toast({ title: "Note Added", description: "New note saved for this contact." });
+      const newNote: Note = await response.json();
+      setContact(prevContact => {
+        if(!prevContact) return null;
+        return { ...prevContact, notes: [newNote, ...(prevContact.notes || [])] };
+      });
+      setNewNoteContent('');
+      toast({ title: "Note Added", description: "New note saved for this contact." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Adding Note", description: message, variant: "destructive" });
+    }
   };
   
-  const sortedNotes = contact.notes ? [...contact.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  const sortedNotes = contact?.notes ? [...contact.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto py-8">
+            <PageSectionHeader title="Loading Contact..." />
+            <p>Loading details...</p>
+        </div>
+    );
+  }
+
+  if (error || !contact) {
+    return (
+      <div className="container mx-auto py-8">
+        <Button variant="outline" asChild className="mb-4">
+            <Link href="/contacts">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Contacts
+            </Link>
+          </Button>
+        <PageSectionHeader title="Contact Not Found" description={error || "The contact you are looking for does not exist or could not be loaded."} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -284,6 +346,11 @@ export function ContactDetailsClient({
                                     </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                        <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                                          <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                        </Link>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
                                         <Edit className="mr-2 h-4 w-4" /> Edit
                                     </DropdownMenuItem>
@@ -310,19 +377,19 @@ export function ContactDetailsClient({
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
-        onSave={handleSaveContact}
+        onSaveCallback={handleSaveContactCallback}
         contact={contact}
-        companies={allCompanies}
+        companies={allCompaniesList}
       />
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
-        onSave={handleSaveDeal}
+        onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContacts} // Pass all contacts for the deal form
-        companies={allCompanies}
-        defaultContactId={contact.id} // Pre-fill current contact
-        defaultCompanyId={contact.companyId} // Pre-fill current contact's company
+        contacts={allContactsList} 
+        companies={allCompaniesList}
+        defaultContactId={contact.id} 
+        defaultCompanyId={contact.companyId} 
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

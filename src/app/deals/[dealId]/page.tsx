@@ -1,7 +1,7 @@
 
 import { AppPageShell } from '@/components/layout/app-page-shell';
 import { DealDetailsClient } from '@/components/deals/deal-details-client';
-import { mockDeals, mockContacts, mockCompanies, mockTasks } from '@/lib/mock-data';
+// Mock data no longer primary source
 import type { Deal, Contact, Company, Task } from '@/lib/types';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { Button } from '@/components/ui/button';
@@ -12,54 +12,34 @@ interface DealDetailsPageProps {
   params: { dealId: string };
 }
 
-// Simulate fetching data
-const getDealData = (dealId: string) => {
-  const deal = mockDeals.find(d => d.id === dealId);
-  const contact = deal?.contactId ? mockContacts.find(c => c.id === deal.contactId) : undefined;
-  const company = deal?.companyId ? mockCompanies.find(co => co.id === deal.companyId) : undefined;
-  const relatedTasks = mockTasks.filter(t => t.relatedDealId === dealId);
-  
-  return {
-    deal,
-    contact,
-    company,
-    relatedTasks,
-    allContacts: mockContacts, // For linking in forms
-    allCompanies: mockCompanies, // For linking in forms
-    allDeals: mockDeals, // For task form if linking other deals
-  };
-};
-
-export default function DealDetailsPage({ params }: DealDetailsPageProps) {
-  const { dealId } = params;
-  const { deal, contact, company, relatedTasks, allContacts, allCompanies, allDeals } = getDealData(dealId);
-
-  if (!deal) {
-    return (
-      <AppPageShell>
-        <div className="container mx-auto py-8">
-          <Button variant="outline" asChild className="mb-4">
-            <Link href="/deals">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Deals
-            </Link>
-          </Button>
-          <PageSectionHeader title="Deal Not Found" description="The deal you are looking for does not exist." />
-        </div>
-      </AppPageShell>
-    );
+// This function would ideally fetch data server-side using the dealId.
+// For now, DealDetailsClient will handle client-side fetching.
+async function getDealInitialData(dealId: string): Promise<{ deal: Deal | null }> {
+  // In a real app, you'd fetch from your DB/API here.
+  // Example: const deal = await fetch(`/api/deals/${dealId}`).then(res => res.json());
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9002'}/api/deals/${dealId}`, { cache: 'no-store'});
+    if (!res.ok) return { deal: null };
+    return { deal: await res.json() };
+  } catch (error) {
+    console.error("Failed to fetch initial deal data for details page:", error);
+    return { deal: null };
   }
+}
+
+
+export default async function DealDetailsPage({ params }: DealDetailsPageProps) {
+  const { dealId } = params;
+  // const { deal } = await getDealInitialData(dealId); // Server-side fetch example
+  // Passing dealId to the client component is sufficient for it to fetch its own data.
+  // `allContacts`, `allCompanies`, `allDeals` are needed for form dropdowns and will be fetched by the client component.
 
   return (
     <AppPageShell>
       <DealDetailsClient
-        initialDeal={deal}
-        initialContact={contact}
-        initialCompany={company}
-        initialTasks={relatedTasks}
-        allContacts={allContacts}
-        allCompanies={allCompanies}
-        allDeals={allDeals} // Pass allDeals for TaskFormModal
+        dealId={dealId} // Pass dealId to client for it to fetch
+        // initialDeal={deal} // Pass if using server-side fetch
+        // The client component will fetch its own related data like tasks, notes, and lists for forms
       />
     </AppPageShell>
   );

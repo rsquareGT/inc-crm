@@ -11,7 +11,9 @@ import { ContactFormModal } from '@/components/contacts/contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { mockContacts, mockDeals, generateId, mockCompanies as fallbackMockCompanies } from '@/lib/mock-data'; // Keep for contacts/deals until they are DB driven
+// mock data for contacts/deals list sections on company page is removed
+// generateId still needed for notes if client-side generation is used, but preferably server-side
+import { generateId } from '@/lib/mock-data'; 
 import {
   Table,
   TableBody,
@@ -35,23 +37,19 @@ import { PageSectionHeader } from '../shared/page-section-header';
 
 interface CompanyDetailsClientProps {
   companyId: string;
-  // initialCompany?: Company | null; // Optional: if pre-fetched server-side
-  // initialContacts?: Contact[]; // Optional
-  // initialDeals?: Deal[]; // Optional
-  // allCompanies?: Company[]; // For contact/deal forms (can be fetched client-side)
-  // allContacts?: Contact[]; // For selecting account manager & for contact/deal forms (can be fetched client-side)
 }
 
 export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   const [company, setCompany] = useState<Company | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]); // Will be filtered from allContacts or fetched
-  const [deals, setDeals] = useState<Deal[]>([]); // Will be filtered from allDeals or fetched
+  const [contacts, setContacts] = useState<Contact[]>([]); // Contacts related to this company
+  const [deals, setDeals] = useState<Deal[]>([]); // Deals related to this company
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [allCompaniesList, setAllCompaniesList] = useState<Company[]>(fallbackMockCompanies); // Placeholder, should be fetched
-  const [allContactsList, setAllContactsList] = useState<Contact[]>(mockContacts); // Placeholder, should be fetched
+  // For form dropdowns (Account Manager, linking in Contact/Deal forms)
+  const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
 
   const { toast } = useToast();
 
@@ -76,80 +74,60 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       }
       const data: Company = await response.json();
       setCompany(data);
-      // For now, filter mock contacts and deals related to this company
-      // This will be replaced by API calls when Contacts/Deals are DB-driven
-      setContacts(mockContacts.filter(c => c.companyId === companyId));
-      setDeals(mockDeals.filter(d => d.companyId === companyId));
+
+      // Fetch related contacts and deals
+      const [contactsRes, dealsRes] = await Promise.all([
+        fetch(`/api/contacts?companyId=${companyId}`),
+        fetch(`/api/deals?companyId=${companyId}`)
+      ]);
+
+      if (contactsRes.ok) setContacts(await contactsRes.json()); else setContacts([]);
+      if (dealsRes.ok) setDeals(await dealsRes.json()); else setDeals([]);
 
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(message);
-      toast({ title: "Error Fetching Company", description: message, variant: "destructive" });
+      toast({ title: "Error Fetching Company Data", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   }, [companyId, toast]);
 
+  const fetchFormDropdownData = useCallback(async () => {
+    try {
+        // Fetch all companies (for contact/deal forms if they need to link to other companies)
+        // Fetch all contacts (for account manager, and for deal form's contact dropdown)
+        const [companiesRes, contactsRes] = await Promise.all([
+            fetch('/api/companies'),
+            fetch('/api/contacts')
+        ]);
+        if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
+        if (contactsRes.ok) setAllContactsList(await contactsRes.json());
+    } catch (err) {
+        toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
+    }
+  }, [toast]);
+
   useEffect(() => {
     fetchCompanyDetails();
-    // Fetch allCompanies and allContacts if needed for forms, or rely on props if passed from server
-    // setAllCompaniesList(someFetchedCompanies);
-    // setAllContactsList(someFetchedContacts);
-  }, [fetchCompanyDetails]);
+    fetchFormDropdownData();
+  }, [fetchCompanyDetails, fetchFormDropdownData]);
 
 
   const handleSaveCompanyCallback = () => {
-    fetchCompanyDetails(); // Re-fetch company details after save
+    fetchCompanyDetails(); 
     setIsCompanyModalOpen(false);
   };
 
-
-  // Contact and Deal save/delete handlers remain using mock data for now
-  const handleSaveContact = (contactToSave: Contact) => {
-    // TODO: Replace with API call when Contacts are DB-driven
-    setContacts((prevContacts) => {
-      const existingIndex = prevContacts.findIndex((c) => c.id === contactToSave.id);
-      if (existingIndex > -1) {
-        const updated = [...prevContacts];
-        updated[existingIndex] = contactToSave;
-        const mockIndex = mockContacts.findIndex(mc => mc.id === contactToSave.id);
-        if (mockIndex !== -1) mockContacts[mockIndex] = contactToSave;
-        toast({ title: "Contact Updated (Locally)", description: `${contactToSave.firstName} ${contactToSave.lastName} updated.` });
-        return updated;
-      }
-      const newContact = { ...contactToSave, companyId: company?.id };
-      mockContacts.push(newContact); // Add to global mock
-      toast({ title: "Contact Created (Locally)", description: `New contact ${contactToSave.firstName} ${contactToSave.lastName} added.` });
-      return [...prevContacts, newContact];
-    });
-    const globalContactIndex = allContactsList.findIndex(c => c.id === contactToSave.id);
-    if (globalContactIndex > -1) {
-        allContactsList[globalContactIndex] = contactToSave;
-    } else {
-        allContactsList.push(contactToSave);
-    }
+  const handleSaveContactCallback = () => {
+    fetchCompanyDetails(); // Re-fetch company details to update contacts list
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
 
-  const handleSaveDeal = (dealToSave: Deal) => {
-    // TODO: Replace with API call when Deals are DB-driven
-    setDeals((prevDeals) => {
-      const existingIndex = prevDeals.findIndex((d) => d.id === dealToSave.id);
-      if (existingIndex > -1) {
-        const updated = [...prevDeals];
-        updated[existingIndex] = dealToSave;
-        const mockIndex = mockDeals.findIndex(md => md.id === dealToSave.id);
-        if (mockIndex !== -1) mockDeals[mockIndex] = dealToSave;
-        toast({ title: "Deal Updated (Locally)", description: `Deal "${dealToSave.name}" updated.` });
-        return updated;
-      }
-      const newDeal = { ...dealToSave, companyId: company?.id };
-      mockDeals.push(newDeal); // Add to global mock
-      toast({ title: "Deal Created (Locally)", description: `New deal "${dealToSave.name}" added.` });
-      return [...prevDeals, newDeal];
-    });
+  const handleSaveDealCallback = () => {
+    fetchCompanyDetails(); // Re-fetch company details to update deals list
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -161,40 +139,37 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const confirmDeleteItem = async () => {
     if (!itemToDelete || !company) return;
+    let endpoint = '';
+    let successMessage = '';
 
     if (itemToDelete.type === 'note') {
-      try {
-        const response = await fetch(`/api/companies/${company.id}/notes/${itemToDelete.id}`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete note');
-        }
-        toast({ title: "Note Deleted", description: "Note has been deleted."});
-        setCompany(prevCompany => {
-            if (!prevCompany) return null;
-            return {...prevCompany, notes: prevCompany.notes.filter(note => note.id !== itemToDelete.id)}
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-        toast({ title: "Error Deleting Note", description: message, variant: "destructive" });
-      }
+      endpoint = `/api/companies/${company.id}/notes/${itemToDelete.id}`;
+      successMessage = "Note has been deleted.";
     } else if (itemToDelete.type === 'contact') {
-      // TODO: API call for deleting contact when Contacts are DB-driven
-      setContacts(prev => prev.filter(c => c.id !== itemToDelete.id));
-      const mockIndex = mockContacts.findIndex(mc => mc.id === itemToDelete.id);
-      if (mockIndex !== -1) mockContacts.splice(mockIndex, 1);
-      toast({ title: "Contact Deleted (Locally)", description: `Contact "${itemToDelete.name}" deleted.`, variant: "destructive" });
+      endpoint = `/api/contacts/${itemToDelete.id}`;
+      successMessage = `Contact "${itemToDelete.name}" deleted.`;
     } else if (itemToDelete.type === 'deal') {
-      // TODO: API call for deleting deal when Deals are DB-driven
-      setDeals(prev => prev.filter(d => d.id !== itemToDelete.id));
-      const mockIndex = mockDeals.findIndex(md => md.id === itemToDelete.id);
-      if (mockIndex !== -1) mockDeals.splice(mockIndex, 1);
-      toast({ title: "Deal Deleted (Locally)", description: `Deal "${itemToDelete.name}" deleted.`, variant: "destructive" });
+      endpoint = `/api/deals/${itemToDelete.id}`;
+      successMessage = `Deal "${itemToDelete.name}" deleted.`;
     }
-    setShowDeleteDialog(false);
-    setItemToDelete(null);
+
+    if (!endpoint) return;
+
+    try {
+      const response = await fetch(endpoint, { method: 'DELETE' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
+      }
+      toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
+      fetchCompanyDetails(); // Re-fetch all company details to update lists
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setItemToDelete(null);
+    }
   };
 
   const handleAddNote = async () => {
@@ -215,10 +190,11 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       const newNote: Note = await response.json();
       setCompany(prevCompany => {
           if(!prevCompany) return null;
-          return {...prevCompany, notes: [newNote, ...prevCompany.notes]}
+          return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]} // Optimistic update
       });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this company." });
+      // fetchCompanyDetails(); // Or just update notes locally if preferred after optimistic update
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
@@ -256,6 +232,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     );
   }
 
+  const sortedNotes = company?.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
   return (
     <div className="space-y-6">
@@ -364,10 +341,10 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                   </Button>
                 </div>
 
-                {(company.notes || []).length > 0 ? (
+                {sortedNotes.length > 0 ? (
                   <ScrollArea className="h-[250px] w-full pr-4">
                     <div className="space-y-3">
-                      {company.notes.map(note => (
+                      {sortedNotes.map(note => (
                         <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
                           <p className="whitespace-pre-wrap">{note.content}</p>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -427,8 +404,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                         <TableCell>{contact.phone || 'N/A'}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {contact.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                            {contact.tags.length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
+                            {(contact.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                            {(contact.tags || []).length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -458,7 +435,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground text-center py-4">No contacts associated with this company yet. (Mock data currently)</p>
+                <p className="text-muted-foreground text-center py-4">No contacts associated with this company yet.</p>
               )}
             </CardContent>
           </Card>
@@ -508,8 +485,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {deal.tags.slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                              {deal.tags.length > 2 && <Badge variant="outline">+{deal.tags.length - 2}</Badge>}
+                              {(deal.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
+                              {(deal.tags || []).length > 2 && <Badge variant="outline">+{deal.tags.length - 2}</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -528,11 +505,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                                 <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
-                                {DEAL_STAGES.filter(s => s !== deal.stage).map(stage => (
-                                  <DropdownMenuItem key={stage} onClick={() => handleSaveDeal({ ...deal, stage: stage, updatedAt: new Date().toISOString() })}>
-                                    Move to {stage}
-                                  </DropdownMenuItem>
-                                ))}
+                                {/* Move to stage logic would require API call and state update for 'deals' list */}
                                 <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
                                   <Trash2 className="mr-2 h-4 w-4" /> Delete
                                 </DropdownMenuItem>
@@ -545,7 +518,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground text-center py-4">No deals associated with this company yet. (Mock data currently)</p>
+                <p className="text-muted-foreground text-center py-4">No deals associated with this company yet.</p>
               )}
             </CardContent>
           </Card>
@@ -557,24 +530,25 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         onClose={() => setIsCompanyModalOpen(false)}
         onSaveCallback={handleSaveCompanyCallback}
         company={company}
-        allContacts={allContactsList} // Pass all contacts (mock for now)
+        allContacts={allContactsList} 
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }}
-        onSave={handleSaveContact} // Still uses mock
+        onSaveCallback={handleSaveContactCallback} 
         contact={editingContact}
-        companies={allCompaniesList} // mock for now
+        companies={allCompaniesList} 
         defaultCompanyId={company.id}
       />
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
-        onSave={handleSaveDeal} // Still uses mock
+        onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContactsList} // mock for now
-        companies={allCompaniesList} // mock for now
+        contacts={allContactsList} 
+        companies={allCompaniesList} 
         defaultCompanyId={company.id}
+        defaultContactId={editingDeal?.contactId} // Pass existing contact if editing, or undefined
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

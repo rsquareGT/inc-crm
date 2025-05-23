@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,7 +28,8 @@ import {
 import { TagInputField } from '@/components/shared/tag-input-field';
 import type { Deal, DealStage, Contact, Company } from '@/lib/types';
 import { DEAL_STAGES } from '@/lib/constants';
-import { generateId } from '@/lib/mock-data';
+// generateId removed as new IDs will come from backend or be handled by it
+import { useToast } from '@/hooks/use-toast';
 
 const NONE_SELECT_VALUE = "_none_";
 
@@ -36,8 +37,8 @@ const dealSchema = z.object({
   name: z.string().min(1, 'Deal name is required'),
   value: z.coerce.number().min(0, 'Value must be positive'),
   stage: z.enum(DEAL_STAGES as [DealStage, ...DealStage[]], { required_error: 'Stage is required' }),
-  contactId: z.string().optional(),
-  companyId: z.string().optional(),
+  contactId: z.string().optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
+  companyId: z.string().optional().or(z.literal(NONE_SELECT_VALUE)).transform(val => val === NONE_SELECT_VALUE ? undefined : val),
   expectedCloseDate: z.string().optional(),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -48,7 +49,7 @@ type DealFormData = z.infer<typeof dealSchema>;
 interface DealFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (deal: Deal) => void;
+  onSaveCallback: () => void; // Callback to refresh list after save
   deal?: Deal | null; // For editing
   contacts: Contact[];
   companies: Company[];
@@ -56,16 +57,23 @@ interface DealFormModalProps {
   defaultCompanyId?: string;
 }
 
-export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, companies, defaultContactId, defaultCompanyId }: DealFormModalProps) {
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<DealFormData>({
+export function DealFormModal({ isOpen, onClose, onSaveCallback, deal, contacts, companies, defaultContactId, defaultCompanyId }: DealFormModalProps) {
+  const { toast } = useToast();
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isSubmitting } } = useForm<DealFormData>({
     resolver: zodResolver(dealSchema),
-    defaultValues: deal 
+  });
+
+  const descriptionForAISuggestions = watch('description');
+
+  useEffect(() => {
+    if (isOpen) {
+      const defaultValues = deal 
       ? { 
           name: deal.name,
           value: deal.value,
           stage: deal.stage,
-          contactId: deal.contactId || undefined,
-          companyId: deal.companyId || undefined,
+          contactId: deal.contactId || NONE_SELECT_VALUE,
+          companyId: deal.companyId || NONE_SELECT_VALUE,
           expectedCloseDate: deal.expectedCloseDate || '',
           description: deal.description || '',
           tags: deal.tags || [] 
@@ -73,57 +81,56 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
       : { 
           name: '', 
           value: 0, 
-          stage: 'Opportunity', 
-          contactId: defaultContactId || undefined,
-          companyId: defaultCompanyId || undefined,
+          stage: 'Opportunity' as DealStage, 
+          contactId: defaultContactId || NONE_SELECT_VALUE,
+          companyId: defaultCompanyId || NONE_SELECT_VALUE,
           expectedCloseDate: '',
           description: '', 
           tags: [] 
-        },
-  });
-
-  const descriptionForAISuggestions = watch('description');
-
-  useEffect(() => {
-    if (isOpen) {
-      reset(deal 
-        ? { 
-            name: deal.name,
-            value: deal.value,
-            stage: deal.stage,
-            contactId: deal.contactId || undefined,
-            companyId: deal.companyId || undefined,
-            expectedCloseDate: deal.expectedCloseDate || '',
-            description: deal.description || '',
-            tags: deal.tags || [] 
-          } 
-        : { 
-            name: '', 
-            value: 0, 
-            stage: 'Opportunity', 
-            contactId: defaultContactId || undefined,
-            companyId: defaultCompanyId || undefined,
-            expectedCloseDate: '',
-            description: '', 
-            tags: [] 
-          });
+        };
+      reset(defaultValues);
     }
   }, [isOpen, deal, reset, defaultContactId, defaultCompanyId]);
 
-  const onSubmit = (data: DealFormData) => {
-    const now = new Date().toISOString();
-    const dealToSave: Deal = {
-      id: deal?.id || generateId(),
+  const onSubmit = async (data: DealFormData) => {
+    const dealPayload = {
       ...data,
-      contactId: data.contactId === NONE_SELECT_VALUE ? undefined : data.contactId,
-      companyId: data.companyId === NONE_SELECT_VALUE ? undefined : data.companyId,
+      // Zod transform handles NONE_SELECT_VALUE to undefined
       tags: data.tags || [],
-      notes: deal?.notes || [], // Preserve existing notes
-      createdAt: deal?.createdAt || now,
-      updatedAt: now,
     };
-    onSave(dealToSave);
-    onClose();
+
+    try {
+      let response;
+      if (deal?.id) { // Editing existing deal
+        response = await fetch(`/api/deals/${deal.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dealPayload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update deal');
+        }
+        toast({ title: "Deal Updated", description: `"${data.name}" details saved.` });
+      } else { // Creating new deal
+        response = await fetch('/api/deals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dealPayload),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create deal');
+        }
+        toast({ title: "Deal Created", description: `New deal "${data.name}" added.` });
+      }
+      
+      onSaveCallback();
+      onClose();
+    } catch (error) {
+      console.error("Error saving deal:", error);
+      toast({ title: "Error Saving Deal", description: error instanceof Error ? error.message : "Could not save deal.", variant: "destructive" });
+    }
   };
 
   return (
@@ -135,17 +142,17 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
             {deal ? 'Update the details of this deal.' : 'Enter the details for the new deal.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2">
           <div>
             <Label htmlFor="name">Deal Name</Label>
-            <Input id="name" {...register('name')} />
+            <Input id="name" {...register('name')} disabled={isSubmitting} />
             {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="value">Value ($)</Label>
-              <Input id="value" type="number" {...register('value')} />
+              <Input id="value" type="number" {...register('value')} disabled={isSubmitting} />
               {errors.value && <p className="text-sm text-destructive mt-1">{errors.value.message}</p>}
             </div>
             <div>
@@ -154,7 +161,7 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 name="stage"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
                     <SelectTrigger id="stage">
                       <SelectValue placeholder="Select stage" />
                     </SelectTrigger>
@@ -179,8 +186,8 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 render={({ field }) => (
                   <Select 
                     onValueChange={field.onChange} 
-                    value={field.value || undefined} 
-                    defaultValue={deal?.contactId || defaultContactId || undefined}
+                    value={field.value || undefined}
+                    disabled={isSubmitting}
                   >
                     <SelectTrigger id="contactId">
                       <SelectValue placeholder="Select contact" />
@@ -203,8 +210,8 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                 render={({ field }) => (
                   <Select 
                     onValueChange={field.onChange} 
-                    value={field.value || undefined} 
-                    defaultValue={deal?.companyId || defaultCompanyId || undefined}
+                    value={field.value || undefined}
+                    disabled={isSubmitting}
                   >
                     <SelectTrigger id="companyId">
                       <SelectValue placeholder="Select company" />
@@ -223,12 +230,12 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
 
           <div>
             <Label htmlFor="expectedCloseDate">Expected Close Date</Label>
-            <Input id="expectedCloseDate" type="date" {...register('expectedCloseDate')} />
+            <Input id="expectedCloseDate" type="date" {...register('expectedCloseDate')} disabled={isSubmitting} />
           </div>
           
           <div>
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this deal..."/>
+            <Textarea id="description" {...register('description')} placeholder="Add any relevant description for this deal..." disabled={isSubmitting}/>
           </div>
 
           <div>
@@ -243,16 +250,19 @@ export function DealFormModal({ isOpen, onClose, onSave, deal, contacts, compani
                         onChange={field.onChange}
                         textToSuggestFrom={descriptionForAISuggestions}
                         placeholder="Add relevant tags..."
+                        // disabled={isSubmitting} // TagInputField doesn't directly support disabled
                     />
                 )}
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
             </DialogClose>
-            <Button type="submit">Save Deal</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (deal ? 'Saving...' : 'Adding...') : (deal ? 'Save Deal' : 'Add Deal')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

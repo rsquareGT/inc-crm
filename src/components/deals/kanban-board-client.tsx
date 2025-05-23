@@ -1,21 +1,26 @@
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { KanbanColumn } from './kanban-column';
 import { DEAL_STAGES } from '@/lib/constants';
 import type { Deal, Contact, Company, DealStage } from '@/lib/types';
-import { mockDeals, mockContacts, mockCompanies } from '@/lib/mock-data'; // Using mock data
+// mockDeals, mockContacts, mockCompanies are no longer the primary source for deals. Contacts/Companies are for form select.
+import { mockContacts, mockCompanies } from '@/lib/mock-data'; 
 import { DealFormModal } from './deal-form-modal';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog'; // Assuming this exists
+import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 export function KanbanBoardClient() {
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  // Contacts and Companies are needed for the DealFormModal select dropdowns
+  const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
+  const [allCompaniesForForm, setAllCompaniesForForm] = useState<Company[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
@@ -24,12 +29,53 @@ export function KanbanBoardClient() {
   const [dealToDelete, setDealToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const fetchDeals = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/deals');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to fetch deals: ${response.statusText}`);
+      }
+      const data: Deal[] = await response.json();
+      setDeals(data);
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(message);
+      toast({ title: "Error Fetching Deals", description: message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+  
+  const fetchFormData = useCallback(async () => {
+    try {
+      const [contactsRes, companiesRes] = await Promise.all([
+        fetch('/api/contacts'),
+        fetch('/api/companies')
+      ]);
+      if (!contactsRes.ok) throw new Error('Failed to fetch contacts for form');
+      if (!companiesRes.ok) throw new Error('Failed to fetch companies for form');
+      
+      const contactsData = await contactsRes.json();
+      const companiesData = await companiesRes.json();
+      
+      setAllContactsForForm(contactsData);
+      setAllCompaniesForForm(companiesData);
+    } catch (err) {
+      console.error("Error fetching data for deal form:", err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Loading Form Data", description: message, variant: "destructive" });
+    }
+  }, [toast]);
+
+
   useEffect(() => {
-    // Simulate fetching data
-    setDeals(mockDeals);
-    setContacts(mockContacts);
-    setCompanies(mockCompanies);
-  }, []);
+    fetchDeals();
+    fetchFormData();
+  }, [fetchDeals, fetchFormData]);
 
   const handleOpenModal = (deal: Deal | null = null) => {
     setEditingDeal(deal);
@@ -41,28 +87,40 @@ export function KanbanBoardClient() {
     setEditingDeal(null);
   };
 
-  const handleSaveDeal = (dealToSave: Deal) => {
-    setDeals((prevDeals) => {
-      const existingIndex = prevDeals.findIndex((d) => d.id === dealToSave.id);
-      if (existingIndex > -1) {
-        const updatedDeals = [...prevDeals];
-        updatedDeals[existingIndex] = dealToSave;
-        toast({ title: "Deal Updated", description: `"${dealToSave.name}" has been updated.` });
-        return updatedDeals;
-      }
-      toast({ title: "Deal Created", description: `New deal "${dealToSave.name}" has been added.` });
-      return [...prevDeals, dealToSave];
-    });
+  const handleSaveDealCallback = () => {
+    fetchDeals(); // Re-fetch deals after save
   };
 
-  const handleChangeDealStage = (dealId: string, newStage: DealStage) => {
+  const handleChangeDealStage = async (dealId: string, newStage: DealStage) => {
+    const originalDeal = deals.find(d => d.id === dealId);
+    if (!originalDeal) return;
+
+    // Optimistically update UI
     setDeals(prevDeals => 
       prevDeals.map(deal => 
         deal.id === dealId ? { ...deal, stage: newStage, updatedAt: new Date().toISOString() } : deal
       )
     );
-    const dealName = deals.find(d => d.id === dealId)?.name || "Deal";
-    toast({ title: "Deal Stage Updated", description: `"${dealName}" moved to ${newStage}.` });
+
+    try {
+      const response = await fetch(`/api/deals/${dealId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...originalDeal, stage: newStage }), // Send full updated deal, or just stage
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update deal stage');
+      }
+      toast({ title: "Deal Stage Updated", description: `"${originalDeal.name}" moved to ${newStage}.` });
+      fetchDeals(); // Re-fetch to ensure consistency
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Updating Stage", description: message, variant: "destructive" });
+      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d)); // Revert optimistic update
+    }
   };
   
   const handleDeleteDeal = (dealId: string) => {
@@ -70,15 +128,47 @@ export function KanbanBoardClient() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteDeal = () => {
-    if (dealToDelete) {
-      const dealName = deals.find(d => d.id === dealToDelete)?.name || "Deal";
+  const confirmDeleteDeal = async () => {
+    if (!dealToDelete) return;
+    
+    const dealName = deals.find(d => d.id === dealToDelete)?.name || "Deal";
+    try {
+      const response = await fetch(`/api/deals/${dealToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to delete deal: ${response.statusText}`);
+      }
+      toast({ title: "Deal Deleted", description: `Deal "${dealName}" has been deleted.`});
       setDeals(prevDeals => prevDeals.filter(d => d.id !== dealToDelete));
-      toast({ title: "Deal Deleted", description: `"${dealName}" has been deleted.`, variant: "destructive" });
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Deleting Deal", description: message, variant: "destructive" });
+    } finally {
+      setShowDeleteDialog(false);
+      setDealToDelete(null);
     }
-    setShowDeleteDialog(false);
-    setDealToDelete(null);
   };
+
+  if (isLoading && deals.length === 0) {
+    return (
+      <div className="flex flex-col h-full">
+        <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages."/>
+        <p className="text-center py-10">Loading deals...</p>
+      </div>
+    );
+  }
+  
+  if (error && deals.length === 0) {
+    return (
+      <div className="flex flex-col h-full">
+        <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages."/>
+        <p className="text-center py-10 text-destructive">Error loading deals: {error}</p>
+      </div>
+    );
+  }
 
 
   return (
@@ -94,9 +184,9 @@ export function KanbanBoardClient() {
           <KanbanColumn
             key={stage}
             stage={stage}
-            deals={deals}
-            contacts={contacts}
-            companies={companies}
+            deals={deals.filter(d => d.stage === stage)} // Pass pre-filtered deals
+            contacts={allContactsForForm} // Pass all contacts for card display
+            companies={allCompaniesForForm} // Pass all companies for card display
             onEditDeal={handleOpenModal}
             onDeleteDeal={handleDeleteDeal}
             onChangeDealStage={handleChangeDealStage}
@@ -107,10 +197,10 @@ export function KanbanBoardClient() {
       <DealFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSaveDeal}
+        onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={contacts}
-        companies={companies}
+        contacts={allContactsForForm}
+        companies={allCompaniesForForm}
       />
       
       <DeleteConfirmationDialog

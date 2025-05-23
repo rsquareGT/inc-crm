@@ -29,6 +29,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 interface CompanyDetailsClientProps {
@@ -37,8 +38,8 @@ interface CompanyDetailsClientProps {
 
 export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   const [company, setCompany] = useState<Company | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]); 
-  const [deals, setDeals] = useState<Deal[]>([]); 
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,6 +91,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   }, [companyId, toast]);
 
   const fetchFormDropdownData = useCallback(async () => {
+    // setIsLoading(true); // No, this is for main entity, form data can load in background
     try {
         const [companiesRes, contactsRes] = await Promise.all([
             fetch('/api/companies'),
@@ -100,6 +102,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     } catch (err) {
         toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
     }
+    // finally { setIsLoading(false); }
   }, [toast]);
 
   useEffect(() => {
@@ -109,18 +112,18 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
 
   const handleSaveCompanyCallback = () => {
-    fetchCompanyDetails(); 
+    fetchCompanyDetails();
     setIsCompanyModalOpen(false);
   };
 
   const handleSaveContactCallback = () => {
-    fetchCompanyDetails(); 
+    fetchCompanyDetails();
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
 
   const handleSaveDealCallback = () => {
-    fetchCompanyDetails(); 
+    fetchCompanyDetails();
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -155,7 +158,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchCompanyDetails(); 
+      fetchCompanyDetails();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -184,7 +187,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       const newNote: Note = await response.json();
       setCompany(prevCompany => {
           if(!prevCompany) return null;
-          return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]} 
+          return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]}
       });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this company." });
@@ -195,7 +198,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       setIsAddingNote(false);
     }
   };
-  
+
   const accountManager = company?.accountManagerId ? allContactsList.find(c => c.id === company.accountManagerId) : undefined;
 
   const formatAddress = () => {
@@ -206,9 +209,80 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   if (isLoading) {
     return (
-        <div className="container mx-auto py-8">
-             <PageSectionHeader title="Loading Company..." />
-            <p>Loading details...</p>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center mb-6 pb-4 border-b">
+            <div>
+              <Skeleton className="h-9 w-[180px] mb-2" /> {/* Back to Companies Button */}
+              <Skeleton className="h-9 w-3/4 mb-1" /> {/* Company Name */}
+              <Skeleton className="h-5 w-1/2" /> {/* Industry */}
+            </div>
+            <Skeleton className="h-10 w-[150px]" /> {/* Edit Company Button */}
+          </div>
+
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </TabsList>
+
+            <TabsContent value="overview">
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-1/2 mb-1" /> {/* Card Title */}
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center">
+                      <Skeleton className="h-5 w-5 mr-3 rounded-full" /> <Skeleton className="h-5 w-3/4" />
+                    </div>
+                    <div className="flex items-start">
+                      <Skeleton className="h-5 w-5 mr-3 rounded-full mt-0.5" /> <Skeleton className="h-10 w-3/4" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-2">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i}>
+                          <Skeleton className="h-4 w-1/3 mb-1" /> <Skeleton className="h-4 w-2/3" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center pt-2">
+                      <Skeleton className="h-4 w-10" /> <Skeleton className="h-6 w-16 rounded-full" /> <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                    <div className="space-y-2 pt-2">
+                      <Skeleton className="h-5 w-1/3 mb-1" /> <Skeleton className="h-16 w-full rounded-md" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-1/2 mb-1" /> {/* Card Title */}
+                    <Skeleton className="h-4 w-3/4" /> {/* Card Description */}
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-1/4 mb-1" />
+                      <Skeleton className="h-20 w-full rounded-md" /> {/* Textarea */}
+                      <Skeleton className="h-9 w-[120px]" /> {/* Add Note Button */}
+                    </div>
+                     <Skeleton className="h-4 w-1/2 mb-2" /> {/* "No notes" or scroll area title */}
+                    <ScrollArea className="h-[250px] w-full">
+                        <div className="space-y-3">
+                            {[...Array(2)].map((_, i) => (
+                                <div key={i} className="p-3 bg-secondary/50 rounded-md">
+                                    <Skeleton className="h-4 w-full mb-1" />
+                                    <Skeleton className="h-4 w-3/4 mb-2" />
+                                    <Skeleton className="h-3 w-1/2" />
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
     );
   }
@@ -273,7 +347,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                     <MapPin className="mr-3 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                     <span>{formatAddress()}</span>
                   </div>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-2">
                     <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Phone 1</h4>
@@ -298,7 +372,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                         )}
                     </div>
                 </div>
-                
+
                 {company.tags && company.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 items-center pt-2">
                     <span className="text-sm text-muted-foreground">Tags:</span>
@@ -374,7 +448,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
             </Card>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="contacts">
           <Card>
             <CardHeader>
@@ -534,14 +608,14 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         onClose={() => setIsCompanyModalOpen(false)}
         onSaveCallback={handleSaveCompanyCallback}
         company={company}
-        allContacts={allContactsList} 
+        allContacts={allContactsList}
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }}
-        onSaveCallback={handleSaveContactCallback} 
+        onSaveCallback={handleSaveContactCallback}
         contact={editingContact}
-        companies={allCompaniesList} 
+        companies={allCompaniesList}
         defaultCompanyId={company.id}
       />
       <DealFormModal
@@ -549,10 +623,10 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
         onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContactsList} 
-        companies={allCompaniesList} 
+        contacts={allContactsList}
+        companies={allCompaniesList}
         defaultCompanyId={company.id}
-        defaultContactId={editingDeal?.contactId} 
+        defaultContactId={editingDeal?.contactId}
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

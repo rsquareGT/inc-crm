@@ -27,6 +27,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 interface ContactDetailsClientProps {
@@ -36,14 +37,14 @@ interface ContactDetailsClientProps {
 export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | undefined>(undefined);
-  const [deals, setDeals] = useState<Deal[]>([]); 
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); 
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
 
   const { toast } = useToast();
 
@@ -87,15 +88,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       setIsLoading(false);
     }
   }, [contactId, toast]);
-  
+
   const fetchFormDropdownData = useCallback(async () => {
     try {
         const [companiesRes, contactsRes] = await Promise.all([
             fetch('/api/companies'),
-            fetch('/api/contacts') 
+            fetch('/api/contacts')
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
-        if (contactsRes.ok) setAllContactsList(await contactsRes.json()); 
+        if (contactsRes.ok) setAllContactsList(await contactsRes.json());
     } catch (err) {
         toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
     }
@@ -108,12 +109,12 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   }, [fetchContactDetails, fetchFormDropdownData]);
 
   const handleSaveContactCallback = () => {
-    fetchContactDetails(); 
+    fetchContactDetails();
     setIsContactModalOpen(false);
   };
-  
+
   const handleSaveDealCallback = () => {
-    fetchContactDetails(); 
+    fetchContactDetails();
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -145,7 +146,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchContactDetails(); 
+      fetchContactDetails();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -185,15 +186,78 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       setIsAddingNote(false);
     }
   };
-  
+
   const sortedNotes = contact?.notes ? [...contact.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
   if (isLoading) {
     return (
-        <div className="container mx-auto py-8">
-            <PageSectionHeader title="Loading Contact..." />
-            <p>Loading details...</p>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-6 pb-4 border-b">
+          <div>
+            <Skeleton className="h-9 w-[180px] mb-2" /> {/* Back to Contacts Button */}
+            <Skeleton className="h-9 w-3/4 mb-1" /> {/* Contact Name */}
+            <Skeleton className="h-5 w-1/2" /> {/* Company Link */}
+          </div>
+          <Skeleton className="h-10 w-[150px]" /> {/* Edit Contact Button */}
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <Card>
+              <CardHeader><Skeleton className="h-6 w-1/2 mb-1" /></CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-5 w-1/2" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-16 w-full rounded-md" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-1/2 mb-1" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-4 w-1/4 mb-1" />
+                <Skeleton className="h-20 w-full rounded-md" />
+                <Skeleton className="h-9 w-[120px]" />
+                <ScrollArea className="h-[300px] w-full">
+                    <div className="space-y-3">
+                        {[...Array(2)].map((_, i) => (
+                            <div key={i} className="p-3 bg-secondary/50 rounded-md">
+                                <Skeleton className="h-4 w-full mb-1" />
+                                <Skeleton className="h-4 w-3/4 mb-2" />
+                                <Skeleton className="h-3 w-1/2" />
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="md:col-span-1 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-9 w-[100px]" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-3">
+                    {[...Array(2)].map((_, i) => (
+                      <div key={i} className="p-3 border rounded-md">
+                        <Skeleton className="h-5 w-3/4 mb-1" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -302,7 +366,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                     )}
                   </Button>
                 </div>
-                
+
                 {sortedNotes.length > 0 ? (
                   <ScrollArea className="h-[300px] w-full pr-4">
                     <div className="space-y-3">
@@ -312,9 +376,9 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                           <p className="text-xs text-muted-foreground mt-1">
                              <FormattedNoteTimestamp createdAt={note.createdAt} />
                           </p>
-                           <Button 
-                              variant="ghost" 
-                              size="icon" 
+                           <Button
+                              variant="ghost"
+                              size="icon"
                               className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
                               onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
                             >
@@ -395,10 +459,10 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
         onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContactsList} 
+        contacts={allContactsList}
         companies={allCompaniesList}
-        defaultContactId={contact.id} 
-        defaultCompanyId={contact.companyId} 
+        defaultContactId={contact.id}
+        defaultCompanyId={contact.companyId}
       />
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}

@@ -16,8 +16,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
-import type { Company, Contact } from '@/lib/types'; // Added Contact
-import { mockCompanies, mockContacts } from '@/lib/mock-data'; // Added mockContacts
+import type { Company, Contact } from '@/lib/types';
+// import { mockCompanies, mockContacts } from '@/lib/mock-data'; // No longer using mockCompanies directly for the list
+import { mockContacts } from '@/lib/mock-data'; // Still need mockContacts for the form's Account Manager dropdown for now
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -31,7 +32,10 @@ type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [allContacts, setAllContacts] = useState<Contact[]>([]); // State for all contacts
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -44,9 +48,28 @@ export function CompaniesListClient() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
-    setCompanies(mockCompanies);
-    setAllContacts(mockContacts); // Load all contacts
-  }, []);
+    const fetchCompanies = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/companies');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch companies: ${response.statusText}`);
+        }
+        const data: Company[] = await response.json();
+        setCompanies(data);
+      } catch (err) {
+        console.error(err);
+        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        toast({ title: "Error Fetching Companies", description: err instanceof Error ? err.message : 'Could not load company data.', variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCompanies();
+    setAllContacts(mockContacts); // Still using mock contacts for the form dropdown
+  }, [toast]);
 
   const handleOpenModal = (company: Company | null = null) => {
     setEditingCompany(company);
@@ -59,23 +82,22 @@ export function CompaniesListClient() {
   };
 
   const handleSaveCompany = (companyToSave: Company) => {
+    // TODO: Implement API call to save/update company in the database
+    // For now, this only updates local state and shows a toast.
     setCompanies((prevCompanies) => {
       const existingIndex = prevCompanies.findIndex((c) => c.id === companyToSave.id);
       if (existingIndex > -1) {
         const updatedCompanies = [...prevCompanies];
         updatedCompanies[existingIndex] = companyToSave;
-        toast({ title: "Company Updated", description: `Company "${companyToSave.name}" updated.` });
+        toast({ title: "Company Updated (Locally)", description: `Company "${companyToSave.name}" updated in the list. Backend save not yet implemented.` });
         return updatedCompanies;
       }
-      toast({ title: "Company Created", description: `New company "${companyToSave.name}" added.` });
-      return [...prevCompanies, companyToSave];
+      toast({ title: "Company Created (Locally)", description: `New company "${companyToSave.name}" added to the list. Backend save not yet implemented.` });
+      // Ensure new companies have a temporary ID for local display if not provided by form
+      return [...prevCompanies, { ...companyToSave, id: companyToSave.id || `temp-${Date.now()}` }];
     });
-    const mockIndex = mockCompanies.findIndex(c => c.id === companyToSave.id);
-    if (mockIndex !== -1) {
-      mockCompanies[mockIndex] = companyToSave;
-    } else {
-      mockCompanies.push(companyToSave);
-    }
+    // Note: The `mockCompanies` array is no longer directly manipulated here for the list.
+    // This change needs to be reflected via an API call and re-fetch or optimistic update.
   };
 
   const handleDeleteCompany = (companyId: string) => {
@@ -84,17 +106,16 @@ export function CompaniesListClient() {
   };
 
   const confirmDeleteCompany = () => {
+    // TODO: Implement API call to delete company in the database
+    // For now, this only updates local state and shows a toast.
     if (companyToDelete) {
       const companyName = companies.find(c => c.id === companyToDelete)?.name || "Company";
       setCompanies(prevCompanies => prevCompanies.filter(c => c.id !== companyToDelete));
-      const mockIndex = mockCompanies.findIndex(c => c.id === companyToDelete);
-      if (mockIndex !== -1) {
-        mockCompanies.splice(mockIndex, 1);
-      }
-      toast({ title: "Company Deleted", description: `Company "${companyName}" has been deleted.`, variant: "destructive" });
+      toast({ title: "Company Deleted (Locally)", description: `Company "${companyName}" has been removed from the list. Backend delete not yet implemented.`, variant: "destructive" });
     }
     setShowDeleteDialog(false);
     setCompanyToDelete(null);
+    // Note: The `mockCompanies` array is no longer directly manipulated here.
   };
 
   const displayedCompanies = useMemo(() => {
@@ -129,6 +150,23 @@ export function CompaniesListClient() {
     return [company.city, company.state, company.country].filter(Boolean).join(', ') || 'N/A';
   };
 
+  if (isLoading) {
+    return (
+      <div>
+        <PageSectionHeader title="Companies" description="Manage your company directory." />
+        <p className="text-center py-10">Loading companies...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div>
+        <PageSectionHeader title="Companies" description="Manage your company directory." />
+        <p className="text-center py-10 text-destructive">Error loading companies: {error}</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -263,7 +301,7 @@ export function CompaniesListClient() {
         onClose={handleCloseModal}
         onSave={handleSaveCompany}
         company={editingCompany}
-        allContacts={allContacts} // Pass all contacts to the modal
+        allContacts={allContacts}
       />
 
       <DeleteConfirmationDialog

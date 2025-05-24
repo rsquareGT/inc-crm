@@ -1,16 +1,17 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation'; // Using standard Next.js router
+import { useRouter } from 'next/navigation'; // Standard import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
@@ -21,7 +22,9 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
-  const { login: contextLogin } = useAuth();
+  const { login: contextLogin, isAuthenticated, isLoading: authContextLoading } = useAuth();
+  const { toast } = useToast();
+  const redirectInitiated = useRef(false);
 
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -41,29 +44,53 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmittingForm(true);
     setFormError(null);
+    redirectInitiated.current = false; // Reset redirect flag on new attempt
 
     try {
-      const success = await contextLogin(data.email, data.password);
-      if (success) {
-        // The AuthContext now handles setting the user state.
-        // If successful, the context's isAuthenticated state will change,
-        // and the middleware or AppPageShell will handle redirecting from `/login`
-        // or allowing access to `/dashboard`.
-        // We can directly push to dashboard after successful login.
-        router.push('/dashboard');
-      } else {
-        // This case should ideally be covered by contextLogin throwing an error.
-        setFormError('Login failed. Please check your credentials.');
-        setIsSubmittingForm(false);
+      const loginSuccess = await contextLogin(data.email, data.password);
+      if (!loginSuccess) {
+        // If contextLogin itself indicates failure (e.g. fetchUser didn't set user)
+        // This might be redundant if contextLogin throws, but good as a fallback.
+        setFormError('Login successful, but failed to verify session. Please try again.');
       }
+      // Redirection is now handled by useEffect watching isAuthenticated
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
       setFormError(message);
-      setIsSubmittingForm(false);
+      toast({ title: 'Login Failed', description: message, variant: 'destructive' });
+    } finally {
+      // Set to false only if redirect hasn't been initiated by useEffect
+      // This will be re-evaluated by the useEffect for isAuthenticated
+      if (!redirectInitiated.current) {
+        setIsSubmittingForm(false);
+      }
     }
-    // No need to set isSubmittingForm to false if redirect happens.
-    // If it fails, it's set to false in the catch block.
   };
+  
+  useEffect(() => {
+    // Redirect if authenticated and not already redirecting
+    // Also check authContextLoading to ensure context isn't in its initial busy state
+    if (isAuthenticated && !redirectInitiated.current && !authContextLoading) {
+      redirectInitiated.current = true;
+      setIsSubmittingForm(true); // Keep button disabled while redirecting
+      // No toast on success, UI will change on redirect
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router, authContextLoading]);
+
+
+  let buttonText = "Sign In";
+  let buttonIcon = <LogIn className="mr-2 h-4 w-4" />;
+
+  if (isSubmittingForm) {
+    if (redirectInitiated.current) {
+        buttonText = "Redirecting...";
+    } else {
+        buttonText = "Signing In...";
+    }
+    buttonIcon = <Loader2 className="mr-2 h-4 w-4 animate-spin" />;
+  }
+
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -97,17 +124,8 @@ export function LoginForm() {
         {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
       </div>
       <Button type="submit" className="w-full" disabled={isSubmittingForm}>
-        {isSubmittingForm ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Signing In...
-          </>
-        ) : (
-          <>
-            <LogIn className="mr-2 h-4 w-4" />
-            Sign In
-          </>
-        )}
+        {buttonIcon}
+        {buttonText}
       </Button>
     </form>
   );

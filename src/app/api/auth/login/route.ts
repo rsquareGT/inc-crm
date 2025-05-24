@@ -25,8 +25,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // TODO: CRITICAL SECURITY FLAW - Replace this with bcrypt.compare when real hashed passwords are in DB
-    // const passwordMatch = password === userData.hashedPassword;
     const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
 
     if (!passwordMatch) {
@@ -49,12 +47,13 @@ export async function POST(request: NextRequest) {
         email: userToSign.email,
         role: userToSign.role,
         organizationId: userToSign.organizationId,
-        // Add any other non-sensitive claims you need
       })
       .setProtectedHeader({ alg })
       .setIssuedAt()
-      .setExpirationTime(process.env.JWT_EXPIRATION_TIME || '1h') // Use env variable or default
+      .setExpirationTime(process.env.JWT_EXPIRATION_TIME || '1h') 
       .sign(secret);
+
+    const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
     // Set JWT in an HTTP-only cookie
     cookies().set('session', jwt, {
@@ -62,10 +61,13 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10), // 1 hour in seconds by default
+      maxAge: maxAgeSeconds, 
+      expires: new Date(Date.now() + maxAgeSeconds * 1000), // Explicit expires also good
     });
 
     // Return the user object (without password) on successful login
+    // This allows AuthContext to immediately have the user info if needed,
+    // though fetchUser after this is the main source of truth for context.
     return NextResponse.json({ success: true, user: userToSign });
 
   } catch (error) {

@@ -4,15 +4,26 @@ import * as jose from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login']; // Paths accessible without authentication
-const API_AUTH_PATHS = ['/api/auth/login', '/api/auth/logout', '/api/auth/me']; // Auth related API paths
+// Paths accessible without authentication
+const PUBLIC_PATHS = ['/login']; 
+// API paths that have their own auth logic or are public
+const API_PUBLIC_PATHS = ['/api/auth/login', '/api/auth/logout']; 
+// /api/auth/me is special: it needs to be callable to check session, 
+// but handles its own auth. Middleware should let it pass.
 
 async function verifyToken(token: string, secret: string): Promise<jose.JWTPayload | null> {
   try {
     const { payload } = await jose.jwtVerify(token, new TextEncoder().encode(secret));
     return payload;
   } catch (error) {
-    console.error('JWT Verification Error:', error);
+    // Log specific JWT errors for easier debugging if needed
+    if (error instanceof jose.errors.JWTExpired) {
+      console.info('Middleware: JWT Expired');
+    } else if (error instanceof jose.errors.JOSEError) {
+      console.info('Middleware: JWT Verification Failed:', error.code);
+    } else {
+      console.error('Middleware: Unknown JWT Verification Error:', error);
+    }
     return null;
   }
 }
@@ -26,18 +37,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // Allow public API auth paths
-  if (API_AUTH_PATHS.some(p => pathname.startsWith(p))) {
+  // Allow specific public API auth paths like login/logout
+  if (API_PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // Allow /api/auth/me to always pass through middleware; it handles its own auth.
+  if (pathname.startsWith('/api/auth/me')) {
     return NextResponse.next();
   }
 
   // Handle public frontend paths
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
-    // If user is authenticated and tries to access login page, redirect to dashboard
     if (pathname.startsWith('/login') && sessionToken) {
       if (!JWT_SECRET) {
         console.error('JWT_SECRET is not set in middleware for /login redirect check.');
-        return NextResponse.next(); // Or handle error appropriately
+        return NextResponse.next(); 
       }
       const userPayload = await verifyToken(sessionToken, JWT_SECRET);
       if (userPayload) {
@@ -47,34 +62,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protected routes
+  // For all other paths (protected routes)
   if (!sessionToken) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (!JWT_SECRET) {
     console.error('JWT_SECRET is not set in middleware for protected route.');
-    // Potentially redirect to an error page or login if secret is missing
-    return NextResponse.redirect(new URL('/login?error=config_error', request.url));
+    const response = NextResponse.redirect(new URL('/login?error=config_error', request.url));
+    response.cookies.delete('session'); // Clear potentially problematic cookie
+    return response;
   }
 
   const userPayload = await verifyToken(sessionToken, JWT_SECRET);
 
   if (!userPayload) {
-    // Clear invalid cookie and redirect to login
     const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.set('session', '', { httpOnly: true, expires: new Date(0), path: '/' });
+    response.cookies.delete('session'); // Clear invalid/expired cookie
     return response;
   }
 
-  // If JWT is valid, allow the request to proceed
-  // Optionally, you can add user info to headers for backend/server components
+  // If JWT is valid, allow the request to proceed for protected routes
   const requestHeaders = new Headers(request.headers);
   if (userPayload.sub) requestHeaders.set('x-user-id', userPayload.sub as string);
   if (userPayload.email) requestHeaders.set('x-user-email', userPayload.email as string);
   if (userPayload.role) requestHeaders.set('x-user-role', userPayload.role as string);
   if (userPayload.organizationId) requestHeaders.set('x-user-organization-id', userPayload.organizationId as string);
-
 
   return NextResponse.next({
     request: {
@@ -85,14 +98,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - /images (public images folder if you have one)
-     * - /api/ (allow all api routes by default, specific protection done above or within routes) - This will be filtered further by the logic above
-     */
     '/((?!_next/static|_next/image|favicon.ico|images/).*)',
   ],
 };

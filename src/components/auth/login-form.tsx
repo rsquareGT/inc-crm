@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation'; // Standard import
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,12 +22,14 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
-  const { login: contextLogin, isAuthenticated, isLoading: authContextLoading } = useAuth();
+  const { login: contextLogin, isAuthenticated, user: authUser, isLoading: authContextLoading } = useAuth();
   const { toast } = useToast();
-  const redirectInitiated = useRef(false);
-
+  
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Ref to track if redirect has been initiated by useEffect to prevent multiple pushes
+  const redirectInitiated = useRef(false);
+
 
   const {
     register,
@@ -42,50 +44,59 @@ export function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
+    console.log("LoginForm: onSubmit called");
     setIsSubmittingForm(true);
     setFormError(null);
     redirectInitiated.current = false; // Reset redirect flag on new attempt
 
     try {
-      const loginSuccess = await contextLogin(data.email, data.password);
-      if (!loginSuccess) {
-        // If contextLogin itself indicates failure (e.g. fetchUser didn't set user)
-        // This might be redundant if contextLogin throws, but good as a fallback.
+      const loginSuccessful = await contextLogin(data.email, data.password);
+      if (loginSuccessful) {
+        console.log("LoginForm: contextLogin reported success. Waiting for context update and redirect effect.");
+        // Redirection is now handled by useEffect watching isAuthenticated
+      } else {
+        // This case means contextLogin itself determined session verification failed post-API call
         setFormError('Login successful, but failed to verify session. Please try again.');
+        console.warn("LoginForm: contextLogin reported failure to verify session.");
       }
-      // Redirection is now handled by useEffect watching isAuthenticated
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      const message = error instanceof Error ? error.message : 'An unexpected error occurred during login.';
       setFormError(message);
       toast({ title: 'Login Failed', description: message, variant: 'destructive' });
+      console.error("LoginForm: contextLogin threw an error:", error);
     } finally {
-      // Set to false only if redirect hasn't been initiated by useEffect
+      // Only set submitting to false if redirect hasn't been triggered by useEffect
       // This will be re-evaluated by the useEffect for isAuthenticated
       if (!redirectInitiated.current) {
-        setIsSubmittingForm(false);
+         setIsSubmittingForm(false);
       }
     }
   };
   
   useEffect(() => {
-    // Redirect if authenticated and not already redirecting
-    // Also check authContextLoading to ensure context isn't in its initial busy state
-    if (isAuthenticated && !redirectInitiated.current && !authContextLoading) {
-      redirectInitiated.current = true;
+    console.log(`LoginForm useEffect: isAuthenticated: ${isAuthenticated}, authContextLoading: ${authContextLoading}, redirectInitiated: ${redirectInitiated.current}`);
+    // Redirect if authenticated, not in initial context loading, and redirect not already started
+    if (isAuthenticated && !authContextLoading && !redirectInitiated.current) {
+      console.log("LoginForm useEffect: Conditions met for redirect. Attempting redirect to /dashboard.");
+      redirectInitiated.current = true; // Set flag before pushing
       setIsSubmittingForm(true); // Keep button disabled while redirecting
-      // No toast on success, UI will change on redirect
       router.push('/dashboard');
+    } else if (!isAuthenticated && !authContextLoading && redirectInitiated.current) {
+      // If somehow redirect was initiated but auth state reverted before push completed (unlikely but safeguard)
+      console.warn("LoginForm useEffect: Redirect was initiated but auth state is false. Resetting redirectInitiated.");
+      redirectInitiated.current = false;
+      setIsSubmittingForm(false);
     }
-  }, [isAuthenticated, router, authContextLoading]);
+  }, [isAuthenticated, authContextLoading, router]);
 
 
   let buttonText = "Sign In";
   let buttonIcon = <LogIn className="mr-2 h-4 w-4" />;
 
   if (isSubmittingForm) {
-    if (redirectInitiated.current) {
+    if (redirectInitiated.current) { // If redirect has been flagged by useEffect
         buttonText = "Redirecting...";
-    } else {
+    } else { // API call in progress, or waiting for context update before redirect effect runs
         buttonText = "Signing In...";
     }
     buttonIcon = <Loader2 className="mr-2 h-4 w-4 animate-spin" />;

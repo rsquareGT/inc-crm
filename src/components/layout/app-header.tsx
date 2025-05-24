@@ -4,7 +4,7 @@
 import { Logo } from './logo';
 import { MainNav } from './main-nav';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, UserCircle, Loader2 } from 'lucide-react';
+import { LogIn, LogOut, UserCircle, Loader2, Building } from 'lucide-react'; // Added Building
 import { ThemeToggle } from './theme-toggle';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
@@ -72,11 +72,25 @@ export function AppHeader() {
                 <DropdownMenuSeparator />
                 {/* <DropdownMenuItem asChild>
                   <Link href="/profile">Profile</Link> 
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+                </DropdownMenuItem>*/}
+                {user.role === 'admin' && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/organization/profile" className="flex items-center w-full">
+                        <Building className="mr-2 h-4 w-4" /> Manage Organization
+                      </Link>
+                    </DropdownMenuItem>
+                    {/* <DropdownMenuItem asChild>
+                      <Link href="/admin/users" className="flex items-center w-full">
+                        <Users className="mr-2 h-4 w-4" /> User Management
+                      </Link>
+                    </DropdownMenuItem> */}
+                  </>
+                )}
+                {/* <DropdownMenuItem asChild>
                   <Link href="/settings">Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator /> */}
+                </DropdownMenuItem> */}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout

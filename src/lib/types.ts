@@ -5,8 +5,7 @@ export interface Note {
   id: string;
   content: string;
   createdAt: string;
-  organizationId: string; // Added
-  // Parent FKs remain, one of them will be non-null
+  organizationId: string;
   companyId?: string;
   contactId?: string;
   dealId?: string;
@@ -44,7 +43,7 @@ export type CompanySize =
 
 export interface Contact {
   id: string;
-  organizationId: string; // Added
+  organizationId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -59,19 +58,19 @@ export interface Contact {
 
 export interface Company {
   id: string;
-  organizationId: string; // Added
+  organizationId: string;
   name: string;
   industry?: Industry;
   website?: string;
   street?: string;
   city?: string;
-  state?: string; // Or province
+  state?: string;
   postalCode?: string;
   country?: string;
   contactPhone1?: string;
   contactPhone2?: string;
   companySize?: CompanySize;
-  accountManagerId?: string; // Now conceptually refers to a User['id']
+  accountManagerId?: string; // Refers to a User['id']
   tags: Tag[];
   description?: string;
   notes: Note[];
@@ -83,7 +82,7 @@ export type DealStage = 'Opportunity' | 'Proposal Sent' | 'Negotiation' | 'Won' 
 
 export interface Deal {
   id: string;
-  organizationId: string; // Added
+  organizationId: string;
   name: string;
   contactId?: string;
   companyId?: string;
@@ -99,7 +98,7 @@ export interface Deal {
 
 export interface Task {
   id: string;
-  organizationId: string; // Added
+  organizationId: string;
   title: string;
   description?: string;
   dueDate?: string;
@@ -129,6 +128,7 @@ export interface User {
   lastName?: string;
   profilePictureUrl?: string;
   role: UserRole;
+  isActive: boolean; // Added: 1 for true, 0 for false in DB
   createdAt: string;
   updatedAt: string;
 }

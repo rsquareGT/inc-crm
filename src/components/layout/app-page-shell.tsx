@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Using standard Next.js router
+import { useRouter } from 'nextjs-toploader/app'; // Using standard Next.js router
 import { AppHeader } from './app-header';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';

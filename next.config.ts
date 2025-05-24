@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: '2020i.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

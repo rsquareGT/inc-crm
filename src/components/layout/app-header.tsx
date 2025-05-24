@@ -4,7 +4,7 @@
 import { Logo } from './logo';
 import { MainNav } from './main-nav';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, UserCircle, Loader2, Building } from 'lucide-react'; // Added Building
+import { LogIn, LogOut, UserCircle, Loader2, Building, Users } from 'lucide-react'; // Added Users
 import { ThemeToggle } from './theme-toggle';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
@@ -71,7 +71,7 @@ export function AppHeader() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {/* <DropdownMenuItem asChild>
-                  <Link href="/profile">Profile</Link> 
+                  <Link href="/profile">Profile</Link>  // TODO: Future My Profile Page
                 </DropdownMenuItem>*/}
                 {user.role === 'admin' && (
                   <>
@@ -80,11 +80,11 @@ export function AppHeader() {
                         <Building className="mr-2 h-4 w-4" /> Manage Organization
                       </Link>
                     </DropdownMenuItem>
-                    {/* <DropdownMenuItem asChild>
+                    <DropdownMenuItem asChild>
                       <Link href="/admin/users" className="flex items-center w-full">
                         <Users className="mr-2 h-4 w-4" /> User Management
                       </Link>
-                    </DropdownMenuItem> */}
+                    </DropdownMenuItem>
                   </>
                 )}
                 {/* <DropdownMenuItem asChild>

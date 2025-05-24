@@ -11,6 +11,8 @@ const API_PUBLIC_PATHS = ['/api/auth/login', '/api/auth/logout'];
 // /api/auth/me is special: it needs to be callable to check session,
 // but handles its own auth. Middleware should let it pass.
 
+const ADMIN_PATHS = ['/admin', '/organization/profile']; // Added /admin for user management and organization profile
+
 async function verifyToken(token: string, secret: string): Promise<jose.JWTPayload | null> {
   try {
     const { payload } = await jose.jwtVerify(token, new TextEncoder().encode(secret));
@@ -83,19 +85,18 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // If JWT is valid, allow the request to proceed for protected routes
-  // Optionally, add user info to request headers if needed by server components directly (less common with App Router)
+  // Admin-only route protection
+  if (ADMIN_PATHS.some(p => pathname.startsWith(p)) && userPayload.role !== 'admin') {
+    console.log(`Middleware: Non-admin user (role: ${userPayload.role}) attempting to access admin path ${pathname}. Redirecting to /dashboard.`);
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+
   const requestHeaders = new Headers(request.headers);
   if (userPayload.sub) requestHeaders.set('x-user-id', userPayload.sub as string);
   if (userPayload.email) requestHeaders.set('x-user-email', userPayload.email as string);
-  if (userPayload.role) requestHeaders.set('x-user-role', userPayload.role as string); // Important for admin checks
+  if (userPayload.role) requestHeaders.set('x-user-role', userPayload.role as string);
   if (userPayload.organizationId) requestHeaders.set('x-user-organization-id', userPayload.organizationId as string);
-
-  // Admin-only route protection (example for future User Management)
-  // if (pathname.startsWith('/admin') && userPayload.role !== 'admin') {
-  //   console.log(`Middleware: Non-admin user attempting to access ${pathname}. Redirecting to /dashboard.`);
-  //   return NextResponse.redirect(new URL('/dashboard', request.url)); // Or a specific "access denied" page
-  // }
 
   return NextResponse.next({
     request: {

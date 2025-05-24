@@ -16,10 +16,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TaskCard } from './task-card'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardFooter } from '../ui/card';
-import { useAuth } from '@/contexts/auth-context'; // Added
+import { useAuth } from '@/contexts/auth-context';
 
 export function DashboardClient() {
-  const { isAuthenticated, isLoading: authContextIsLoading } = useAuth(); // Added
+  const { isAuthenticated, isLoading: authContextIsLoading } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -36,6 +36,30 @@ export function DashboardClient() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Define TaskCardSkeleton before its use
+  const TaskCardSkeleton = () => (
+    <Card className="mb-3 shadow-md">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2 flex-grow mr-2">
+            <Skeleton className="h-5 w-5 rounded-sm" /> {/* Checkbox */}
+            <Skeleton className="h-5 w-3/4" /> {/* Title */}
+          </div>
+          <Skeleton className="h-6 w-6" /> {/* Dropdown Trigger */}
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-2 space-y-1.5 text-sm">
+        <Skeleton className="h-4 w-1/2" /> {/* Due Date */}
+        <Skeleton className="h-4 w-2/3" /> {/* Related To */}
+        <Skeleton className="h-4 w-full" /> {/* Description line 1 */}
+      </CardContent>
+      <CardFooter className="px-4 pt-1 pb-3 flex flex-wrap gap-1">
+        <Skeleton className="h-5 w-12 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </CardFooter>
+    </Card>
+  );
 
   const fetchData = useCallback(async (endpoint: string, setData: React.Dispatch<React.SetStateAction<any[]>>, setLoading: React.Dispatch<React.SetStateAction<boolean>>, entityName: string) => {
     setLoading(true);
@@ -64,9 +88,9 @@ export function DashboardClient() {
         fetch('/api/deals'),
         fetch('/api/contacts'),
       ]);
-      if (dealsRes.ok) setDeals(await dealsRes.json()); // Note: This overwrites deals fetched by main fetchData if called after
+      if (dealsRes.ok) setDeals(await dealsRes.json()); 
       else throw new Error('Failed to fetch deals for task form');
-      if (contactsRes.ok) setContacts(await contactsRes.json()); // Note: This overwrites contacts fetched by main fetchData
+      if (contactsRes.ok) setContacts(await contactsRes.json()); 
       else throw new Error('Failed to fetch contacts for task form');
     } catch (err) {
       console.error("Error fetching data for task form:", err);
@@ -80,9 +104,8 @@ export function DashboardClient() {
   useEffect(() => {
     if (isAuthenticated && !authContextIsLoading) {
       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
-      fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals'); // Main deals fetch
-      fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts'); // Main contacts fetch
-      // fetchTaskFormRelatedData(); // This could be called here or deferred until task modal opens
+      fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals'); 
+      fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts');
     } else if (!authContextIsLoading && !isAuthenticated) {
       setTasks([]);
       setDeals([]);
@@ -92,12 +115,10 @@ export function DashboardClient() {
       setIsLoadingContacts(false);
       setIsTaskFormDataLoading(false);
     }
-  }, [fetchData, isAuthenticated, authContextIsLoading]); // Removed fetchTaskFormRelatedData from here for now
+  }, [fetchData, isAuthenticated, authContextIsLoading]); 
   
-  // Fetch form data for Task modal only when it's about to open or needed
   useEffect(() => {
     if (isTaskModalOpen && isAuthenticated && !authContextIsLoading) {
-      // Only fetch if not already loaded or to refresh
       if (deals.length === 0 || contacts.length === 0 || isTaskFormDataLoading) {
          fetchTaskFormRelatedData();
       }
@@ -243,30 +264,6 @@ export function DashboardClient() {
       </div>
     );
   }
-  
-  const TaskCardSkeleton = () => (
-    <Card className="mb-3 shadow-md">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 flex-grow mr-2">
-            <Skeleton className="h-5 w-5 rounded-sm" /> {/* Checkbox */}
-            <Skeleton className="h-5 w-3/4" /> {/* Title */}
-          </div>
-          <Skeleton className="h-6 w-6" /> {/* Dropdown Trigger */}
-        </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-2 space-y-1.5 text-sm">
-        <Skeleton className="h-4 w-1/2" /> {/* Due Date */}
-        <Skeleton className="h-4 w-2/3" /> {/* Related To */}
-        <Skeleton className="h-4 w-full" /> {/* Description line 1 */}
-      </CardContent>
-      <CardFooter className="px-4 pt-1 pb-3 flex flex-wrap gap-1">
-        <Skeleton className="h-5 w-12 rounded-full" />
-        <Skeleton className="h-5 w-16 rounded-full" />
-      </CardFooter>
-    </Card>
-  );
-
 
   return (
     <div>

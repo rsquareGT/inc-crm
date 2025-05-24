@@ -49,12 +49,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
-    const stmtUsers = db.prepare(`
+    // Changed 'FROM Users' to 'FROM User'
+    const stmtUsers = db.prepare(\`
       SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt 
-      FROM Users 
+      FROM User 
       WHERE organizationId = ? 
       ORDER BY lastName ASC, firstName ASC
-    `);
+    \`);
     const usersData = stmtUsers.all(admin.organizationId) as User[];
     
     return NextResponse.json(usersData);
@@ -91,9 +92,10 @@ export async function POST(request: NextRequest) {
     const newUserId = generateId();
     const now = new Date().toISOString();
 
+    // Changed 'INSERT INTO Users' to 'INSERT INTO User'
     const stmt = db.prepare(
-      `INSERT INTO Users (id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      \`INSERT INTO User (id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\`
     );
     
     stmt.run(
@@ -127,7 +129,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('API Error creating user:', error);
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('Users.email')) {
+    // Changed 'Users.email' to 'User.email' for constraint check
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('User.email')) {
         return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create user.' }, { status: 500 });

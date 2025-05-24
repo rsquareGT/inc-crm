@@ -64,7 +64,12 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     // This is a simplified check. A real system might need more robust logic.
     if (userId === admin.id) {
         if (isActive === false) {
-            return NextResponse.json({ error: "Cannot deactivate your own admin account." }, { status: 403 });
+            // A more robust check would be to see if they are the *only* active admin in the organization
+            const activeAdminCountStmt = db.prepare('SELECT COUNT(*) as count FROM User WHERE organizationId = ? AND role = \'admin\' AND isActive = 1');
+            const adminCountResult = activeAdminCountStmt.get(admin.organizationId) as { count: number };
+            if (adminCountResult.count <= 1) {
+                 return NextResponse.json({ error: "Cannot deactivate the only active admin account in the organization." }, { status: 403 });
+            }
         }
         if (role !== 'admin') {
              return NextResponse.json({ error: "Cannot change your own admin role." }, { status: 403 });
@@ -74,10 +79,11 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
 
     const now = new Date().toISOString();
 
+    // Changed 'UPDATE Users' to 'UPDATE User'
     const stmt = db.prepare(
-      `UPDATE Users 
+      \`UPDATE User 
        SET firstName = ?, lastName = ?, email = ?, role = ?, profilePictureUrl = ?, isActive = ?, updatedAt = ?
-       WHERE id = ? AND organizationId = ?` // Ensure admin can only update users in their own org
+       WHERE id = ? AND organizationId = ?\` // Ensure admin can only update users in their own org
     );
     
     const result = stmt.run(
@@ -96,14 +102,16 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
       return NextResponse.json({ error: 'User not found, not in your organization, or no changes made' }, { status: 404 });
     }
     
-    const stmtUpdatedUser = db.prepare('SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt FROM Users WHERE id = ?');
+    // Changed 'FROM Users' to 'FROM User'
+    const stmtUpdatedUser = db.prepare('SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt FROM User WHERE id = ?');
     const updatedUserData = stmtUpdatedUser.get(userId) as User;
 
     return NextResponse.json(updatedUserData);
 
   } catch (error: any) {
-    console.error(`API Error updating user ${params.userId}:`, error);
-     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('Users.email')) {
+    console.error(\`API Error updating user \${params.userId}:\`, error);
+    // Changed 'Users.email' to 'User.email' for constraint check
+     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('User.email')) {
         return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to update user.' }, { status: 500 });

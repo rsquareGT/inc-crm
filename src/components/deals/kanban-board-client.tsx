@@ -12,14 +12,16 @@ import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'; // For skeleton
-import { ScrollArea } from '@/components/ui/scroll-area'; // For skeleton
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/auth-context'; // Added
 
 export function KanbanBoardClient() {
+  const { isAuthenticated, isLoading: authContextIsLoading } = useAuth(); // Added
   const [deals, setDeals] = useState<Deal[]>([]);
   const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
   const [allCompaniesForForm, setAllCompaniesForForm] = useState<Company[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDeals, setIsLoadingDeals] = useState(true);
   const [isFormDataLoading, setIsFormDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -31,7 +33,7 @@ export function KanbanBoardClient() {
   const { toast } = useToast();
 
   const fetchDeals = useCallback(async () => {
-    setIsLoading(true);
+    setIsLoadingDeals(true);
     setError(null);
     try {
       const response = await fetch('/api/deals');
@@ -47,7 +49,7 @@ export function KanbanBoardClient() {
       setError(message);
       toast({ title: "Error Fetching Deals", description: message, variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsLoadingDeals(false);
     }
   }, [toast]);
   
@@ -62,28 +64,21 @@ export function KanbanBoardClient() {
       if (!contactsRes.ok) {
         let errorMsg = 'Failed to fetch contacts for form';
         try {
-          const errorData = await contactsRes.json();
-          if (errorData && errorData.error) {
-            errorMsg = `Failed to fetch contacts for form: ${errorData.error}`;
-          } else {
-            errorMsg = `Failed to fetch contacts for form: Server responded with status ${contactsRes.status}`;
-          }
-        } catch (e) { 
+          const errorData = await contactsRes.json(); // Attempt to parse JSON
+          errorMsg = errorData.error || `Failed to fetch contacts: ${contactsRes.statusText}`;
+        } catch (e) {
+          // If parsing as JSON fails, it means the response was likely HTML (e.g., error page or redirect)
            errorMsg = `Failed to fetch contacts for form: Server responded with status ${contactsRes.status} and non-JSON body.`;
         }
         throw new Error(errorMsg);
       }
       if (!companiesRes.ok) {
-        let errorMsg = 'Failed to fetch companies for form';
+         let errorMsg = 'Failed to fetch companies for form';
         try {
           const errorData = await companiesRes.json();
-          if (errorData && errorData.error) {
-            errorMsg = `Failed to fetch companies for form: ${errorData.error}`;
-          } else {
-             errorMsg = `Failed to fetch companies for form: Server responded with status ${companiesRes.status}`;
-          }
-        } catch (e) { 
-          errorMsg = `Failed to fetch companies for form: Server responded with status ${companiesRes.status} and non-JSON body.`;
+          errorMsg = errorData.error || `Failed to fetch companies: ${companiesRes.statusText}`;
+        } catch (e) {
+           errorMsg = `Failed to fetch companies for form: Server responded with status ${companiesRes.status} and non-JSON body.`;
         }
         throw new Error(errorMsg);
       }
@@ -104,9 +99,18 @@ export function KanbanBoardClient() {
 
 
   useEffect(() => {
-    fetchDeals();
-    fetchFormData();
-  }, [fetchDeals, fetchFormData]);
+    if (isAuthenticated && !authContextIsLoading) { // Check auth state
+      fetchDeals();
+      fetchFormData();
+    } else if (!authContextIsLoading && !isAuthenticated) {
+      // If definitely not authenticated, clear data and stop loading states
+      setDeals([]);
+      setAllContactsForForm([]);
+      setAllCompaniesForForm([]);
+      setIsLoadingDeals(false);
+      setIsFormDataLoading(false);
+    }
+  }, [fetchDeals, fetchFormData, isAuthenticated, authContextIsLoading]); // Added dependencies
 
   const handleOpenModal = (deal: Deal | null = null) => {
     setEditingDeal(deal);
@@ -119,7 +123,7 @@ export function KanbanBoardClient() {
   };
 
   const handleSaveDealCallback = () => {
-    fetchDeals(); 
+    if (isAuthenticated) fetchDeals(); 
   };
 
   const handleChangeDealStage = async (dealId: string, newStage: DealStage) => {
@@ -127,13 +131,11 @@ export function KanbanBoardClient() {
     if (!originalDeal) return;
 
     const updatedDealPayload = { ...originalDeal, stage: newStage, updatedAt: new Date().toISOString() };
-     // Optimistically update UI
     setDeals(prevDeals => 
       prevDeals.map(deal => 
         deal.id === dealId ? updatedDealPayload : deal
       )
     );
-
 
     try {
       const response = await fetch(`/api/deals/${dealId}`, {
@@ -147,13 +149,11 @@ export function KanbanBoardClient() {
         throw new Error(errorData.error || 'Failed to update deal stage');
       }
       toast({ title: "Deal Stage Updated", description: `"${originalDeal.name}" moved to ${newStage}.` });
-      // Optionally re-fetch to ensure consistency, or rely on optimistic update if response is minimal
-      // fetchDeals(); 
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Stage", description: message, variant: "destructive" });
-      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d)); // Revert on error
+      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d));
     }
   };
   
@@ -186,7 +186,8 @@ export function KanbanBoardClient() {
     }
   };
 
-  if (isLoading || isFormDataLoading) {
+  // Show skeleton if auth is loading OR if auth is complete but deals/form data is still loading
+  if (authContextIsLoading || (isAuthenticated && (isLoadingDeals || isFormDataLoading))) {
     return (
       <div className="flex flex-col h-full">
         <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages.">
@@ -197,27 +198,27 @@ export function KanbanBoardClient() {
         
         <div className="flex-1 flex gap-4 overflow-x-auto pb-4">
           {DEAL_STAGES.map((stage) => (
-            <div key={`skeleton-col-${stage}`} className={`flex-shrink-0 w-80 bg-secondary/50 rounded-lg p-1`}>
-              <div className="p-3">
-                <Skeleton className="h-5 w-3/4 mb-1" />
-                <Skeleton className="h-3 w-1/2 mb-3" />
+            <div key={`skeleton-col-${stage}`} className={`flex-shrink-0 w-60 bg-secondary/50 rounded-lg p-0.5`}>
+              <div className="p-1.5">
+                <Skeleton className="h-5 w-3/4 mb-0.5" />
+                <Skeleton className="h-3 w-1/2 mb-1.5" />
               </div>
-              <ScrollArea className="h-[calc(100vh-20rem)] pr-1">
-                <div className="p-3 pt-0 space-y-3">
-                  {Array.from({ length: 2 }).map((_, index) => ( // Show 2 skeleton cards per column
-                    <Card key={`skeleton-deal-card-${stage}-${index}`} className="shadow-sm">
-                      <CardHeader className="pb-2 pt-4 px-4">
+              <ScrollArea className="h-[calc(100vh-17.5rem)] pr-0.5">
+                <div className="px-1.5 pb-1.5 pt-0 space-y-1">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <Card key={`skeleton-deal-card-${stage}-${index}`} className="mb-1.5 shadow-sm">
+                      <CardHeader className="pb-1 pt-2 px-2">
                         <div className="flex justify-between items-start">
-                          <Skeleton className="h-5 w-3/5" />
-                          <Skeleton className="h-6 w-6" />
+                            <Skeleton className="h-4 w-3/5" /> {/* Title */}
+                            <Skeleton className="h-3 w-3" />   {/* Icon */}
                         </div>
                       </CardHeader>
-                      <CardContent className="px-4 pb-3 space-y-2 text-sm">
-                        <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-2/5" /></div>
-                        <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
+                      <CardContent className="px-2 pb-1.5 space-y-1 text-xs">
+                        <div className="flex items-center"><Skeleton className="h-3 w-3 mr-1 rounded-full" /><Skeleton className="h-3 w-2/5" /></div>
+                        <div className="flex items-center"><Skeleton className="h-3 w-3 mr-1 rounded-full" /><Skeleton className="h-3 w-3/5" /></div>
                       </CardContent>
-                      <CardFooter className="px-4 pb-4 flex flex-wrap gap-1">
-                        <Skeleton className="h-5 w-12 rounded-full" />
+                      <CardFooter className="px-2 pt-1 pb-1.5 flex flex-wrap gap-0.5">
+                        <Skeleton className="h-4 w-10 rounded-full" />
                       </CardFooter>
                     </Card>
                   ))}
@@ -245,11 +246,27 @@ export function KanbanBoardClient() {
     );
   }
 
+  // If not authenticated and not loading auth, show minimal or redirect (AppPageShell handles redirect)
+  if (!isAuthenticated && !authContextIsLoading) {
+    return (
+      <div className="flex flex-col h-full">
+         <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages.">
+            <Button disabled>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Deal
+            </Button>
+        </PageSectionHeader>
+        <div className="flex-1 flex items-center justify-center">
+          <p>Please log in to view deals.</p>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col h-full">
       <PageSectionHeader title="Deals Pipeline" description="Visually manage your deals through stages.">
-        <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading}>
+        <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading || authContextIsLoading}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Deal
         </Button>
       </PageSectionHeader>
@@ -287,5 +304,3 @@ export function KanbanBoardClient() {
     </div>
   );
 }
-
-    

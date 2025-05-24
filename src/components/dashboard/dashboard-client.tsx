@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2, Loader2, UserCircle as UserIcon } from 'lucide-react';
 import type { Task, Deal, Contact, DealStage } from '@/lib/types';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
@@ -17,9 +16,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TaskCard } from './task-card'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardFooter } from '../ui/card';
-
+import { useAuth } from '@/contexts/auth-context'; // Added
 
 export function DashboardClient() {
+  const { isAuthenticated, isLoading: authContextIsLoading } = useAuth(); // Added
   const [tasks, setTasks] = useState<Task[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -27,7 +27,7 @@ export function DashboardClient() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingDeals, setIsLoadingDeals] = useState(true);
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
-  const [isFormDataLoading, setIsFormDataLoading] = useState(true);
+  const [isTaskFormDataLoading, setIsTaskFormDataLoading] = useState(true); // For TaskFormModal deals/contacts
 
   const [error, setError] = useState<string | null>(null);
 
@@ -57,17 +57,52 @@ export function DashboardClient() {
     }
   }, [toast]);
 
-  useEffect(() => {
-    fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
-    fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals');
-    fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts');
-  }, [fetchData]);
-  
-  useEffect(() => {
-    if (!isLoadingDeals && !isLoadingContacts) {
-        setIsFormDataLoading(false);
+  const fetchTaskFormRelatedData = useCallback(async () => {
+    setIsTaskFormDataLoading(true);
+     try {
+      const [dealsRes, contactsRes] = await Promise.all([
+        fetch('/api/deals'),
+        fetch('/api/contacts'),
+      ]);
+      if (dealsRes.ok) setDeals(await dealsRes.json()); // Note: This overwrites deals fetched by main fetchData if called after
+      else throw new Error('Failed to fetch deals for task form');
+      if (contactsRes.ok) setContacts(await contactsRes.json()); // Note: This overwrites contacts fetched by main fetchData
+      else throw new Error('Failed to fetch contacts for task form');
+    } catch (err) {
+      console.error("Error fetching data for task form:", err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Loading Task Form Data", description: message, variant: "destructive" });
+    } finally {
+      setIsTaskFormDataLoading(false);
     }
-  }, [isLoadingDeals, isLoadingContacts]);
+  }, [toast]);
+
+  useEffect(() => {
+    if (isAuthenticated && !authContextIsLoading) {
+      fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
+      fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals'); // Main deals fetch
+      fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts'); // Main contacts fetch
+      // fetchTaskFormRelatedData(); // This could be called here or deferred until task modal opens
+    } else if (!authContextIsLoading && !isAuthenticated) {
+      setTasks([]);
+      setDeals([]);
+      setContacts([]);
+      setIsLoadingTasks(false);
+      setIsLoadingDeals(false);
+      setIsLoadingContacts(false);
+      setIsTaskFormDataLoading(false);
+    }
+  }, [fetchData, isAuthenticated, authContextIsLoading]); // Removed fetchTaskFormRelatedData from here for now
+  
+  // Fetch form data for Task modal only when it's about to open or needed
+  useEffect(() => {
+    if (isTaskModalOpen && isAuthenticated && !authContextIsLoading) {
+      // Only fetch if not already loaded or to refresh
+      if (deals.length === 0 || contacts.length === 0 || isTaskFormDataLoading) {
+         fetchTaskFormRelatedData();
+      }
+    }
+  }, [isTaskModalOpen, isAuthenticated, authContextIsLoading, deals, contacts, isTaskFormDataLoading, fetchTaskFormRelatedData]);
 
 
   const handleOpenTaskModal = (task: Task | null = null) => {
@@ -81,7 +116,7 @@ export function DashboardClient() {
   };
 
   const handleSaveTaskCallback = () => {
-    fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
+    if (isAuthenticated) fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
     handleCloseTaskModal();
   };
 
@@ -153,6 +188,38 @@ export function DashboardClient() {
     };
   }, [deals, tasks, contacts]);
 
+  if (authContextIsLoading || (isAuthenticated && (isLoadingTasks || isLoadingDeals || isLoadingContacts))) {
+     return (
+      <div>
+        <PageSectionHeader title="Dashboard" description="Your sales and activity overview." />
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <StatsCard title="Open Deals" value="0" icon={<Briefcase className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
+              <StatsCard title="Value of Open Deals" value="$0" icon={<DollarSign className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
+              <StatsCard title="Pending Tasks" value="0" icon={<ListChecks className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
+              <StatsCard title="New Contacts (Last 7 Days)" value="0" icon={<UserPlus className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
+            </div>
+          </div>
+          <div className="lg:col-span-1 space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold tracking-tight">My Tasks</h2>
+              <Button disabled size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+              </Button>
+            </div>
+            <ScrollArea className="h-[calc(100vh-16rem)] rounded-md border p-1 pr-3 bg-secondary/30">
+              <div className="p-3">
+                {Array.from({ length: 3 }).map((_, index) => <TaskCardSkeleton key={`skeleton-task-${index}`} />)}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
   if (error && tasks.length === 0 && deals.length === 0 && contacts.length === 0) {
     return (
       <div>
@@ -161,6 +228,17 @@ export function DashboardClient() {
           <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
           <h2 className="text-xl font-semibold text-destructive mb-2">Error Loading Dashboard Data</h2>
           <p className="text-muted-foreground whitespace-pre-line">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !authContextIsLoading) {
+    return (
+      <div>
+        <PageSectionHeader title="Dashboard" description="Your sales and activity overview." />
+        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
+           <p>Please log in to view the dashboard.</p>
         </div>
       </div>
     );
@@ -195,7 +273,7 @@ export function DashboardClient() {
       <PageSectionHeader title="Dashboard" description="Your sales and activity overview." />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6"> {/* Main content area */}
+        <div className="lg:col-span-2 space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <StatsCard 
               title="Open Deals" 
@@ -222,13 +300,12 @@ export function DashboardClient() {
               isLoading={isLoadingContacts}
             />
           </div>
-          {/* Future charts or other dashboard items can go here */}
         </div>
 
-        <div className="lg:col-span-1 space-y-4"> {/* Sidebar-like area for tasks */}
+        <div className="lg:col-span-1 space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold tracking-tight">My Tasks</h2>
-            <Button onClick={() => handleOpenTaskModal()} disabled={isFormDataLoading || isLoadingDeals || isLoadingContacts} size="sm">
+            <Button onClick={() => handleOpenTaskModal()} disabled={isTaskFormDataLoading || isLoadingDeals || isLoadingContacts} size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Task
             </Button>
           </div>
@@ -277,4 +354,3 @@ export function DashboardClient() {
     </div>
   );
 }
-

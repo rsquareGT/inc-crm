@@ -12,25 +12,25 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  fetchUser: () => Promise<void>;
+  fetchUser: (isInitialLoad?: boolean) => Promise<void>; // Added isInitialLoad optional param
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Start true for initial load
   const router = useRouter();
 
   const fetchUser = useCallback(async (isInitialLoad = false) => {
     if (isInitialLoad) {
       console.log('AuthContext: Initial fetchUser called.');
-      setIsLoading(true);
+      // No need to setIsLoading(true) here as it's already true initially
     } else {
       console.log('AuthContext: fetchUser called (revalidation).');
-      // Optionally, set a different loading state for revalidations if needed
-      // setIsLoading(true); // Or a more subtle loading indicator
+      // For revalidations, you might want a different loading indicator or none
     }
+
     try {
       const response = await fetch('/api/auth/me');
       console.log(`AuthContext: /api/auth/me response status: ${response.status}`);
@@ -51,21 +51,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('AuthContext: Failed to fetch user from /api/auth/me:', error);
       setUser(null);
     } finally {
-      if (isInitialLoad || isLoading) { // Only change isLoading if it was true
-         setIsLoading(false);
-         console.log('AuthContext: fetchUser finished, isLoading set to false.');
+      // Only set isLoading to false if it was true for the initial load
+      // For revalidations, isLoading might not have been set to true by this specific fetchUser call.
+      if (isLoading) { // Check current isLoading state
+        setIsLoading(false);
+        console.log('AuthContext: fetchUser finished, isLoading set to false.');
       }
     }
-  }, [isLoading]); // Added isLoading to ensure it only sets it false if it was true
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]); // Keep isLoading here for the specific logic in finally, or remove if not strictly needed for revalidations.
+                  // Better: remove isLoading from deps, and control isLoading set to true only at the start of initial load.
 
+  // Corrected useEffect for initial load
   useEffect(() => {
-    fetchUser(true); // Pass true for initial load
-  }, [fetchUser]);
+    setIsLoading(true); // Explicitly set loading true for the very first fetch
+    fetchUser(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array ensures this runs only once on mount
 
 
   const login = async (email: string, password: string): Promise<boolean> => {
     console.log(`AuthContext: login called for ${email}`);
-    setIsLoading(true); // Indicate loading during login attempt
+    // Don't set context isLoading to true here, login form can manage its own button loading state
     try {
       console.log('AuthContext: Calling /api/auth/login...');
       const response = await fetch('/api/auth/login', {
@@ -76,43 +83,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
       console.log(`AuthContext: /api/auth/login response status: ${response.status}`, data);
 
-      if (response.ok && data.success) {
-        console.log('AuthContext: /api/auth/login successful. Now calling fetchUser to verify session.');
-        await fetchUser(); // This will attempt to set the user based on the new cookie
-        
-        // Check user state directly after fetchUser has completed
-        // Need a way to access the latest state of user, as `user` in this scope might be stale
-        // A better way is to rely on the LoginForm's useEffect watching the context's isAuthenticated
-        const responseAfterFetchUser = await fetch('/api/auth/me'); // Double check
-        if(responseAfterFetchUser.ok && (await responseAfterFetchUser.json()).user){
-            console.log('AuthContext: login successful, user session verified by a subsequent /me call.');
-            setIsLoading(false);
-            return true; // Indicate to LoginForm that login API + session verification was successful
-        } else {
-            console.warn('AuthContext: /api/auth/login succeeded, but subsequent fetchUser/me check did not confirm session.');
-             setUser(null); // Ensure user is null if fetchUser didn't populate it
-             setIsLoading(false);
-             return false; // Indicate to LoginForm that session verification failed
-        }
-
+      if (response.ok && data.success && data.user) {
+        console.log('AuthContext: /api/auth/login successful. User data received. Setting user and fetching to verify session.');
+        setUser(data.user); // Set user directly from login response
+        // Optionally, call fetchUser() if you want to re-verify from /me, but not strictly necessary if login returns user
+        // await fetchUser(); 
+        // For faster UI update, we trust the login response. /me will be called on subsequent navigations/reloads.
+        if (isLoading) setIsLoading(false); // Ensure loading is false if it was a very quick first login
+        return true;
       } else {
-        console.warn('AuthContext: /api/auth/login failed or data.success was false.');
+        console.warn('AuthContext: /api/auth/login failed or data.success was false or no user data.');
         setUser(null);
-        setIsLoading(false);
-        throw new Error(data.error || 'Login API call failed');
+        if (isLoading) setIsLoading(false);
+        throw new Error(data.error || 'Login API call failed or did not return user data.');
       }
     } catch (error) {
       console.error('AuthContext: Login error:', error);
       setUser(null);
-      setIsLoading(false);
-      throw error;
+      if (isLoading) setIsLoading(false);
+      throw error; // Re-throw for the form to handle
     }
   };
 
   const logout = async () => {
     console.log('AuthContext: logout called.');
     setUser(null);
-    setIsLoading(true); // Prevent rendering protected content briefly
+    setIsLoading(true); 
     try {
       console.log('AuthContext: Calling /api/auth/logout...');
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -122,22 +118,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       console.log('AuthContext: Pushing to /login and setting isLoading to false.');
       router.push('/login');
+      // isLoading will be set to true again by the mount effect of AuthProvider on login page
+      // but good to ensure it is false if logout was very quick.
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !isLoading) { // Only fetch if not already loading
         console.log('AuthContext: Tab became visible, re-fetching user.');
-        fetchUser();
+        fetchUser(); // Revalidate session
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchUser]);
+  }, [fetchUser, isLoading]); // Add isLoading to dependency
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, fetchUser }}>

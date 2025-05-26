@@ -2,23 +2,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Contact, Company, Deal, Note, Activity } from '@/lib/types';
+import type { Contact, Company, Deal, Note, Activity, DealStage } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ContactFormModal } from './contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2, ActivityIcon, DollarSign } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2, ActivityIcon, DollarSign, GripVertical } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -29,6 +20,8 @@ import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-times
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ActivityItem } from '@/components/shared/activity-item';
+import { DealCard } from '@/components/deals/deal-card'; // Added DealCard import
+import { DEAL_STAGES } from '@/lib/constants'; // For DealCard stage change options
 
 interface ContactDetailsClientProps {
   contactId: string;
@@ -46,7 +39,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); // For DealFormModal
 
   const { toast } = useToast();
 
@@ -65,6 +58,24 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
             <Skeleton className="h-3 w-1/2" />
         </div>
     </div>
+  );
+
+  const DealCardSkeleton = () => (
+    <Card className="mb-1.5 shadow-sm">
+      <CardHeader className="pb-1 pt-2 px-2">
+        <div className="flex justify-between items-start">
+          <Skeleton className="h-4 w-3/5" /> {/* Title */}
+          <Skeleton className="h-3 w-3" />   {/* Icon */}
+        </div>
+      </CardHeader>
+      <CardContent className="px-2 pb-1.5 space-y-1 text-xs">
+        <div className="flex items-center"><Skeleton className="h-3 w-3 mr-1 rounded-full" /><Skeleton className="h-3 w-2/5" /></div>
+        <div className="flex items-center"><Skeleton className="h-3 w-3 mr-1 rounded-full" /><Skeleton className="h-3 w-3/5" /></div>
+      </CardContent>
+      <CardFooter className="px-2 pt-1 pb-1.5 flex flex-wrap gap-0.5">
+        <Skeleton className="h-4 w-10 rounded-full" />
+      </CardFooter>
+    </Card>
   );
 
   const fetchContactDetails = useCallback(async () => {
@@ -158,6 +169,41 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     setEditingDeal(null);
   };
 
+  const handleChangeDealStage = async (dealId: string, newStage: DealStage) => {
+    const originalDeal = deals.find(d => d.id === dealId);
+    if (!originalDeal) return;
+
+    const updatedDealPayload = { ...originalDeal, stage: newStage, updatedAt: new Date().toISOString() };
+    
+    // Optimistic update
+    setDeals(prevDeals => 
+      prevDeals.map(deal => 
+        deal.id === dealId ? { ...deal, stage: newStage, updatedAt: updatedDealPayload.updatedAt } : deal
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/deals/${dealId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedDealPayload), 
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({error: "Failed to update deal stage"}));
+        throw new Error(errorData.error || 'Failed to update deal stage');
+      }
+      toast({ title: "Deal Stage Updated", description: `"${originalDeal.name}" moved to ${newStage}.` });
+      fetchContactDetails(); // Re-fetch to ensure activities are updated
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      toast({ title: "Error Updating Stage", description: message, variant: "destructive" });
+      // Revert optimistic update
+      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d));
+    }
+  };
+
   const handleDeleteRequest = (id: string, type: 'deal' | 'note', name: string) => {
     setItemToDelete({ id, type, name });
     setShowDeleteDialog(true);
@@ -238,7 +284,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column Skeleton (65%) */}
+          {/* Left Column Skeleton */}
           <div className="w-full lg:w-[65%] space-y-6">
             {/* Contact Info Card Skeleton */}
             <Card>
@@ -275,45 +321,27 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </ScrollArea>
               </CardContent>
             </Card>
-            {/* Activity Card Skeleton (moved to left) */}
+             {/* Activity Card Skeleton */}
             <Card>
               <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
               <CardContent><ScrollArea className="h-[250px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-left-activity-${index}`} />)}</ScrollArea></CardContent>
             </Card>
           </div>
 
-          {/* Right Column Skeleton (35%) */}
-          <div className="w-full lg:w-[35%]">
-            {/* Associated Deals Card Skeleton */}
-            <Card>
+          {/* Right Column Skeleton */}
+          <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
+             <Card className="h-full flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <Skeleton className="h-6 w-1/2" /> {/* Card Title */}
                   <Skeleton className="h-9 w-[100px]" /> {/* Add Deal Button */}
                 </div>
               </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[calc(100vh-18rem)]"> {/* Example height for scrollable deals */}
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead><Skeleton className="h-4 w-[100px]" /></TableHead>
-                        <TableHead><Skeleton className="h-4 w-[80px]" /></TableHead>
-                        <TableHead><Skeleton className="h-4 w-[100px]" /></TableHead>
-                        <TableHead className="text-right"><Skeleton className="h-4 w-[60px]" /></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {[...Array(3)].map((_, i) => (
-                        <TableRow key={`skeleton-deal-${i}`}>
-                          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                          <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              <CardContent className="flex-grow overflow-hidden">
+                <ScrollArea className="h-full">
+                   <div className="space-y-1.5 pr-1">
+                    {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
+                  </div>
                 </ScrollArea>
               </CardContent>
             </Card>
@@ -433,7 +461,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
               </div>
 
               {sortedNotes.length > 0 ? (
-                <ScrollArea className="h-[200px] w-full pr-4"> {/* Adjusted height */}
+                <ScrollArea className="h-[200px] w-full pr-4">
                   <div className="space-y-3">
                     {sortedNotes.map(note => (
                       <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
@@ -465,7 +493,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
             </CardHeader>
             <CardContent className="pl-2 pr-2 pt-0">
-                <ScrollArea className="h-[300px]"> {/* Adjusted height */}
+                <ScrollArea className="h-[300px]">
                     {isLoadingActivities ? (
                         Array.from({ length: 4 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
                     ) : activities.length > 0 ? (
@@ -481,8 +509,8 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </div>
 
         {/* Right Column: Associated Deals */}
-        <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit"> {/* Sticky applied here, h-fit for natural height */}
-          <Card className="h-full flex flex-col"> {/* Make card take full height of sticky container and be a flex column */}
+        <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
+          <Card className="h-full flex flex-col">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Deals ({deals.length})</CardTitle>
@@ -491,54 +519,31 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="flex-grow overflow-hidden"> {/* Allow content to grow and hide overflow */}
-              {deals.length > 0 ? (
-                <ScrollArea className="h-full"> {/* ScrollArea to take full height of CardContent */}
-                  <Table>
-                      <TableHeader>
-                          <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Stage</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {deals.map((deal) => (
-                          <TableRow key={deal.id}>
-                              <TableCell className="font-medium">
-                                <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
-                                    {deal.name}
-                                </Link>
-                              </TableCell>
-                              <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
-                              <TableCell>${deal.value.toLocaleString()}</TableCell>
-                              <TableCell className="text-right">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                    <DropdownMenuItem asChild>
-                                        <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
-                                        <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
-                                        <Edit className="mr-2 h-4 w-4" /> Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                    </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                          </TableRow>
-                          ))}
-                      </TableBody>
-                  </Table>
+            <CardContent className="flex-grow overflow-hidden p-2">
+              {isLoading ? (
+                 <div className="space-y-1.5 pr-1">
+                    {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
+                  </div>
+              ) : deals.length > 0 ? (
+                <ScrollArea className="h-full">
+                   <div className="space-y-1.5 pr-1">
+                    {deals.map((deal) => {
+                      const dealCompany = allCompaniesList.find(c => c.id === deal.companyId);
+                      // The main contact for these deals is the contact of the current page
+                      const dealContactForCard = contact; 
+                      return (
+                        <DealCard
+                          key={deal.id}
+                          deal={deal}
+                          contact={dealContactForCard || undefined}
+                          company={dealCompany}
+                          onEdit={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}
+                          onDelete={() => handleDeleteRequest(deal.id, 'deal', deal.name)}
+                          onChangeStage={handleChangeDealStage}
+                        />
+                      );
+                    })}
+                  </div>
                 </ScrollArea>
               ) : (
                 <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
@@ -576,3 +581,5 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     </div>
   );
 }
+
+    

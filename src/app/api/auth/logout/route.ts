@@ -5,7 +5,8 @@ import { cookies } from 'next/headers';
 export async function POST() {
   try {
     // Clear the session cookie
-    cookies().set('session', '', {
+    const cookieStore = cookies();
+    cookieStore.set('session', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

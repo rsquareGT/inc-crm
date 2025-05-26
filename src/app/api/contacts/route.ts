@@ -1,8 +1,9 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import type { Contact } from '@/lib/types';
+import type { Contact, Note } from '@/lib/types';
 import { generateId } from '@/lib/utils';
+import { logActivity } from '@/services/activity-logger'; // Added
 
 // GET all contacts or contacts by companyId for the user's organization
 export async function GET(request: NextRequest) {
@@ -44,10 +45,12 @@ export async function GET(request: NextRequest) {
       } catch (e) {
         console.error(`Failed to parse tags for contact ${contact.id}: ${contact.tags}`, e);
       }
+      // For list view, we might not need full notes. Fetch on demand for detail view.
+      // If notes are needed here, a subquery or JOIN would be added.
       return {
         ...contact,
         tags: parsedTags,
-        notes: [], // Notes should be fetched on demand or in detail view
+        notes: [], // Notes are typically fetched in detail view or via separate endpoint
       };
     });
 
@@ -66,9 +69,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const organizationId = request.headers.get('x-user-organization-id');
+    const userId = request.headers.get('x-user-id'); // For activity logging
+
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
     }
+     if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized: User ID missing for logging.' }, { status: 401 });
+    }
+
 
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
@@ -99,7 +108,7 @@ export async function POST(request: NextRequest) {
       description || null,
       now,
       now,
-      organizationId // Use organizationId from session
+      organizationId
     );
 
     const newContact: Contact = {
@@ -116,6 +125,16 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
       organizationId,
     };
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'created_contact',
+      entityType: 'contact',
+      entityId: newContactId,
+      entityName: `${firstName} ${lastName}`,
+    });
 
     return NextResponse.json(newContact, { status: 201 });
 

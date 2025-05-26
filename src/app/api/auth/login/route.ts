@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
 
 export async function POST(request: NextRequest) {
+  console.log("API Login: POST request received");
   try {
     if (!db) {
       console.error('API Login: Database connection is not available');
@@ -21,7 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`API Login: Attempting login for email: ${email}`);
-    // Changed 'FROM Users' to 'FROM User'
     const stmtUser = db.prepare('SELECT id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, createdAt, updatedAt FROM User WHERE email = ?');
     const userData = stmtUser.get(email) as User & { hashedPassword?: string } | undefined;
 
@@ -30,16 +30,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // TODO: CRITICAL SECURITY FLAW - Remove this direct comparison and use bcrypt.compare once passwords are properly hashed in DB.
+    // TODO: CRITICAL SECURITY FLAW - This direct string comparison is for placeholder "hashed" passwords ONLY.
+    // Replace with `await bcrypt.compare(password, userData.hashedPassword)` once real bcrypt hashes are stored.
     // const passwordMatch = (password === userData.hashedPassword);
-    // For now, assuming passwords in DB are NOT yet bcrypt hashed IF you are using mock data passwords.
-    // If you have ALREADY stored bcrypt hashed passwords, uncomment below and comment/remove above.
     const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
 
     if (!passwordMatch) {
       console.warn(`API Login: Password mismatch for email: ${email}`);
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
+    console.log(`API Login: Password matched for email: ${email}`);
 
     const { hashedPassword, ...userToSign } = userData;
 
@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
 
     const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
-    cookies().set('session', jwt, {
+    const cookieStore = cookies();
+    cookieStore.set('session', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -85,7 +86,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('API Login Error:', error);
     if (error instanceof Error && error.message.includes('data and salt arguments required') && error.message.includes('bcrypt')) {
-      // This specific error message can occur if bcrypt.compare is called with an invalid hash (e.g. plain text password from your mock "hashed" passwords)
       console.error('API Login: bcrypt.compare failed. Ensure passwords in DB are correctly hashed or temporarily use direct string comparison if using placeholder hashes.');
       return NextResponse.json({ error: 'Authentication process error. Check server logs.' }, { status: 500 });
     }

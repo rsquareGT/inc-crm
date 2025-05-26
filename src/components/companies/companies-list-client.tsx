@@ -26,12 +26,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/auth-context'; // Added useAuth
+import { useAuth } from '@/contexts/auth-context';
 
 type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
-  const { user: loggedInUser } = useAuth(); // Get current logged-in user
+  const { user: loggedInUser } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [allUsersForForm, setAllUsersForForm] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +44,7 @@ export function CompaniesListClient() {
   const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid view
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortByType>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -71,18 +71,17 @@ export function CompaniesListClient() {
   }, [toast]);
 
   const fetchFormData = useCallback(async () => {
+    if (!loggedInUser?.organizationId) return;
     setIsFormRelatedDataLoading(true);
     try {
-      const usersResponse = await fetch('/api/users'); // API already filters by org
+      const usersResponse = await fetch('/api/users'); 
       if(!usersResponse.ok) {
         const errorData = await usersResponse.json();
         throw new Error(errorData.error || `Failed to fetch users for form: ${usersResponse.statusText}`);
       }
       let usersData: User[] = await usersResponse.json();
       // Client-side safeguard/filter
-      if (loggedInUser?.organizationId) {
-        usersData = usersData.filter(u => u.organizationId === loggedInUser.organizationId);
-      }
+      usersData = usersData.filter(u => u.organizationId === loggedInUser.organizationId);
       setAllUsersForForm(usersData);
     } catch (err) {
       console.error("Error fetching form data for Companies List:", err);
@@ -91,7 +90,7 @@ export function CompaniesListClient() {
     } finally {
       setIsFormRelatedDataLoading(false);
     }
-  }, [toast, loggedInUser]); // Added loggedInUser dependency
+  }, [toast, loggedInUser]);
 
   useEffect(() => {
     fetchCompanies();

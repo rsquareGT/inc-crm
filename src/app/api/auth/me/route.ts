@@ -10,7 +10,12 @@ export async function GET(request: NextRequest) {
   console.log('API /me: GET request received');
   if (!JWT_SECRET) {
     console.error('API /me: JWT_SECRET is not configured on the server.');
-    return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+    return NextResponse.json({ error: 'Server configuration error for authentication.' }, { status: 500 });
+  }
+
+  if (!db) {
+    console.error('API /me: Database connection is not available.');
+    return NextResponse.json({ error: 'Database connection error.' }, { status: 500 });
   }
 
   const sessionToken = request.cookies.get('session')?.value;
@@ -54,9 +59,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Session expired.' }, { status: 401 });
     }
     if (error instanceof jose.errors.JOSEError) {
-        console.warn('API /me: JWT Invalid (e.g., signature mismatch).');
-        return NextResponse.json({ error: 'Invalid session.' }, { status: 401 });
+        console.warn(`API /me: JWT Invalid (e.g., signature mismatch, malformed). Code: ${error.code}, Message: ${error.message}`);
+        return NextResponse.json({ error: `Invalid session. Details: ${error.message}` }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Authentication failed due to server error during token processing.' }, { status: 500 });
+    if (error instanceof Error && 'code' in error && typeof error.code === 'string' && error.code.startsWith('SQLITE_')) {
+        console.error(`API /me: SQLite Error - Code: ${error.code}, Message: ${error.message}`);
+        return NextResponse.json({ error: `Database operation failed during user fetch: ${error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Authentication failed due to server error during token processing or user fetch.' }, { status: 500 });
   }
 }

@@ -49,12 +49,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
-    const stmtUsers = db.prepare(\`
+    const stmtUsers = db.prepare(`
       SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt
       FROM Users
       WHERE organizationId = ?
       ORDER BY lastName ASC, firstName ASC
-    \`);
+    `);
     const usersData = stmtUsers.all(admin.organizationId) as User[];
 
     return NextResponse.json(usersData);
@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
-      \`INSERT INTO Users (id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\`
+      `INSERT INTO Users (id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     stmt.run(

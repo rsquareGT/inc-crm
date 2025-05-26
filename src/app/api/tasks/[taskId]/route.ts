@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Task } from '@/lib/types';
+import { logActivity } from '@/services/activity-logger'; // Added
 
 // GET a single task by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { taskId: string } }) {
@@ -41,8 +42,10 @@ export async function PUT(request: NextRequest, { params }: { params: { taskId: 
   try {
     const { taskId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id'); // For activity logging
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -55,13 +58,21 @@ export async function PUT(request: NextRequest, { params }: { params: { taskId: 
       return NextResponse.json({ error: 'Task title is required' }, { status: 400 });
     }
 
+    // Fetch current task for logging comparison if needed
+    const stmtCurrentTask = db.prepare('SELECT title, completed FROM Tasks WHERE id = ? AND organizationId = ?');
+    const currentTaskData = stmtCurrentTask.get(taskId, organizationId) as { title: string; completed: number } | undefined;
+
+    if (!currentTaskData) {
+        return NextResponse.json({ error: 'Task not found or not authorized for update' }, { status: 404 });
+    }
+
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
       `UPDATE Tasks
        SET title = ?, description = ?, dueDate = ?, relatedDealId = ?,
            relatedContactId = ?, completed = ?, tags = ?, updatedAt = ?
-       WHERE id = ? AND organizationId = ?` // Ensure update is scoped to organization
+       WHERE id = ? AND organizationId = ?`
     );
 
     const result = stmt.run(
@@ -80,6 +91,22 @@ export async function PUT(request: NextRequest, { params }: { params: { taskId: 
     if (result.changes === 0) {
       return NextResponse.json({ error: 'Task not found, not authorized, or no changes made' }, { status: 404 });
     }
+
+    // Log activity
+    let activityType: 'completed_task' | 'updated_task' = 'updated_task';
+    if (currentTaskData.completed === 0 && completed === true) { // Was not completed, now is
+        activityType = 'completed_task';
+    }
+    
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: activityType,
+      entityType: 'task',
+      entityId: taskId,
+      entityName: title, // Log with new title
+    });
+
 
     const stmtUpdatedTask = db.prepare('SELECT * FROM Tasks WHERE id = ? AND organizationId = ?');
     const updatedTaskData = stmtUpdatedTask.get(taskId, organizationId) as any;
@@ -102,20 +129,42 @@ export async function DELETE(request: NextRequest, { params }: { params: { taskI
   try {
     const { taskId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id'); // For activity logging
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
+    // Fetch task title for logging
+    const taskCheckStmt = db.prepare('SELECT title FROM Tasks WHERE id = ? AND organizationId = ?');
+    const taskToDeleteData = taskCheckStmt.get(taskId, organizationId) as { title: string } | undefined;
+
+    if (!taskToDeleteData) {
+      return NextResponse.json({ error: 'Task not found or not authorized' }, { status: 404 });
+    }
+    const taskTitle = taskToDeleteData.title;
+
     const stmtDeleteTask = db.prepare('DELETE FROM Tasks WHERE id = ? AND organizationId = ?');
     const result = stmtDeleteTask.run(taskId, organizationId);
 
     if (result.changes === 0) {
+      // Should have been caught by taskCheckStmt, but as a fallback
       return NextResponse.json({ error: 'Task not found or not authorized' }, { status: 404 });
     }
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'deleted_task',
+      entityType: 'task',
+      entityId: taskId,
+      entityName: taskTitle,
+    });
 
     return NextResponse.json({ message: 'Task deleted successfully' }, { status: 200 });
 

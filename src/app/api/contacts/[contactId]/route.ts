@@ -37,7 +37,6 @@ export async function GET(request: NextRequest, { params }: { params: { contactI
       }
     } catch (e) {
       console.error(`Failed to parse tags for contact ${contactId}: ${contactData.tags}`, e);
-      // Potentially return error or default to empty, here defaulting to empty
     }
 
     let parsedNotes: Note[] = [];
@@ -47,7 +46,6 @@ export async function GET(request: NextRequest, { params }: { params: { contactI
       }
     } catch (e) {
       console.error(`Failed to parse notes_json for contact ${contactId}: ${contactData.notes_json}`, e);
-      // Potentially return error or default to empty
     }
 
     const contact: Contact = {
@@ -215,6 +213,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
       const stmtUpdateDeals = db.prepare('UPDATE Deals SET contactId = NULL WHERE contactId = ? AND organizationId = ?');
       stmtUpdateDeals.run(contactId, organizationId);
       
+      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE contactId = ? AND organizationId = ?');
+      stmtDeleteNotes.run(contactId, organizationId);
+
       const stmtDeleteContact = db.prepare('DELETE FROM Contacts WHERE id = ? AND organizationId = ?');
       const result = stmtDeleteContact.run(contactId, organizationId);
 

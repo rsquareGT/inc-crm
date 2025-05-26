@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Task } from '@/lib/types';
 import { generateId } from '@/lib/utils';
+import { logActivity } from '@/services/activity-logger'; // Added
 
 // GET all tasks for the user's organization, with optional filters
 export async function GET(request: NextRequest) {
@@ -52,16 +53,17 @@ export async function GET(request: NextRequest) {
 // POST a new task for the user's organization
 export async function POST(request: NextRequest) {
   try {
-    const organizationIdFromSession = request.headers.get('x-user-organization-id');
-    if (!organizationIdFromSession) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const organizationId = request.headers.get('x-user-organization-id');
+    const userId = request.headers.get('x-user-id'); // For activity logging
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const body = await request.json();
-    // The organizationId might be in body if it was part of TaskFormData, but we use the session's one.
     const { title, description, dueDate, relatedDealId, relatedContactId, completed, tags } = body;
 
     if (!title) {
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
       JSON.stringify(tags || []),
       now,
       now,
-      organizationIdFromSession // Use organizationId from session
+      organizationId
     );
 
     const newTask: Task = {
@@ -101,8 +103,18 @@ export async function POST(request: NextRequest) {
       tags: tags || [],
       createdAt: now,
       updatedAt: now,
-      organizationId: organizationIdFromSession,
+      organizationId: organizationId,
     };
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'created_task',
+      entityType: 'task',
+      entityId: newTaskId,
+      entityName: title,
+    });
 
     return NextResponse.json(newTask, { status: 201 });
 

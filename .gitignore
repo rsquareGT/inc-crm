@@ -44,5 +44,5 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 
-.db-shm
-.db-wal
+crm.db-shm
+crm.db-wal

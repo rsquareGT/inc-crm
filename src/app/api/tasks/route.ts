@@ -2,43 +2,35 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Task } from '@/lib/types';
-import { generateId } from '@/lib/utils'; // Updated import
+import { generateId } from '@/lib/utils';
 
-// GET all tasks
+// GET all tasks for the user's organization, with optional filters
 export async function GET(request: NextRequest) {
   try {
+    const organizationId = request.headers.get('x-user-organization-id');
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    }
+
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const { searchParams } = new URL(request.url);
     const dealId = searchParams.get('dealId');
     const contactId = searchParams.get('contactId');
-    // TODO: Add organizationId filtering based on authenticated user
 
-    let query = 'SELECT * FROM Tasks';
-    const queryParams: any[] = [];
-    let whereClauseAdded = false;
-
-    const addWhereOrAnd = () => {
-        if (whereClauseAdded) return ' AND';
-        whereClauseAdded = true;
-        return ' WHERE';
-    }
+    let query = 'SELECT * FROM Tasks WHERE organizationId = ?';
+    const queryParams: any[] = [organizationId];
 
     if (dealId) {
-      query += `${addWhereOrAnd()} relatedDealId = ?`;
+      query += ' AND relatedDealId = ?';
       queryParams.push(dealId);
     }
-    if (contactId) { // Changed from else if
-      query += `${addWhereOrAnd()} relatedContactId = ?`;
+    if (contactId) {
+      query += ' AND relatedContactId = ?';
       queryParams.push(contactId);
     }
-    // TODO: Add organizationId to WHERE clause
-    // if (organizationId) {
-    //   query += `${addWhereOrAnd()} organizationId = ?`;
-    //   queryParams.push(organizationId);
-    // }
-    
+
     query += ' ORDER BY createdAt DESC';
 
     const stmtTasks = db.prepare(query);
@@ -47,9 +39,9 @@ export async function GET(request: NextRequest) {
     const tasks: Task[] = tasksData.map((task) => ({
       ...task,
       tags: task.tags ? JSON.parse(task.tags) : [],
-      completed: Boolean(task.completed), 
+      completed: Boolean(task.completed),
     }));
-    
+
     return NextResponse.json(tasks);
   } catch (error) {
     console.error('API Error fetching tasks:', error);
@@ -57,43 +49,45 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST a new task
+// POST a new task for the user's organization
 export async function POST(request: NextRequest) {
   try {
+    const organizationIdFromSession = request.headers.get('x-user-organization-id');
+    if (!organizationIdFromSession) {
+      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    }
+
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const body = await request.json();
-    const { title, description, dueDate, relatedDealId, relatedContactId, completed, tags, organizationId } = body; // Assuming organizationId is passed
+    // The organizationId might be in body if it was part of TaskFormData, but we use the session's one.
+    const { title, description, dueDate, relatedDealId, relatedContactId, completed, tags } = body;
 
     if (!title) {
       return NextResponse.json({ error: 'Task title is required' }, { status: 400 });
     }
-    // TODO: In a real multi-tenant app, organizationId should come from authenticated user's session or context
-    if (!organizationId) {
-        return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
-    }
 
-    const newTaskId = generateId(); // Backend generates ID
+    const newTaskId = generateId();
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
       `INSERT INTO Tasks (id, title, description, dueDate, relatedDealId, relatedContactId, completed, tags, createdAt, updatedAt, organizationId)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    
+
     stmt.run(
       newTaskId,
       title,
       description || null,
       dueDate || null,
-      relatedDealId || null,
-      relatedContactId || null,
+      relatedDealId === '_none_' ? null : relatedDealId || null,
+      relatedContactId === '_none_' ? null : relatedContactId || null,
       completed ? 1 : 0,
       JSON.stringify(tags || []),
       now,
       now,
-      organizationId
+      organizationIdFromSession // Use organizationId from session
     );
 
     const newTask: Task = {
@@ -101,13 +95,13 @@ export async function POST(request: NextRequest) {
       title,
       description,
       dueDate,
-      relatedDealId,
-      relatedContactId,
+      relatedDealId: relatedDealId === '_none_' ? undefined : relatedDealId,
+      relatedContactId: relatedContactId === '_none_' ? undefined : relatedContactId,
       completed: Boolean(completed),
       tags: tags || [],
       createdAt: now,
       updatedAt: now,
-      organizationId,
+      organizationId: organizationIdFromSession,
     };
 
     return NextResponse.json(newTask, { status: 201 });

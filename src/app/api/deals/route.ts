@@ -2,48 +2,41 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Deal } from '@/lib/types';
-import { generateId } from '@/lib/utils'; // Updated import
+import { generateId } from '@/lib/utils';
 
-// GET all deals
+// GET all deals for the user's organization, with optional filters
 export async function GET(request: NextRequest) {
   try {
+    const organizationId = request.headers.get('x-user-organization-id');
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    }
+
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
     const contactId = searchParams.get('contactId');
-    // TODO: Add organizationId filtering based on authenticated user
 
     let query = `
-      SELECT d.*, 
-             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId)) 
-              FROM Notes n WHERE n.dealId = d.id ORDER BY n.createdAt DESC) as notes_json
+      SELECT d.*,
+             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId))
+              FROM Notes n WHERE n.dealId = d.id AND n.organizationId = d.organizationId ORDER BY n.createdAt DESC) as notes_json
       FROM Deals d
+      WHERE d.organizationId = ?
     `;
-    const queryParams: any[] = [];
-
-    let whereClauseAdded = false;
-    const addWhereOrAnd = () => {
-        if (whereClauseAdded) return ' AND';
-        whereClauseAdded = true;
-        return ' WHERE';
-    }
+    const queryParams: any[] = [organizationId];
 
     if (companyId) {
-      query += `${addWhereOrAnd()} d.companyId = ?`;
+      query += ' AND d.companyId = ?';
       queryParams.push(companyId);
     }
-    if (contactId) { // Changed from else if to allow multiple filters if needed, though UI currently uses one
-      query += `${addWhereOrAnd()} d.contactId = ?`;
+    if (contactId) {
+      query += ' AND d.contactId = ?';
       queryParams.push(contactId);
     }
-    // TODO: Add organizationId to WHERE clause
-    // if (organizationId) {
-    //   query += `${addWhereOrAnd()} d.organizationId = ?`;
-    //   queryParams.push(organizationId);
-    // }
-    
+
     query += ' ORDER BY d.name ASC';
 
     const stmtDeals = db.prepare(query);
@@ -54,7 +47,7 @@ export async function GET(request: NextRequest) {
       tags: deal.tags ? JSON.parse(deal.tags) : [],
       notes: deal.notes_json ? JSON.parse(deal.notes_json) : [],
     }));
-    
+
     return NextResponse.json(deals);
   } catch (error) {
     console.error('API Error fetching deals:', error);
@@ -62,45 +55,45 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST a new deal
+// POST a new deal for the user's organization
 export async function POST(request: NextRequest) {
   try {
+    const organizationId = request.headers.get('x-user-organization-id');
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    }
+
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const body = await request.json();
-    const { name, value, stage, contactId, companyId, expectedCloseDate, tags, description, organizationId } = body; // Assuming organizationId is passed
+    const { name, value, stage, contactId, companyId, expectedCloseDate, tags, description } = body;
 
-    if (!name || value === undefined || !stage) { // Ensure value is checked for undefined explicitly
+    if (!name || value === undefined || !stage) {
       return NextResponse.json({ error: 'Deal name, value, and stage are required' }, { status: 400 });
     }
-     // TODO: In a real multi-tenant app, organizationId should come from authenticated user's session or context
-    if (!organizationId) {
-        return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
-    }
 
-
-    const newDealId = generateId(); // Backend generates ID
+    const newDealId = generateId();
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
       `INSERT INTO Deals (id, name, value, stage, contactId, companyId, expectedCloseDate, tags, description, createdAt, updatedAt, organizationId)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    
+
     stmt.run(
       newDealId,
       name,
       value,
       stage,
-      contactId || null,
-      companyId || null,
+      contactId === '_none_' ? null : contactId || null,
+      companyId === '_none_' ? null : companyId || null,
       expectedCloseDate || null,
       JSON.stringify(tags || []),
       description || null,
       now,
       now,
-      organizationId
+      organizationId // Use organizationId from session
     );
 
     const newDeal: Deal = {
@@ -108,12 +101,12 @@ export async function POST(request: NextRequest) {
       name,
       value,
       stage,
-      contactId,
-      companyId,
+      contactId: contactId === '_none_' ? undefined : contactId,
+      companyId: companyId === '_none_' ? undefined : companyId,
       expectedCloseDate,
       tags: tags || [],
       description,
-      notes: [], 
+      notes: [],
       createdAt: now,
       updatedAt: now,
       organizationId,

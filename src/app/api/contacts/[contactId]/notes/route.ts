@@ -2,35 +2,35 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Note } from '@/lib/types';
-import { generateId } from '@/lib/utils'; // Updated import
+import { generateId } from '@/lib/utils';
 
-// POST a new note for a contact
+// POST a new note for a contact, ensuring contact belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { contactId: string } }) {
   try {
     const { contactId } = params;
+    const organizationId = request.headers.get('x-user-organization-id');
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    }
+
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     const body = await request.json();
-    const { content, organizationId } = body; // Assuming organizationId is passed
+    const { content } = body;
 
     if (!content || content.trim() === '') {
       return NextResponse.json({ error: 'Note content cannot be empty' }, { status: 400 });
-    }
-    // TODO: In a real multi-tenant app, organizationId should come from authenticated user's session or context,
-    // or be derived from the parent contact's organizationId
-    if (!organizationId) {
-        return NextResponse.json({ error: 'Organization ID is required for the note' }, { status: 400 });
     }
 
     // Check if contact exists and belongs to the organization
     const contactCheckStmt = db.prepare('SELECT id FROM Contacts WHERE id = ? AND organizationId = ?');
     const contactExists = contactCheckStmt.get(contactId, organizationId);
     if (!contactExists) {
-      return NextResponse.json({ error: 'Contact not found or not associated with the organization' }, { status: 404 });
+      return NextResponse.json({ error: 'Contact not found or not authorized' }, { status: 404 });
     }
 
-    const newNoteId = generateId(); // Generate ID server-side
+    const newNoteId = generateId();
     const now = new Date().toISOString();
 
     const stmt = db.prepare(

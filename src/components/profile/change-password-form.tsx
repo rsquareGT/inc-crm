@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'nextjs-toploader/app';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -75,7 +75,7 @@ export function ChangePasswordForm() {
       });
       reset(); // Clear form fields
       // Optional: Redirect to profile or dashboard page
-      // router.push('/profile'); 
+      // router.push('/profile');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
       setFormError(message);

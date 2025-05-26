@@ -4,7 +4,7 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback }
   from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'nextjs-toploader/app';
 import type { User, Organization } from '@/lib/types';
 
 interface AuthContextType {
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   useEffect(() => {
     console.log("AuthContext: AuthProvider mounted. Calling initial fetchUser.");
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok && data.success && data.user) {
         console.log('AuthContext: /api/auth/login successful. User data received.');
         setUser(data.user); // Set user directly
-        if (data.user.organizationId) { 
+        if (data.user.organizationId) {
           try {
             const orgResponse = await fetch(`/api/organizations/${data.user.organizationId}`);
             if (orgResponse.ok) {
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setOrganization(null);
         }
-        if (isLoading) setIsLoading(false); 
+        if (isLoading) setIsLoading(false);
         return true;
       } else {
         console.warn('AuthContext: /api/auth/login failed or data.success was false or no user data.');

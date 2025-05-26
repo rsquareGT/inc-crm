@@ -9,10 +9,12 @@ import { cookies } from 'next/headers';
 export async function POST(request: NextRequest) {
   console.log("API Login: POST request received");
   try {
+    // Check if db connection is available
     if (!db) {
       console.error('API Login: Database connection is not available');
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
+    // console.log('API Login: db object:', db); // For debugging what db object contains
 
     const { email, password } = await request.json();
 
@@ -32,15 +34,23 @@ export async function POST(request: NextRequest) {
 
     let passwordMatch = false;
     try {
-      // TODO: CRITICAL SECURITY FLAW - Replace with bcrypt.compare once real password hashing is in place.
-      // This direct comparison is only for placeholder "hashed" passwords.
+      // TODO: CRITICAL SECURITY FLAW - This was intended to be replaced by bcrypt.compare.
+      // If passwords in DB are not yet bcrypt hashed, this will fail.
+      // Ensure passwords in DB are properly hashed with bcrypt.
+      // For example:
+      // const realHashedPasswordFromDB = "$2b$10$...."; // Actual hash from DB
+      // passwordMatch = await bcrypt.compare(password, realHashedPasswordFromDB);
+      
+      // Placeholder for direct string comparison if using non-bcrypt "hashed" passwords
       // passwordMatch = (password === userData.hashedPassword);
+
       // Assuming bcrypt is now in use:
       passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
       console.log(`API Login: bcrypt.compare result for ${email}: ${passwordMatch}`);
     } catch (compareError) {
         console.error('API Login: bcrypt.compare error:', compareError);
-        return NextResponse.json({ error: 'Error during password verification.' }, { status: 500 });
+        // This can happen if userData.hashedPassword is not a valid bcrypt hash
+        return NextResponse.json({ error: 'Error during password verification. Ensure password in DB is a valid bcrypt hash.' }, { status: 500 });
     }
 
     if (!passwordMatch) {
@@ -79,7 +89,7 @@ export async function POST(request: NextRequest) {
     const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
     // Use cookies() from next/headers to set the cookie
-    const cookieStore = await cookies();
+    const cookieStore = await cookies(); // await if cookies() is async for write ops
     cookieStore.set('session', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -100,6 +110,11 @@ export async function POST(request: NextRequest) {
     }
     if (error instanceof Error && error.message.includes('data and salt arguments required')) { // General check for this error type
       return NextResponse.json({ error: 'Invalid input for password comparison.' }, { status: 400 });
+    }
+    // Check if it's an SQLite error
+    if (error instanceof Error && 'code' in error && typeof error.code === 'string' && error.code.startsWith('SQLITE_')) {
+        console.error(`API Login: SQLite Error - Code: ${error.code}, Message: ${error.message}`);
+        return NextResponse.json({ error: `Database operation failed: ${error.message}` }, { status: 500 });
     }
     return NextResponse.json({ error: 'An internal server error occurred during login.' }, { status: 500 });
   }

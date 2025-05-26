@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { StatsCard } from './stats-card';
 import { format, subDays, isWithinInterval } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TaskCard } from './task-card'; 
+import { TaskCard } from './task-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardFooter } from '../ui/card';
 import { useAuth } from '@/contexts/auth-context';
@@ -27,7 +27,7 @@ export function DashboardClient() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingDeals, setIsLoadingDeals] = useState(true);
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
-  const [isTaskFormDataLoading, setIsTaskFormDataLoading] = useState(true); // For TaskFormModal deals/contacts
+  // Removed isTaskFormDataLoading state
 
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +37,6 @@ export function DashboardClient() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Define TaskCardSkeleton before its use
   const TaskCardSkeleton = () => (
     <Card className="mb-3 shadow-md">
       <CardHeader className="pb-2 pt-3 px-4">
@@ -74,37 +73,19 @@ export function DashboardClient() {
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : `An unknown error occurred fetching ${entityName}.`;
-      setError(prev => prev ? `${prev}\n${message}` : message); 
+      setError(prev => prev ? `${prev}\n${message}` : message);
       toast({ title: `Error Fetching ${entityName}`, description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
-  const fetchTaskFormRelatedData = useCallback(async () => {
-    setIsTaskFormDataLoading(true);
-     try {
-      const [dealsRes, contactsRes] = await Promise.all([
-        fetch('/api/deals'),
-        fetch('/api/contacts'),
-      ]);
-      if (dealsRes.ok) setDeals(await dealsRes.json()); 
-      else throw new Error('Failed to fetch deals for task form');
-      if (contactsRes.ok) setContacts(await contactsRes.json()); 
-      else throw new Error('Failed to fetch contacts for task form');
-    } catch (err) {
-      console.error("Error fetching data for task form:", err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      toast({ title: "Error Loading Task Form Data", description: message, variant: "destructive" });
-    } finally {
-      setIsTaskFormDataLoading(false);
-    }
-  }, [toast]);
+  // Removed fetchTaskFormRelatedData function
 
   useEffect(() => {
     if (isAuthenticated && !authContextIsLoading) {
       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
-      fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals'); 
+      fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals');
       fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts');
     } else if (!authContextIsLoading && !isAuthenticated) {
       setTasks([]);
@@ -113,17 +94,8 @@ export function DashboardClient() {
       setIsLoadingTasks(false);
       setIsLoadingDeals(false);
       setIsLoadingContacts(false);
-      setIsTaskFormDataLoading(false);
     }
-  }, [fetchData, isAuthenticated, authContextIsLoading]); 
-  
-  useEffect(() => {
-    if (isTaskModalOpen && isAuthenticated && !authContextIsLoading) {
-      if (deals.length === 0 || contacts.length === 0 || isTaskFormDataLoading) {
-         fetchTaskFormRelatedData();
-      }
-    }
-  }, [isTaskModalOpen, isAuthenticated, authContextIsLoading, deals, contacts, isTaskFormDataLoading, fetchTaskFormRelatedData]);
+  }, [fetchData, isAuthenticated, authContextIsLoading]);
 
 
   const handleOpenTaskModal = (task: Task | null = null) => {
@@ -173,7 +145,7 @@ export function DashboardClient() {
     if (!task) return;
 
     const updatedTask = { ...task, completed: !task.completed, updatedAt: new Date().toISOString() };
-    
+
     setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? updatedTask : t));
 
     try {
@@ -190,7 +162,7 @@ export function DashboardClient() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
-      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t)); 
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t));
     }
   };
 
@@ -200,7 +172,7 @@ export function DashboardClient() {
     const pendingTasksCount = tasks.filter(t => !t.completed).length;
     const sevenDaysAgo = subDays(new Date(), 7);
     const newContactsLast7Days = contacts.filter(c => c.createdAt && new Date(c.createdAt) >= sevenDaysAgo).length;
-    
+
     return {
       openDealsCount: openDeals.length,
       openDealsValue: openDealsValue.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
@@ -272,27 +244,27 @@ export function DashboardClient() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
-            <StatsCard 
-              title="Open Deals" 
-              value={stats.openDealsCount} 
+            <StatsCard
+              title="Open Deals"
+              value={stats.openDealsCount}
               icon={<Briefcase className="h-5 w-5 text-muted-foreground" />}
               isLoading={isLoadingDeals}
             />
-            <StatsCard 
-              title="Value of Open Deals" 
-              value={stats.openDealsValue} 
+            <StatsCard
+              title="Value of Open Deals"
+              value={stats.openDealsValue}
               icon={<DollarSign className="h-5 w-5 text-muted-foreground" />}
               isLoading={isLoadingDeals}
             />
-            <StatsCard 
-              title="Pending Tasks" 
-              value={stats.pendingTasksCount} 
+            <StatsCard
+              title="Pending Tasks"
+              value={stats.pendingTasksCount}
               icon={<ListChecks className="h-5 w-5 text-muted-foreground" />}
               isLoading={isLoadingTasks}
             />
-            <StatsCard 
-              title="New Contacts (Last 7 Days)" 
-              value={stats.newContactsLast7Days} 
+            <StatsCard
+              title="New Contacts (Last 7 Days)"
+              value={stats.newContactsLast7Days}
               icon={<UserPlus className="h-5 w-5 text-muted-foreground" />}
               isLoading={isLoadingContacts}
             />
@@ -302,11 +274,15 @@ export function DashboardClient() {
         <div className="lg:col-span-1 space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold tracking-tight">My Tasks</h2>
-            <Button onClick={() => handleOpenTaskModal()} disabled={isTaskFormDataLoading || isLoadingDeals || isLoadingContacts} size="sm">
+            <Button
+              onClick={() => handleOpenTaskModal()}
+              disabled={authContextIsLoading || isLoadingDeals || isLoadingContacts}
+              size="sm"
+            >
               <PlusCircle className="mr-2 h-4 w-4" /> Add Task
             </Button>
           </div>
-          
+
           <ScrollArea className="h-[calc(100vh-16rem)] rounded-md border p-1 pr-3 bg-secondary/30">
             <div className="p-3">
             {isLoadingTasks ? (
@@ -351,3 +327,5 @@ export function DashboardClient() {
     </div>
   );
 }
+
+    

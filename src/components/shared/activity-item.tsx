@@ -15,28 +15,25 @@ const getActivityIcon = (entityType: Activity['entityType'], activityType: Activ
   }
   if (activityType.startsWith('updated_') || activityType === 'completed_task' || activityType === 'activated_user' || activityType === 'deactivated_user') {
     if (activityType === 'completed_task' || activityType === 'activated_user') return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />;
-    if (activityType === 'deactivated_user') return <UserXIcon className="h-3.5 w-3.5 text-orange-500" />; // Assuming UserXIcon exists or is similar
+    if (activityType === 'deactivated_user') return <UserXIcon className="h-3.5 w-3.5 text-orange-500" />; 
     return <Edit3 className="h-3.5 w-3.5 text-blue-500" />;
   }
   if (activityType.startsWith('deleted_') || activityType.startsWith('deleted_note_from_')) {
     return <Trash2 className="h-3.5 w-3.5 text-red-500" />;
   }
   
-  // Fallback based on entity type if no specific action icon matches
   switch (entityType) {
     case 'contact': return <UserRound className="h-4 w-4 text-indigo-500" />;
     case 'company': return <Briefcase className="h-4 w-4 text-sky-500" />;
     case 'deal': return <DollarSign className="h-4 w-4 text-amber-500" />;
     case 'task': return <ListChecks className="h-4 w-4 text-lime-500" />;
     case 'note': return <StickyNote className="h-4 w-4 text-slate-500" />;
-    // Add case for 'organization' and 'user' if they have specific icons
     case 'organization': return <OrgIcon className="h-4 w-4 text-purple-500" />;
     case 'user': return <UserRound className="h-4 w-4 text-teal-500" />;
     default: return <Edit3 className="h-4 w-4 text-gray-500" />;
   }
 };
 
-// Helper for UserXIcon if not directly available in lucide-react (or use a similar one)
 const UserXIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="7" x2="17" y2="13"/><line x1="17" y1="7" x2="23" y2="13"/></svg>
 );
@@ -45,17 +42,27 @@ const UserXIcon = (props: React.SVGProps<SVGSVGElement>) => (
 const getActivityDescription = (activity: Activity): React.ReactNode => {
   const userName = `${activity.user?.firstName || 'User'} ${activity.user?.lastName || ''}`.trim();
   
-  let entityDisplayName = activity.entityName ? `"${activity.entityName}"` : `a ${activity.entityType}`;
+  let entityDisplayName: string;
   let entityLinkPath = '';
+
+  // Determine display name and link path based on entity type
   if (activity.entityType === 'organization') {
-    entityLinkPath = `/organization/profile`; // Org profile is usually singular, not plural based ID
+    entityLinkPath = `/organization/profile`; // No ID needed for the organization's own profile page
     entityDisplayName = activity.entityName ? `organization "${activity.entityName}"` : `the organization profile`;
   } else if (activity.entityType === 'user') {
     // No user detail page yet, so just display name.
-     entityDisplayName = activity.entityName ? `user "${activity.entityName}"` : `a user account`;
-  } else if (activity.entityType !== 'note') {
-     entityLinkPath = `/${activity.entityType}s/${activity.entityId}`;
+    entityDisplayName = activity.entityName ? `user "${activity.entityName}"` : `a user account`;
+    // entityLinkPath remains empty
+  } else if (activity.entityType === 'task') {
+    // Tasks don't have dedicated detail pages; they redirect to dashboard.
+    // Display task name without a link.
+    entityDisplayName = activity.entityName ? `task "${activity.entityName}"` : `a task`;
+    // entityLinkPath remains empty
+  } else { // For 'company', 'contact', 'deal'
+    entityLinkPath = `/${activity.entityType}s/${activity.entityId}`;
+    entityDisplayName = activity.entityName ? `${activity.entityType} "${activity.entityName}"` : `a ${activity.entityType}`;
   }
+
 
   const entityLink = entityLinkPath ? (
     <Link href={entityLinkPath} className="font-medium text-primary hover:underline">
@@ -67,35 +74,35 @@ const getActivityDescription = (activity: Activity): React.ReactNode => {
 
   const mainActionText = () => {
     switch (activity.activityType) {
-      case 'created_contact': return <><span className="font-medium">{userName}</span> created contact {entityLink}.</>;
-      case 'updated_contact': return <><span className="font-medium">{userName}</span> updated contact {entityLink}</>;
-      case 'deleted_contact': return <><span className="font-medium">{userName}</span> deleted contact {entityLink}.</>;
+      case 'created_contact': return <><span className="font-medium">{userName}</span> created {entityLink}.</>;
+      case 'updated_contact': return <><span className="font-medium">{userName}</span> updated {entityLink}.</>;
+      case 'deleted_contact': return <><span className="font-medium">{userName}</span> deleted contact "{activity.entityName || 'N/A'}".</>;
       
-      case 'created_company': return <><span className="font-medium">{userName}</span> created company {entityLink}.</>;
-      case 'updated_company': return <><span className="font-medium">{userName}</span> updated company {entityLink}</>;
-      case 'deleted_company': return <><span className="font-medium">{userName}</span> deleted company {entityLink}.</>;
+      case 'created_company': return <><span className="font-medium">{userName}</span> created {entityLink}.</>;
+      case 'updated_company': return <><span className="font-medium">{userName}</span> updated {entityLink}.</>;
+      case 'deleted_company': return <><span className="font-medium">{userName}</span> deleted company "{activity.entityName || 'N/A'}".</>;
 
-      case 'created_deal': return <><span className="font-medium">{userName}</span> created deal {entityLink}.</>;
-      case 'updated_deal_details': return <><span className="font-medium">{userName}</span> updated details for deal {entityLink}</>;
+      case 'created_deal': return <><span className="font-medium">{userName}</span> created {entityLink}.</>;
+      case 'updated_deal_details': return <><span className="font-medium">{userName}</span> updated details for {entityLink}.</>;
       case 'updated_deal_stage':
         return (
           <>
-            <span className="font-medium">{userName}</span> moved deal {entityLink}
+            <span className="font-medium">{userName}</span> moved {entityLink}
             {activity.details?.old_stage && <> from <span className="font-semibold">{activity.details.old_stage}</span></>}
             {activity.details?.new_stage && <> to <span className="font-semibold">{activity.details.new_stage}</span></>}.
           </>
         );
-      case 'deleted_deal': return <><span className="font-medium">{userName}</span> deleted deal {entityLink}.</>;
+      case 'deleted_deal': return <><span className="font-medium">{userName}</span> deleted deal "{activity.entityName || 'N/A'}".</>;
 
-      case 'created_task': return <><span className="font-medium">{userName}</span> created task {entityLink}.</>;
-      case 'updated_task': return <><span className="font-medium">{userName}</span> updated task {entityLink}</>;
-      case 'completed_task': return <><span className="font-medium">{userName}</span> completed task {entityLink}.</>;
-      case 'deleted_task': return <><span className="font-medium">{userName}</span> deleted task {entityLink}.</>;
+      case 'created_task': return <><span className="font-medium">{userName}</span> created {entityLink}.</>;
+      case 'updated_task': return <><span className="font-medium">{userName}</span> updated {entityLink}.</>;
+      case 'completed_task': return <><span className="font-medium">{userName}</span> completed {entityLink}.</>;
+      case 'deleted_task': return <><span className="font-medium">{userName}</span> deleted task "{activity.entityName || 'N/A'}".</>;
       
-      case 'updated_organization': return <><span className="font-medium">{userName}</span> updated {entityLink}</>;
+      case 'updated_organization': return <><span className="font-medium">{userName}</span> updated {entityLink}.</>;
       
       case 'created_user': return <><span className="font-medium">{userName}</span> created {entityLink}.</>;
-      case 'updated_user': return <><span className="font-medium">{userName}</span> updated {entityLink}</>;
+      case 'updated_user': return <><span className="font-medium">{userName}</span> updated {entityLink}.</>;
       case 'activated_user': return <><span className="font-medium">{userName}</span> activated {entityLink}.</>;
       case 'deactivated_user': return <><span className="font-medium">{userName}</span> deactivated {entityLink}.</>;
 

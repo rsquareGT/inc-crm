@@ -9,14 +9,6 @@ import { DealFormModal } from './deal-form-modal';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks, ExternalLink, Loader2, ActivityIcon } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
@@ -30,13 +22,14 @@ import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-times
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ActivityItem } from '@/components/shared/activity-item';
-
+import { useAuth } from '@/contexts/auth-context'; // Added
 
 interface DealDetailsClientProps {
   dealId: string;
 }
 
 export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
+  const { organization: authOrganization } = useAuth(); // Added
   const [deal, setDeal] = useState<Deal | null>(null);
   const [contact, setContact] = useState<Contact | undefined>(undefined);
   const [company, setCompany] = useState<Company | undefined>(undefined);
@@ -50,7 +43,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
 
   const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allDealsList, setAllDealsList] = useState<Deal[]>([]);
+  const [allDealsList, setAllDealsList] = useState<Deal[]>([]); // For task form modal
 
   const { toast } = useToast();
 
@@ -60,6 +53,8 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'task' | 'note'; name: string } | null>(null);
+
+  const currencySymbol = authOrganization?.currencySymbol || '$'; // Added
 
   const ActivityItemSkeleton = () => (
     <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
@@ -72,12 +67,16 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   );
   
   const TaskItemSkeleton = () => (
-    <div className="p-3 border rounded-md">
+    <div className="p-3 border rounded-md bg-card">
       <div className="flex justify-between items-start mb-1">
-        <Skeleton className="h-5 w-3/5" />
+          <div className="flex items-center w-4/5">
+            <Skeleton className="h-5 w-5 mr-2 rounded-sm" />
+            <Skeleton className="h-5 w-full" />
+          </div>
         <Skeleton className="h-5 w-5" />
       </div>
-      <Skeleton className="h-4 w-2/5" />
+      <Skeleton className="h-4 w-2/5 ml-7" />
+      <Skeleton className="h-4 w-3/5 ml-7 mt-1" />
     </div>
   );
 
@@ -161,9 +160,10 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    const updatedTaskPayload = { ...task, completed: !task.completed };
+    const updatedTaskPayload = { ...task, completed: !task.completed, updatedAt: new Date().toISOString() };
 
-    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed, updatedAt: new Date().toISOString() } : t));
+
+    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? updatedTaskPayload : t));
 
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
@@ -249,6 +249,17 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   };
 
   const sortedNotes = deal?.notes ? [...deal.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  
+  const formattedDealValue = deal
+  ? new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD', // Base currency for Intl.NumberFormat
+      currencyDisplay: 'narrowSymbol', // Use this to get '$' instead of 'USD'
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(deal.value).replace('$', currencySymbol) // Then replace with actual symbol
+  : '';
+
 
   if (isLoading) {
     return (
@@ -284,7 +295,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                   <Skeleton className="h-4 w-1/4 mb-1" />
                   <Skeleton className="h-20 w-full rounded-md" />
                   <Skeleton className="h-9 w-[120px]" />
-                  <ScrollArea className="h-[300px] w-full">
+                  <ScrollArea className="h-[200px] w-full"> {/* Adjusted height */}
                     <div className="space-y-3">
                       {[...Array(2)].map((_, i) => (
                         <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
@@ -310,8 +321,8 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                     <Skeleton className="h-9 w-[100px]" />
                   </div>
                 </CardHeader>
-                <CardContent className="flex-grow overflow-hidden">
-                  <ScrollArea className="h-full">
+                <CardContent className="flex-grow overflow-hidden p-2">
+                  <ScrollArea className="h-full"> {/* ScrollArea for tasks list */}
                     <div className="space-y-2">
                       {[...Array(3)].map((_, i) => <TaskItemSkeleton key={`skeleton-task-${i}`} />)}
                     </div>
@@ -356,7 +367,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
           <div className="ml-11 mt-1 space-y-0.5">
             <div className="text-muted-foreground flex items-center">
                 <DollarSign className="mr-2 h-4 w-4 text-green-500" />
-                {deal.value.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {formattedDealValue}
                 <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' } className="ml-2">{deal.stage}</Badge>
             </div>
             {company && (
@@ -440,7 +451,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                 </div>
 
                 {sortedNotes.length > 0 ? (
-                  <ScrollArea className="h-[300px] w-full pr-4">
+                  <ScrollArea className="h-[200px] w-full pr-4"> {/* Adjusted height */}
                     <div className="space-y-3">
                       {sortedNotes.map(note => (
                         <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
@@ -471,7 +482,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                     <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Deal Activity</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2 pr-2 pt-0">
-                    <ScrollArea className="h-[400px]">
+                    <ScrollArea className="h-[250px]"> {/* Adjusted height */}
                         {isLoadingActivities ? (
                             Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-deal-activity-${index}`} />)
                         ) : activities.length > 0 ? (
@@ -491,7 +502,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
            <Card className="h-full flex flex-col">
                 <CardHeader>
                 <div className="flex justify-between items-center">
-                    <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Tasks</CardTitle>
+                    <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Tasks ({tasks.length})</CardTitle>
                     <Button variant="outline" size="sm" onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Task
                     </Button>
@@ -503,10 +514,10 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                         {[...Array(3)].map((_, i) => <TaskItemSkeleton key={`skeleton-task-item-${i}`} />)}
                     </div>
                 ) : tasks.length > 0 ? (
-                    <ScrollArea className="h-full">
+                    <ScrollArea className="h-full"> {/* ScrollArea for tasks list */}
                     <div className="space-y-2">
                     {tasks.map((task) => (
-                        <div key={task.id} className={`p-3 border rounded-md hover:shadow-md transition-shadow ${task.completed ? 'opacity-60 bg-secondary/30' : 'bg-card'}`}>
+                        <div key={task.id} className={`p-3 border rounded-md hover:shadow-md transition-shadow bg-card ${task.completed ? 'opacity-60' : ''}`}>
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center">
                                     <Checkbox
@@ -541,7 +552,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                     </div>
                     </ScrollArea>
                 ) : (
-                  <p className="text-muted-foreground text-center py-4">No tasks associated with this deal yet.</p>
+                  <p className="text-muted-foreground text-center py-4 text-sm">No tasks associated with this deal yet.</p>
                 )}
                 </CardContent>
             </Card>
@@ -562,7 +573,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
         onSaveCallback={handleSaveTaskCallback}
         task={editingTask}
-        deals={allDealsList}
+        deals={allDealsList} // Pass allDealsList here for form dropdown
         contacts={allContactsList}
         defaultDealId={deal.id}
         defaultContactId={contact?.id}
@@ -577,5 +588,3 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
     </div>
   );
 }
-
-    

@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Contact, Company, Deal, Note, Activity, DealStage } from '@/lib/types';
+import type { Contact, Company, Deal, Note, Activity, DealStage, Organization } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ContactFormModal } from './contact-form-modal';
@@ -20,14 +20,16 @@ import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-times
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ActivityItem } from '@/components/shared/activity-item';
-import { DealCard } from '@/components/deals/deal-card'; // Added DealCard import
-import { DEAL_STAGES } from '@/lib/constants'; // For DealCard stage change options
+import { DealCard } from '@/components/deals/deal-card';
+import { DEAL_STAGES } from '@/lib/constants';
+import { useAuth } from '@/contexts/auth-context'; // Added
 
 interface ContactDetailsClientProps {
   contactId: string;
 }
 
 export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
+  const { organization: authOrganization } = useAuth(); // Added
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -39,7 +41,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); // For DealFormModal
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
 
   const { toast } = useToast();
 
@@ -49,6 +51,8 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'deal' | 'note'; name: string } | null>(null);
+
+  const currencySymbol = authOrganization?.currencySymbol || '$'; // Added
 
   const ActivityItemSkeleton = () => (
     <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
@@ -60,12 +64,12 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     </div>
   );
 
-  const DealCardSkeleton = () => (
-    <Card className="mb-1.5 shadow-sm">
+  const DealCardSkeleton = () => ( // Simplified skeleton
+    <Card className="mb-1.5 shadow-sm bg-card">
       <CardHeader className="pb-1 pt-2 px-2">
         <div className="flex justify-between items-start">
-          <Skeleton className="h-4 w-3/5" /> {/* Title */}
-          <Skeleton className="h-3 w-3" />   {/* Icon */}
+          <Skeleton className="h-4 w-3/5" />
+          <Skeleton className="h-3 w-3" />
         </div>
       </CardHeader>
       <CardContent className="px-2 pb-1.5 space-y-1 text-xs">
@@ -175,10 +179,9 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
 
     const updatedDealPayload = { ...originalDeal, stage: newStage, updatedAt: new Date().toISOString() };
     
-    // Optimistic update
     setDeals(prevDeals => 
       prevDeals.map(deal => 
-        deal.id === dealId ? { ...deal, stage: newStage, updatedAt: updatedDealPayload.updatedAt } : deal
+        deal.id === dealId ? updatedDealPayload : deal
       )
     );
 
@@ -194,12 +197,11 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         throw new Error(errorData.error || 'Failed to update deal stage');
       }
       toast({ title: "Deal Stage Updated", description: `"${originalDeal.name}" moved to ${newStage}.` });
-      fetchContactDetails(); // Re-fetch to ensure activities are updated
+      fetchContactDetails(); 
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Stage", description: message, variant: "destructive" });
-      // Revert optimistic update
       setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d));
     }
   };
@@ -273,20 +275,17 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        {/* Header Skeleton */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b">
           <div>
-            <Skeleton className="h-9 w-[180px] mb-2" /> {/* Back to Contacts Button */}
-            <Skeleton className="h-9 w-3/4 mb-1" /> {/* Contact Name */}
-            <Skeleton className="h-5 w-1/2" /> {/* Company Link */}
+            <Skeleton className="h-9 w-[180px] mb-2" />
+            <Skeleton className="h-9 w-3/4 mb-1" />
+            <Skeleton className="h-5 w-1/2" />
           </div>
-          <Skeleton className="h-10 w-[150px]" /> {/* Edit Contact Button */}
+          <Skeleton className="h-10 w-[150px]" />
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column Skeleton */}
-          <div className="w-full lg:w-[65%] space-y-6">
-            {/* Contact Info Card Skeleton */}
+          <div className="lg:w-[65%] space-y-6">
             <Card>
               <CardHeader><Skeleton className="h-6 w-1/3 mb-1" /></CardHeader>
               <CardContent className="space-y-3">
@@ -296,49 +295,32 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 <div className="space-y-2 pt-2"><Skeleton className="h-5 w-1/4 mb-1" /><Skeleton className="h-16 w-full rounded-md" /></div>
               </CardContent>
             </Card>
-            {/* Notes Card Skeleton */}
             <Card>
               <CardHeader>
-                <Skeleton className="h-6 w-1/3 mb-1" /> {/* Card Title */}
-                <Skeleton className="h-4 w-2/3" /> {/* Card Description */}
+                <Skeleton className="h-6 w-1/3 mb-1" />
+                <Skeleton className="h-4 w-2/3" />
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-1/4 mb-1" />
-                  <Skeleton className="h-20 w-full rounded-md" /> {/* Textarea */}
-                  <Skeleton className="h-9 w-[120px]" /> {/* Add Note Button */}
-                </div>
-                <ScrollArea className="h-[200px] w-full">
-                  <div className="space-y-3">
-                    {[...Array(2)].map((_, i) => (
-                      <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
-                        <Skeleton className="h-4 w-full mb-1" />
-                        <Skeleton className="h-4 w-3/4 mb-2" />
-                        <Skeleton className="h-3 w-1/2" />
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                <div className="space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-20 w-full rounded-md" /><Skeleton className="h-9 w-[120px]" /></div>
+                <ScrollArea className="h-[200px] w-full"><div className="space-y-3">{[...Array(2)].map((_, i) => (<div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md"><Skeleton className="h-4 w-full mb-1" /><Skeleton className="h-4 w-3/4 mb-2" /><Skeleton className="h-3 w-1/2" /></div>))}</div></ScrollArea>
               </CardContent>
             </Card>
-             {/* Activity Card Skeleton */}
-            <Card>
+             <Card>
               <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
               <CardContent><ScrollArea className="h-[250px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-left-activity-${index}`} />)}</ScrollArea></CardContent>
             </Card>
           </div>
 
-          {/* Right Column Skeleton */}
-          <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
+          <div className="lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
              <Card className="h-full flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <Skeleton className="h-6 w-1/2" /> {/* Card Title */}
-                  <Skeleton className="h-9 w-[100px]" /> {/* Add Deal Button */}
+                  <Skeleton className="h-6 w-1/2" />
+                  <Skeleton className="h-9 w-[100px]" />
                 </div>
               </CardHeader>
-              <CardContent className="flex-grow overflow-hidden">
-                <ScrollArea className="h-full">
+              <CardContent className="flex-grow overflow-hidden p-2">
+                <ScrollArea className="h-[calc(100vh-20rem)]"> {/* Adjusted to be more flexible */}
                    <div className="space-y-1.5 pr-1">
                     {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
                   </div>
@@ -393,8 +375,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left Column: Contact Info, Notes, Activity */}
-        <div className="w-full lg:w-[65%] space-y-6">
-          {/* Contact Details Card */}
+        <div className="lg:w-[65%] space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
@@ -429,7 +410,6 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
             </CardContent>
           </Card>
           
-          {/* Notes Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
@@ -487,13 +467,12 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
             </CardContent>
           </Card>
 
-          {/* Contact Activity Card (Moved to Left Column) */}
           <Card>
             <CardHeader>
                 <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
             </CardHeader>
             <CardContent className="pl-2 pr-2 pt-0">
-                <ScrollArea className="h-[300px]">
+                <ScrollArea className="h-[250px]">
                     {isLoadingActivities ? (
                         Array.from({ length: 4 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
                     ) : activities.length > 0 ? (
@@ -508,8 +487,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
           </Card>
         </div>
 
-        {/* Right Column: Associated Deals */}
-        <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
+        <div className="lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
           <Card className="h-full flex flex-col">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -525,12 +503,11 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                     {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
                   </div>
               ) : deals.length > 0 ? (
-                <ScrollArea className="h-full">
+                <ScrollArea className="h-full"> {/* Ensure ScrollArea fills its container */}
                    <div className="space-y-1.5 pr-1">
                     {deals.map((deal) => {
                       const dealCompany = allCompaniesList.find(c => c.id === deal.companyId);
-                      // The main contact for these deals is the contact of the current page
-                      const dealContactForCard = contact; 
+                      const dealContactForCard = contact?.id === deal.contactId ? contact : allContactsList.find(c => c.id === deal.contactId); 
                       return (
                         <DealCard
                           key={deal.id}
@@ -546,14 +523,13 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                   </div>
                 </ScrollArea>
               ) : (
-                <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
+                <p className="text-muted-foreground text-center py-4 text-sm">No deals associated with this contact yet.</p>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
       
-      {/* Modals */}
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
@@ -581,5 +557,3 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     </div>
   );
 }
-
-    

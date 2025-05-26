@@ -18,7 +18,7 @@ import type { DealStage } from '@/lib/types';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import React from 'react';
-
+import { useAuth } from '@/contexts/auth-context'; // Added
 
 interface DealCardProps {
   deal: Deal;
@@ -30,12 +30,16 @@ interface DealCardProps {
 }
 
 export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeStage }: DealCardProps) {
+  const { organization } = useAuth(); // Added
+  const currencySymbol = organization?.currencySymbol || '$'; // Added
+
   const formattedValue = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'USD', // Keep USD here, currencySymbol is for display only
+    currencyDisplay: 'narrowSymbol', // Use narrow symbol to avoid USD prefix
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(deal.value);
+  }).format(deal.value).replace('$', currencySymbol); // Replace USD symbol with dynamic one
 
   const tags = deal.tags || [];
 

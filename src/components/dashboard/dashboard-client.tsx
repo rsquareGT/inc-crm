@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2, Loader2, UserCircle as UserIcon, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
-import type { Task, Deal, Contact, DealStage, Activity } from '@/lib/types'; // Added Activity
+import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2, Loader2, UserCircle as UserIcon, ActivityIcon } from 'lucide-react';
+import type { Task, Deal, Contact, DealStage, Activity, Organization } from '@/lib/types';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -15,21 +15,21 @@ import { format, subDays, isWithinInterval } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TaskCard } from './task-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '../ui/card'; // Added CardTitle
+import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '../ui/card';
 import { useAuth } from '@/contexts/auth-context';
-import { ActivityItem } from '@/components/shared/activity-item'; // Added
+import { ActivityItem } from '@/components/shared/activity-item';
 
 export function DashboardClient() {
-  const { isAuthenticated, isLoading: authContextIsLoading } = useAuth();
+  const { user, organization, isAuthenticated, isLoading: authContextIsLoading } = useAuth(); // Added organization
   const [tasks, setTasks] = useState<Task[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]); // Added activities state
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingDeals, setIsLoadingDeals] = useState(true);
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
-  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added activities loading state
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +38,8 @@ export function DashboardClient() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const currencySymbol = organization?.currencySymbol || '$'; // Get currency symbol
 
   const TaskCardSkeleton = () => (
     <Card className="mb-3 shadow-md">
@@ -87,7 +89,6 @@ export function DashboardClient() {
       console.error(err);
       const message = err instanceof Error ? err.message : `An unknown error occurred fetching ${entityName}.`;
       setError(prev => prev ? `${prev}\n${message}` : message);
-      // toast({ title: `Error Fetching ${entityName}`, description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -99,7 +100,7 @@ export function DashboardClient() {
       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
       fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals');
       fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts');
-      fetchData('/api/activities?limit=10', setActivities, setIsLoadingActivities, 'activities'); // Fetch recent 10 activities
+      fetchData('/api/activities?limit=10', setActivities, setIsLoadingActivities, 'activities');
     } else if (!authContextIsLoading && !isAuthenticated) {
       setTasks([]);
       setDeals([]);
@@ -174,6 +175,7 @@ export function DashboardClient() {
         throw new Error(errorData.error || 'Failed to update task completion');
       }
       toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTask.completed ? 'complete' : 'incomplete'}.` });
+       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks'); // Re-fetch to ensure consistency and activity logging
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
@@ -190,11 +192,17 @@ export function DashboardClient() {
 
     return {
       openDealsCount: openDeals.length,
-      openDealsValue: openDealsValue.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+      openDealsValue: new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD', // Base currency for Intl.NumberFormat
+        currencyDisplay: 'narrowSymbol',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(openDealsValue).replace('$', currencySymbol),
       pendingTasksCount,
       newContactsLast7Days
     };
-  }, [deals, tasks, contacts]);
+  }, [deals, tasks, contacts, currencySymbol]);
 
   if (authContextIsLoading || (isAuthenticated && (isLoadingTasks || isLoadingDeals || isLoadingContacts || isLoadingActivities))) {
      return (
@@ -204,11 +212,10 @@ export function DashboardClient() {
           <div className="lg:col-span-2 space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
               <StatsCard title="Open Deals" value="0" icon={<Briefcase className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
-              <StatsCard title="Value of Open Deals" value="$0" icon={<DollarSign className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
+              <StatsCard title="Value of Open Deals" value={`${currencySymbol}0`} icon={<DollarSign className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
               <StatsCard title="Pending Tasks" value="0" icon={<ListChecks className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
               <StatsCard title="New Contacts (Last 7 Days)" value="0" icon={<UserPlus className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
             </div>
-            {/* Recent Activities Skeleton */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" /> Recent Activities</CardTitle>
@@ -295,13 +302,12 @@ export function DashboardClient() {
               isLoading={isLoadingContacts}
             />
           </div>
-          {/* Recent Activities Section */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Recent Activities</CardTitle>
                 </CardHeader>
-                <CardContent className="pl-2 pr-2 pt-0"> {/* Adjusted padding for content */}
-                    <ScrollArea className="h-[300px]"> {/* Adjust height as needed */}
+                <CardContent className="pl-2 pr-2 pt-0">
+                    <ScrollArea className="h-[300px]">
                         {isLoadingActivities ? (
                              Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-activity-${index}`} />)
                         ) : activities.length > 0 ? (

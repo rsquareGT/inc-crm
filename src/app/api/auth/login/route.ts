@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import type { User } from '@/lib/types';
 import * as jose from 'jose';
 import bcrypt from 'bcrypt';
+import { cookies } from 'next/headers'; // Import cookies from next/headers
 
 export async function POST(request: NextRequest) {
   console.log("API Login: POST request received");
@@ -29,8 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // TODO: CRITICAL SECURITY FLAW - Replace this with bcrypt.compare once real passwords are hashed
-    // const passwordMatch = (password === userData.hashedPassword);
     let passwordMatch = false;
     try {
       passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
@@ -38,7 +37,6 @@ export async function POST(request: NextRequest) {
         console.error('API Login: bcrypt.compare error:', compareError);
         return NextResponse.json({ error: 'Error during password verification.' }, { status: 500 });
     }
-
 
     if (!passwordMatch) {
       console.warn(`API Login: Password mismatch for email: ${email}`);
@@ -75,24 +73,23 @@ export async function POST(request: NextRequest) {
 
     const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
-    const response = NextResponse.json({ success: true, user: userToSign });
-
-    response.cookies.set('session', jwt, {
+    // Use cookies() from next/headers to set the cookie
+    const cookieStore = cookies();
+    cookieStore.set('session', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: maxAgeSeconds,
-      expires: new Date(Date.now() + maxAgeSeconds * 1000),
     });
-    console.log(`API Login: Session cookie set for user: ${userToSign.email} via NextResponse`);
+    console.log(`API Login: Session cookie set for user: ${userToSign.email} via next/headers cookies().set`);
 
-    return response;
+    return NextResponse.json({ success: true, user: userToSign });
 
   } catch (error) {
     console.error('API Login Error:', error);
     if (error instanceof Error && error.message.includes('data and salt arguments required') && error.message.includes('bcrypt')) {
-      console.error('API Login: bcrypt.compare failed. Ensure passwords in DB are correctly hashed or temporarily use direct string comparison if using placeholder hashes.');
+      console.error('API Login: bcrypt.compare failed. Ensure passwords in DB are correctly hashed.');
       return NextResponse.json({ error: 'Authentication process error. Check server logs.' }, { status: 500 });
     }
     if (error instanceof Error && error.message.includes('data and salt arguments required')) {

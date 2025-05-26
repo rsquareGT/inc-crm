@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2 } from 'lucide-react'; 
+import { MoreHorizontal, PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react'; 
 import type { Task, Deal, Contact } from '@/lib/types';
 import { TaskFormModal } from './task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -24,8 +24,11 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card'; 
 import { Skeleton } from '@/components/ui/skeleton';
+import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp'; // Added
+import { useAuth } from '@/contexts/auth-context'; // Added
 
 export function TasksListClient() {
+  const { isAuthenticated, isLoading: authContextIsLoading } = useAuth(); // Added
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allDealsForForm, setAllDealsForForm] = useState<Deal[]>([]);
   const [allContactsForForm, setAllContactsForForm] = useState<Contact[]>([]);
@@ -40,6 +43,11 @@ export function TasksListClient() {
   const { toast } = useToast();
 
   const fetchTasks = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false); // Don't attempt to load if not authenticated
+      setTasks([]);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -58,9 +66,15 @@ export function TasksListClient() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, isAuthenticated]);
 
   const fetchFormData = useCallback(async () => {
+     if (!isAuthenticated) {
+      setIsFormDataLoading(false); // Don't attempt to load if not authenticated
+      setAllDealsForForm([]);
+      setAllContactsForForm([]);
+      return;
+    }
     setIsFormDataLoading(true);
     try {
       const [dealsRes, contactsRes] = await Promise.all([
@@ -78,12 +92,15 @@ export function TasksListClient() {
     } finally {
       setIsFormDataLoading(false);
     }
-  }, [toast]);
+  }, [toast, isAuthenticated]);
 
   useEffect(() => {
-    fetchTasks();
-    fetchFormData();
-  }, [fetchTasks, fetchFormData]);
+    if (!authContextIsLoading) { // Wait for auth context to resolve
+      fetchTasks();
+      fetchFormData();
+    }
+  }, [fetchTasks, fetchFormData, authContextIsLoading]);
+
 
   const handleOpenModal = (task: Task | null = null) => {
     setEditingTask(task);
@@ -145,6 +162,7 @@ export function TasksListClient() {
         throw new Error(errorData.error || 'Failed to update task completion');
       }
       toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTask.completed ? 'complete' : 'incomplete'}.` });
+       fetchTasks(); // Re-fetch to ensure consistency, especially if activity logging affects sort or display
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
@@ -167,7 +185,7 @@ export function TasksListClient() {
     return 'N/A';
   };
 
-  if (isLoading || isFormDataLoading) {
+  if (isLoading || isFormDataLoading || authContextIsLoading) {
     return (
       <div>
         <PageSectionHeader title="Tasks" description="Manage your to-do list.">
@@ -185,6 +203,7 @@ export function TasksListClient() {
                   <TableHead>Due Date</TableHead>
                   <TableHead>Related To</TableHead>
                   <TableHead>Tags</TableHead>
+                  <TableHead>Created At</TableHead> {/* Added */}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -196,6 +215,7 @@ export function TasksListClient() {
                     <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                     <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell> {/* Added */}
                     <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))}
@@ -226,7 +246,7 @@ export function TasksListClient() {
   return (
     <div>
       <PageSectionHeader title="Tasks" description="Manage your to-do list.">
-        <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading}>
+        <Button onClick={() => handleOpenModal()} disabled={isFormDataLoading || authContextIsLoading}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
         </Button>
       </PageSectionHeader>
@@ -241,6 +261,7 @@ export function TasksListClient() {
                 <TableHead>Due Date</TableHead>
                 <TableHead>Related To</TableHead>
                 <TableHead>Tags</TableHead>
+                <TableHead>Created At</TableHead> {/* Added */}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -262,6 +283,9 @@ export function TasksListClient() {
                       {(task.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
                       {(task.tags || []).length > 2 && <Badge variant="outline">+{task.tags.length - 2}</Badge>}
                     </div>
+                  </TableCell>
+                  <TableCell> {/* Added */}
+                    <FormattedNoteTimestamp createdAt={task.createdAt} />
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -285,7 +309,7 @@ export function TasksListClient() {
               ))}
               {tasks.length === 0 && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">No tasks found.</TableCell>
+                  <TableCell colSpan={7} className="text-center h-24">No tasks found.</TableCell> {/* Updated colSpan */}
                 </TableRow>
               )}
             </TableBody>
@@ -311,5 +335,3 @@ export function TasksListClient() {
     </div>
   );
 }
-
-    

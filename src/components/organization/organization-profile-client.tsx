@@ -13,11 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Edit, Building, Image as ImageIcon, MapPin, Globe, DollarSign, Clock } from 'lucide-react';
 import { TIMEZONE_OPTIONS } from '@/lib/constants';
+import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp'; // Added
 
 export function OrganizationProfileClient() {
   const { user, organization: authOrganization, isLoading: authLoading, isAuthenticated, fetchUser } = useAuth();
-  const [organization, setOrganization] = useState<Organization | null>(authOrganization); // Initialize with context
-  const [isLoadingOrg, setIsLoadingOrg] = useState(true); // Still have local loading for direct fetch
+  const [organization, setOrganization] = useState<Organization | null>(authOrganization); 
+  const [isLoadingOrg, setIsLoadingOrg] = useState(true); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
@@ -34,7 +35,7 @@ export function OrganizationProfileClient() {
     } catch (err) {
       console.error("Error fetching organization locally:", err);
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
-      setOrganization(null); // Could set to null or keep authOrganization if fetch fails
+      setOrganization(null); 
     } finally {
       setIsLoadingOrg(false);
     }
@@ -55,7 +56,7 @@ export function OrganizationProfileClient() {
 
   const handleSaveCallback = (updatedOrganization: Organization) => {
     setOrganization(updatedOrganization);
-    fetchUser(); // Re-fetch user to update the organization in AuthContext
+    fetchUser(); 
   };
 
   const formatAddress = (org: Organization | null) => {
@@ -75,13 +76,13 @@ export function OrganizationProfileClient() {
     return (
       <div>
         <PageSectionHeader title="Organization Profile" description="View and manage your organization details." >
-           <Skeleton className="h-10 w-32" /> {/* Edit Profile Button Skeleton */}
+           <Skeleton className="h-10 w-32" /> 
         </PageSectionHeader>
         <Card className="shadow-lg">
           <CardHeader className="text-center">
             <Skeleton className="h-32 w-32 rounded-full mx-auto mb-4" />
-            <Skeleton className="h-8 w-3/4 mx-auto mb-2" /> {/* Title */}
-            <Skeleton className="h-5 w-1/2 mx-auto" /> {/* Description */}
+            <Skeleton className="h-8 w-3/4 mx-auto mb-2" /> 
+            <Skeleton className="h-5 w-1/2 mx-auto" /> 
           </CardHeader>
           <CardContent className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 p-6">
             <div className="space-y-1">
@@ -188,7 +189,7 @@ export function OrganizationProfileClient() {
             </div>
         </CardContent>
          <CardFooter className="p-6 pt-2 text-xs text-muted-foreground">
-            <p>Last updated: {new Date(organization.updatedAt).toLocaleString()}</p>
+            <p>Last updated: <FormattedNoteTimestamp createdAt={organization.updatedAt} /></p> {/* Updated */}
         </CardFooter>
       </Card>
 

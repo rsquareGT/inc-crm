@@ -16,12 +16,13 @@ import { MoreHorizontal, PlusCircle, Edit, UserX, UserCheck, Loader2, ShieldAler
 import type { User } from '@/lib/types';
 import { UserFormModal } from './user-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog'; // Re-using for activate/deactivate confirmation
+import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp'; // Added
 
 export function UsersListClient() {
   const { user: adminUser, isLoading: authLoading } = useAuth();
@@ -95,13 +96,17 @@ export function UsersListClient() {
   const confirmToggleActive = async () => {
     if (!userToToggleActive || !adminUser) return;
     
-    // Prevent admin from deactivating themselves
+    // Prevent admin from deactivating themselves if they are the only active admin
     if (userToToggleActive.id === adminUser.id && userToToggleActive.isActive) {
-        toast({ title: "Action Restricted", description: "You cannot deactivate your own admin account.", variant: "destructive" });
-        setShowConfirmDialog(false);
-        setUserToToggleActive(null);
-        return;
+        const activeAdmins = users.filter(u => u.role === 'admin' && u.isActive);
+        if (activeAdmins.length <= 1) {
+            toast({ title: "Action Restricted", description: "Cannot deactivate the only active admin account.", variant: "destructive" });
+            setShowConfirmDialog(false);
+            setUserToToggleActive(null);
+            return;
+        }
     }
+
 
     setIsSubmittingToggle(true);
     const newIsActiveStatus = !userToToggleActive.isActive;
@@ -111,14 +116,14 @@ export function UsersListClient() {
       const response = await fetch(`/api/users/${userToToggleActive.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...userToToggleActive, isActive: newIsActiveStatus }), // Send all fields, update isActive
+        body: JSON.stringify({ isActive: newIsActiveStatus }), 
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to ${actionText} user`);
       }
       toast({ title: "User Status Updated", description: `User "${userToToggleActive.firstName} ${userToToggleActive.lastName}" has been ${actionText}.`});
-      fetchUsers(); // Refetch to update list
+      fetchUsers(); 
     } catch (err) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -152,6 +157,7 @@ export function UsersListClient() {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Last Updated</TableHead> {/* Added */}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -163,6 +169,7 @@ export function UsersListClient() {
                 <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-[90px] rounded-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell> {/* Added */}
                 <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
               </TableRow>
             ))}
@@ -200,6 +207,7 @@ export function UsersListClient() {
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Last Updated</TableHead> {/* Added */}
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -220,6 +228,9 @@ export function UsersListClient() {
                   {user.isActive ? 'Active' : 'Inactive'}
                 </Badge>
               </TableCell>
+              <TableCell> {/* Added */}
+                <FormattedNoteTimestamp createdAt={user.updatedAt} />
+              </TableCell>
               <TableCell className="text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -235,7 +246,7 @@ export function UsersListClient() {
                     <DropdownMenuItem 
                         onClick={() => handleToggleActiveRequest(user)}
                         className={user.isActive ? "text-destructive hover:!bg-destructive hover:!text-destructive-foreground" : "text-green-600 hover:!bg-green-500 hover:!text-white"}
-                        disabled={user.id === adminUser?.id && user.isActive} // Prevent deactivating self
+                        disabled={user.id === adminUser?.id && user.isActive && users.filter(u => u.role === 'admin' && u.isActive).length <=1}
                     >
                       {user.isActive ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
                       {user.isActive ? 'Deactivate' : 'Activate'}
@@ -247,7 +258,7 @@ export function UsersListClient() {
           ))}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center h-24">No users found.</TableCell>
+              <TableCell colSpan={7} className="text-center h-24">No users found.</TableCell> {/* Updated colSpan */}
             </TableRow>
           )}
         </TableBody>

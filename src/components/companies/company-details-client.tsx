@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon, Phone } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -84,6 +84,17 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       <Skeleton className="h-4 w-2/5" />
     </div>
   );
+  const RelatedDealSkeleton = () => (
+    <div className="p-3 border rounded-md">
+      <div className="flex justify-between items-start mb-1">
+        <Skeleton className="h-5 w-3/5" />
+        <Skeleton className="h-5 w-5" />
+      </div>
+      <Skeleton className="h-4 w-2/5 mb-1" />
+      <Skeleton className="h-4 w-3/5" />
+    </div>
+  );
+
 
   const fetchCompanyDetails = useCallback(async () => {
     setIsLoading(true);
@@ -155,7 +166,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const handleSaveContactCallback = () => {
     fetchCompanyDetails();
-    fetchFormDropdownData(); // Re-fetch contacts for account manager dropdown
+    fetchFormDropdownData(); 
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
@@ -287,7 +298,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
             </Card>
             <Card className="flex flex-col">
               <CardHeader><div className="flex justify-between items-center"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-9 w-[100px]" /></div></CardHeader>
-              <CardContent className="flex-grow overflow-hidden p-2"><ScrollArea className="h-[200px]"><div className="space-y-2">{[...Array(2)].map((_, i) => <RelatedItemSkeleton key={`skeleton-deal-item-${i}`} />)}</div></ScrollArea></CardContent>
+              <CardContent className="flex-grow overflow-hidden p-2"><ScrollArea className="h-[200px]"><div className="space-y-2">{[...Array(2)].map((_, i) => <RelatedDealSkeleton key={`skeleton-deal-item-${i}`} />)}</div></ScrollArea></CardContent>
             </Card>
           </div>
         </div>
@@ -526,7 +537,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
             <CardContent className="flex-grow overflow-hidden p-2">
               {isLoading ? (
                 <div className="space-y-2">
-                  {[...Array(2)].map((_, i) => <RelatedItemSkeleton key={`skeleton-deal-item-${i}`} />)}
+                  {[...Array(2)].map((_, i) => <RelatedDealSkeleton key={`skeleton-deal-item-${i}`} />)}
                 </div>
               ) : deals.length > 0 ? (
                 <ScrollArea className="h-[200px]">

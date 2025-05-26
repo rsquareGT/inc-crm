@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Company } from '@/lib/types';
+import { logActivity } from '@/services/activity-logger';
 
 // GET a single company by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { companyId: string } }) {
@@ -51,10 +52,12 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
   console.log(`API PUT /api/companies/${params.companyId} - Request received`);
   try {
     const { companyId } = params;
-    const organizationIdFromSession = request.headers.get('x-user-organization-id');
-    if (!organizationIdFromSession) {
-      console.error(`API PUT /api/companies/${companyId}: Unauthorized: Organization ID missing.`);
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const organizationId = request.headers.get('x-user-organization-id');
+    const userId = request.headers.get('x-user-id');
+
+    if (!organizationId || !userId) {
+      console.error(`API PUT /api/companies/${companyId}: Unauthorized: Organization or User ID missing.`);
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -64,7 +67,6 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
     const body = await request.json();
     console.log(`API PUT /api/companies/${companyId} - Request body:`, JSON.stringify(body, null, 2));
 
-    // The organizationId in the body is ignored; we use the one from the session for security.
     const { name, industry, website, street, city, state, postalCode, country, contactPhone1, contactPhone2, companySize, accountManagerId, tags, description } = body;
 
     if (!name) {
@@ -72,13 +74,20 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
       return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
     }
 
-    const now = new Date().toISOString();
+    // Fetch current company name for logging before update
+    const stmtCurrentCompany = db.prepare('SELECT name FROM Companies WHERE id = ? AND organizationId = ?');
+    const currentCompanyData = stmtCurrentCompany.get(companyId, organizationId) as { name: string } | undefined;
 
+    if (!currentCompanyData) {
+        return NextResponse.json({ error: 'Company not found or not authorized for update' }, { status: 404 });
+    }
+
+    const now = new Date().toISOString();
     const stmt = db.prepare(
       `UPDATE Companies
        SET name = ?, industry = ?, website = ?, street = ?, city = ?, state = ?, postalCode = ?, country = ?,
            contactPhone1 = ?, contactPhone2 = ?, companySize = ?, accountManagerId = ?, tags = ?, description = ?, updatedAt = ?
-       WHERE id = ? AND organizationId = ?` // Ensure update is scoped to organization
+       WHERE id = ? AND organizationId = ?`
     );
 
     const queryParams = [
@@ -98,17 +107,25 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
         description || null,
         now,
         companyId,
-        organizationIdFromSession
+        organizationId
     ];
 
-    console.log(`API PUT /api/companies/${companyId} - Executing update with params:`, queryParams);
     const result = stmt.run(...queryParams);
-    console.log(`API PUT /api/companies/${companyId} - Update result:`, result);
 
     if (result.changes === 0) {
       console.warn(`API PUT /api/companies/${companyId}: Company not found, not authorized, or no changes made`);
       return NextResponse.json({ error: 'Company not found, not authorized, or no changes made' }, { status: 404 });
     }
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'updated_company',
+      entityType: 'company',
+      entityId: companyId,
+      entityName: name, // Log with the new name
+    });
 
     const stmtUpdatedCompany = db.prepare(`
         SELECT c.*,
@@ -117,7 +134,7 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
         FROM Companies c
         WHERE c.id = ? AND c.organizationId = ?
     `);
-    const updatedCompanyData = stmtUpdatedCompany.get(companyId, organizationIdFromSession) as any;
+    const updatedCompanyData = stmtUpdatedCompany.get(companyId, organizationId) as any;
      const updatedCompany: Company = {
       ...updatedCompanyData,
       tags: updatedCompanyData.tags ? JSON.parse(updatedCompanyData.tags) : [],
@@ -156,9 +173,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { compa
   try {
     const { companyId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      console.error(`API DELETE /api/companies/${companyId}: Unauthorized: Organization ID missing.`);
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id');
+
+    if (!organizationId || !userId) {
+      console.error(`API DELETE /api/companies/${companyId}: Unauthorized: Organization or User ID missing.`);
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -166,37 +185,42 @@ export async function DELETE(request: NextRequest, { params }: { params: { compa
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
+    // Fetch company name for logging before deletion
+    const companyCheckStmt = db.prepare('SELECT name FROM Companies WHERE id = ? AND organizationId = ?');
+    const companyToDeleteData = companyCheckStmt.get(companyId, organizationId) as { name: string } | undefined;
+
+    if (!companyToDeleteData) {
+      return NextResponse.json({ error: 'Company not found or not authorized' }, { status: 404 });
+    }
+    const companyName = companyToDeleteData.name;
+
     db.transaction(() => {
-      // Update related Contacts (companyId SET NULL)
       const stmtUpdateContacts = db.prepare('UPDATE Contacts SET companyId = NULL WHERE companyId = ? AND organizationId = ?');
       stmtUpdateContacts.run(companyId, organizationId);
 
-      // Update related Deals (companyId SET NULL)
       const stmtUpdateDeals = db.prepare('UPDATE Deals SET companyId = NULL WHERE companyId = ? AND organizationId = ?');
       stmtUpdateDeals.run(companyId, organizationId);
       
-      // Notes are deleted by CASCADE constraint in DB, but ensure company belongs to org
-      // First check if company exists and belongs to the org
-      const companyCheckStmt = db.prepare('SELECT id FROM Companies WHERE id = ? AND organizationId = ?');
-      const companyExists = companyCheckStmt.get(companyId, organizationId);
-
-      if (!companyExists) {
-        const notFoundError = new Error('Company not found or not authorized');
-        (notFoundError as any).statusCode = 404;
-        throw notFoundError;
-      }
-
       const stmtDeleteCompany = db.prepare('DELETE FROM Companies WHERE id = ? AND organizationId = ?');
       const result = stmtDeleteCompany.run(companyId, organizationId);
 
       if (result.changes === 0) {
-        // This case should be caught by the companyExists check above, but as a fallback:
-        const notFoundError = new Error('Company not found or not authorized');
-        (notFoundError as any).statusCode = 404;
+        // Should have been caught by companyCheckStmt, but as a fallback
+        const notFoundError = new Error('Company not found or not authorized during transaction');
+        (notFoundError as any).statusCode = 404; // Custom property for specific handling
         throw notFoundError;
       }
     })();
 
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'deleted_company',
+      entityType: 'company',
+      entityId: companyId,
+      entityName: companyName, // Log with the name fetched before deletion
+    });
 
     console.log(`API DELETE /api/companies/${companyId} - Company deleted successfully`);
     return NextResponse.json({ message: 'Company deleted successfully' }, { status: 200 });

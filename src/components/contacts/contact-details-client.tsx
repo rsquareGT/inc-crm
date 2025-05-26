@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Contact, Company, Deal, Note } from '@/lib/types';
+import type { Contact, Company, Deal, Note, Activity } from '@/lib/types'; // Added Activity
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Added Tabs
 import { ContactFormModal } from './contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -18,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -28,7 +29,7 @@ import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { ActivityItem } from '@/components/shared/activity-item'; // Added
 
 interface ContactDetailsClientProps {
   contactId: string;
@@ -38,13 +39,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]); // Added
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); // For DealFormModal
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); 
 
   const { toast } = useToast();
 
@@ -55,9 +58,19 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'deal' | 'note'; name: string } | null>(null);
 
+  const ActivityItemSkeleton = () => (
+    <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="flex-1 space-y-1">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+        </div>
+    </div>
+  );
 
   const fetchContactDetails = useCallback(async () => {
     setIsLoading(true);
+    setIsLoadingActivities(true);
     setError(null);
     try {
       const response = await fetch(`/api/contacts/${contactId}`);
@@ -88,12 +101,18 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         setCompany(undefined);
       }
 
-      const dealsRes = await fetch(`/api/deals?contactId=${contactId}`);
+      const [dealsRes, activitiesRes] = await Promise.all([
+        fetch(`/api/deals?contactId=${contactId}`),
+        fetch(`/api/activities?entityType=contact&entityId=${contactId}&limit=15`)
+      ]);
+      
       if (dealsRes.ok) setDeals(await dealsRes.json()); 
       else {
         console.warn(`Failed to fetch deals for contact ${contactId}`);
         setDeals([]);
       }
+      if (activitiesRes.ok) setActivities(await activitiesRes.json()); else setActivities([]);
+
 
     } catch (err) {
       console.error("Error in fetchContactDetails:", err);
@@ -102,16 +121,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       toast({ title: "Error Fetching Contact Data", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
+      setIsLoadingActivities(false);
     }
   }, [contactId, toast]);
 
   const fetchFormDropdownData = useCallback(async () => {
-    // This is for forms on this page (e.g. DealFormModal)
-    // setIsLoading(true); // Main entity loading is separate
     try {
         const [companiesRes, contactsResForDealForm] = await Promise.all([
-            fetch('/api/companies'), // For ContactFormModal (passed to it) & DealFormModal
-            fetch('/api/contacts') // For DealFormModal's contact dropdown
+            fetch('/api/companies'), 
+            fetch('/api/contacts') 
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
         else console.warn("Failed to fetch companies list for forms on contact detail page");
@@ -122,7 +140,6 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     } catch (err) {
         toast({title: "Error loading form dependencies", description: (err as Error).message, variant: "destructive"});
     }
-    // finally { setIsLoading(false); }
   }, [toast]);
 
 
@@ -132,12 +149,12 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   }, [fetchContactDetails, fetchFormDropdownData]);
 
   const handleSaveContactCallback = () => {
-    fetchContactDetails(); // Refetch to get updated contact details (including potentially new notes if form allowed)
+    fetchContactDetails(); 
     setIsContactModalOpen(false);
   };
 
   const handleSaveDealCallback = () => {
-    fetchContactDetails(); // Refetch deals for this contact
+    fetchContactDetails(); 
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -156,7 +173,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       endpoint = `/api/contacts/${contact.id}/notes/${itemToDelete.id}`;
       successMessage = "Note has been deleted.";
     } else if (itemToDelete.type === 'deal') {
-      endpoint = `/api/deals/${itemToDelete.id}`; // Deals are global, not sub-resources of contacts for deletion
+      endpoint = `/api/deals/${itemToDelete.id}`; 
       successMessage = `Deal "${itemToDelete.name}" deleted.`;
     }
 
@@ -169,7 +186,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchContactDetails(); // Refetch to update lists
+      fetchContactDetails(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -195,14 +212,9 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add note');
       }
-      const newNote: Note = await response.json();
-      // Optimistically update or refetch
-      setContact(prevContact => {
-        if(!prevContact) return null;
-        return { ...prevContact, notes: [newNote, ...(prevContact.notes || [])].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) };
-      });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this contact." });
+      fetchContactDetails(); // Refetch details to include new note and activity
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
@@ -224,63 +236,73 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
           </div>
           <Skeleton className="h-10 w-[150px]" /> {/* Edit Contact Button */}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <Card>
-              <CardHeader><Skeleton className="h-6 w-1/2 mb-1" /></CardHeader>
-              <CardContent className="space-y-3">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-5 w-1/2" />
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-16 w-full rounded-md" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-1/2 mb-1" />
-                <Skeleton className="h-4 w-3/4" />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Skeleton className="h-4 w-1/4 mb-1" />
-                <Skeleton className="h-20 w-full rounded-md" />
-                <Skeleton className="h-9 w-[120px]" />
-                <ScrollArea className="h-[300px] w-full">
-                    <div className="space-y-3">
-                        {[...Array(2)].map((_, i) => (
-                            <div key={i} className="p-3 bg-secondary/50 rounded-md">
-                                <Skeleton className="h-4 w-full mb-1" />
-                                <Skeleton className="h-4 w-3/4 mb-2" />
-                                <Skeleton className="h-3 w-1/2" />
+        <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </TabsList>
+            <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-6">
+                    <Card>
+                    <CardHeader><Skeleton className="h-6 w-1/2 mb-1" /></CardHeader>
+                    <CardContent className="space-y-3">
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-5 w-1/2" />
+                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-16 w-full rounded-md" />
+                    </CardContent>
+                    </Card>
+                    <Card>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-1/2 mb-1" />
+                        <Skeleton className="h-4 w-3/4" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Skeleton className="h-4 w-1/4 mb-1" />
+                        <Skeleton className="h-20 w-full rounded-md" />
+                        <Skeleton className="h-9 w-[120px]" />
+                        <ScrollArea className="h-[300px] w-full">
+                            <div className="space-y-3">
+                                {[...Array(2)].map((_, i) => (
+                                    <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
+                                        <Skeleton className="h-4 w-full mb-1" />
+                                        <Skeleton className="h-4 w-3/4 mb-2" />
+                                        <Skeleton className="h-3 w-1/2" />
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="md:col-span-1 space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-9 w-[100px]" />
+                        </ScrollArea>
+                    </CardContent>
+                    </Card>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-3">
-                    {[...Array(2)].map((_, i) => (
-                      <div key={i} className="p-3 border rounded-md">
-                        <Skeleton className="h-5 w-3/4 mb-1" />
-                        <Skeleton className="h-4 w-1/2" />
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                <div className="md:col-span-1 space-y-6">
+                    <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-9 w-[100px]" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <ScrollArea className="h-[400px]">
+                        <div className="space-y-3">
+                            {[...Array(2)].map((_, i) => (
+                            <div key={`skeleton-deal-${i}`} className="p-3 border rounded-md">
+                                <Skeleton className="h-5 w-3/4 mb-1" />
+                                <Skeleton className="h-4 w-1/2" />
+                            </div>
+                            ))}
+                        </div>
+                        </ScrollArea>
+                    </CardContent>
+                    </Card>
+                </div>
+                </div>
+            </TabsContent>
+        </Tabs>
       </div>
     );
   }
@@ -325,8 +347,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="deals">Associated Deals ({deals.length})</TabsTrigger>
+          <TabsTrigger value="notes">Notes ({sortedNotes.length})</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger> {/* Added Activity Tab */}
+        </TabsList>
+
+        <TabsContent value="overview">
             <Card>
               <CardHeader>
                 <CardTitle>Contact Details</CardTitle>
@@ -360,7 +389,73 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </div>
               </CardContent>
             </Card>
+        </TabsContent>
 
+        <TabsContent value="deals">
+             <Card>
+                <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle>Associated Deals ({deals.length})</CardTitle>
+                    <Button variant="outline" size="sm" onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
+                    </Button>
+                </div>
+                </CardHeader>
+                <CardContent>
+                {deals.length > 0 ? (
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Stage</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {deals.map((deal) => (
+                            <TableRow key={deal.id}>
+                                <TableCell className="font-medium">
+                                <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
+                                    {deal.name}
+                                </Link>
+                                </TableCell>
+                                <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
+                                <TableCell>${deal.value.toLocaleString()}</TableCell>
+                                <TableCell className="text-right">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                        <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                                        <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
+                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
+                )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        
+        <TabsContent value="notes">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
@@ -417,60 +512,30 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 )}
               </CardContent>
             </Card>
-        </div>
-        <div className="md:col-span-1 space-y-6">
+        </TabsContent>
+        
+        <TabsContent value="activity">
             <Card>
                 <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>Associated Deals ({deals.length})</CardTitle>
-                    <Button variant="outline" size="sm" onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
-                    </Button>
-                </div>
+                    <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
                 </CardHeader>
-                <CardContent>
-                {deals.length > 0 ? (
-                    <ScrollArea className="h-[400px]">
-                    <div className="space-y-3">
-                    {deals.map((deal) => (
-                        <div key={deal.id} className="p-3 border rounded-md hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start">
-                                <Link href={`/deals/${deal.id}`} className="font-medium text-primary hover:underline">{deal.name}</Link>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-7 w-7 p-0">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                    <DropdownMenuItem asChild>
-                                        <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
-                                          <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
-                                        <Edit className="mr-2 h-4 w-4" /> Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                    </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                                ${deal.value.toLocaleString()} - <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' }>{deal.stage}</Badge>
-                            </div>
-                        </div>
-                    ))}
-                    </div>
+                <CardContent className="pl-2 pr-2 pt-0">
+                    <ScrollArea className="h-[400px]"> {/* Adjust height as needed */}
+                        {isLoadingActivities ? (
+                            Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
+                        ) : activities.length > 0 ? (
+                            activities.map(activity => (
+                                <ActivityItem key={activity.id} activity={activity} />
+                            ))
+                        ) : (
+                            <p className="text-muted-foreground text-center py-10">No activities recorded for this contact yet.</p>
+                        )}
                     </ScrollArea>
-                ) : (
-                    <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
-                )}
                 </CardContent>
             </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+      </Tabs>
 
 
       <ContactFormModal
@@ -478,15 +543,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         onClose={() => setIsContactModalOpen(false)}
         onSaveCallback={handleSaveContactCallback}
         contact={contact}
-        companies={allCompaniesList} // Pass all companies for the dropdown
+        companies={allCompaniesList} 
       />
       <DealFormModal
         isOpen={isDealModalOpen}
         onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
         onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContactsList} // Pass all contacts for the dropdown
-        companies={allCompaniesList} // Pass all companies for the dropdown
+        contacts={allContactsList} 
+        companies={allCompaniesList} 
         defaultContactId={contact.id}
         defaultCompanyId={contact.companyId}
       />

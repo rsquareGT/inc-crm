@@ -3,14 +3,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Note } from '@/lib/types';
 import { generateId } from '@/lib/utils';
+import { logActivity } from '@/services/activity-logger';
 
 // POST a new note for a company, ensuring company belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { companyId: string } }) {
   try {
     const { companyId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id');
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -23,10 +26,9 @@ export async function POST(request: NextRequest, { params }: { params: { company
       return NextResponse.json({ error: 'Note content cannot be empty' }, { status: 400 });
     }
 
-    // Check if company exists and belongs to the organization
-    const companyCheckStmt = db.prepare('SELECT id FROM Companies WHERE id = ? AND organizationId = ?');
-    const companyExists = companyCheckStmt.get(companyId, organizationId);
-    if (!companyExists) {
+    const companyCheckStmt = db.prepare('SELECT id, name FROM Companies WHERE id = ? AND organizationId = ?');
+    const companyData = companyCheckStmt.get(companyId, organizationId) as { id: string; name: string } | undefined;
+    if (!companyData) {
       return NextResponse.json({ error: 'Company not found or not authorized' }, { status: 404 });
     }
 
@@ -45,6 +47,17 @@ export async function POST(request: NextRequest, { params }: { params: { company
       companyId: companyId,
       organizationId: organizationId,
     };
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'added_note_to_company',
+      entityType: 'company', // The note is related to a company
+      entityId: companyId,
+      entityName: companyData.name,
+      details: { noteId: newNoteId, noteContentPreview: content.trim().substring(0, 50) }
+    });
 
     return NextResponse.json(newNote, { status: 201 });
 

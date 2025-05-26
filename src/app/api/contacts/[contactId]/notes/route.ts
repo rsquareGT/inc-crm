@@ -3,14 +3,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Note } from '@/lib/types';
 import { generateId } from '@/lib/utils';
+import { logActivity } from '@/services/activity-logger'; // Added
 
 // POST a new note for a contact, ensuring contact belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { contactId: string } }) {
   try {
     const { contactId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id'); // For activity logging
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -23,10 +26,10 @@ export async function POST(request: NextRequest, { params }: { params: { contact
       return NextResponse.json({ error: 'Note content cannot be empty' }, { status: 400 });
     }
 
-    // Check if contact exists and belongs to the organization
-    const contactCheckStmt = db.prepare('SELECT id FROM Contacts WHERE id = ? AND organizationId = ?');
-    const contactExists = contactCheckStmt.get(contactId, organizationId);
-    if (!contactExists) {
+    // Check if contact exists and belongs to the organization, also get name for logging
+    const contactCheckStmt = db.prepare('SELECT id, firstName, lastName FROM Contacts WHERE id = ? AND organizationId = ?');
+    const contactData = contactCheckStmt.get(contactId, organizationId) as { id: string; firstName: string; lastName: string } | undefined;
+    if (!contactData) {
       return NextResponse.json({ error: 'Contact not found or not authorized' }, { status: 404 });
     }
 
@@ -45,6 +48,17 @@ export async function POST(request: NextRequest, { params }: { params: { contact
       contactId: contactId,
       organizationId: organizationId,
     };
+    
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'added_note_to_contact',
+      entityType: 'contact',
+      entityId: contactId,
+      entityName: `${contactData.firstName} ${contactData.lastName}`,
+      details: { noteId: newNoteId, noteContentPreview: content.trim().substring(0, 50) }
+    });
 
     return NextResponse.json(newNote, { status: 201 });
 

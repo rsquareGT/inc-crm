@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Company, Contact, Deal, Note, User } from '@/lib/types'; 
+import type { Company, Contact, Deal, Note, User, Activity } from '@/lib/types'; // Added Activity
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -30,21 +30,23 @@ import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/auth-context'; // Added useAuth
-
+import { useAuth } from '@/contexts/auth-context';
+import { ActivityItem } from '@/components/shared/activity-item'; // Added
 
 interface CompanyDetailsClientProps {
   companyId: string;
 }
 
 export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
-  const { user: loggedInUser } = useAuth(); // Get current logged-in user
+  const { user: loggedInUser } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]); // Added activities state
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added activities loading state
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
@@ -62,6 +64,16 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'note'; name: string } | null>(null);
 
+  const ActivityItemSkeleton = () => (
+    <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="flex-1 space-y-1">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+        </div>
+    </div>
+  );
+
 
   const fetchCompanyDetails = useCallback(async () => {
     setIsLoading(true);
@@ -75,13 +87,16 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       const data: Company = await response.json();
       setCompany(data);
 
-      const [contactsRes, dealsRes] = await Promise.all([
+      const [contactsRes, dealsRes, activitiesRes] = await Promise.all([
         fetch(`/api/contacts?companyId=${companyId}`),
-        fetch(`/api/deals?companyId=${companyId}`)
+        fetch(`/api/deals?companyId=${companyId}`),
+        fetch(`/api/activities?entityType=company&entityId=${companyId}&limit=15`) // Fetch activities for this company
       ]);
 
       if (contactsRes.ok) setContacts(await contactsRes.json()); else setContacts([]);
       if (dealsRes.ok) setDeals(await dealsRes.json()); else setDeals([]);
+      if (activitiesRes.ok) setActivities(await activitiesRes.json()); else setActivities([]);
+
 
     } catch (err) {
       console.error(err);
@@ -90,6 +105,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       toast({ title: "Error Fetching Company Data", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
+      setIsLoadingActivities(false); // Also set activities loading to false
     }
   }, [companyId, toast]);
 
@@ -104,7 +120,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         if (contactsRes.ok) setAllContactsList(await contactsRes.json());
         if (usersRes.ok) {
           let usersData: User[] = await usersRes.json();
-          // Client-side safeguard/filter
           if (loggedInUser?.organizationId) {
             usersData = usersData.filter(u => u.organizationId === loggedInUser.organizationId);
           }
@@ -113,7 +128,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     } catch (err) {
         toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
     }
-  }, [toast, loggedInUser]); // Added loggedInUser dependency
+  }, [toast, loggedInUser]);
 
   useEffect(() => {
     fetchCompanyDetails();
@@ -194,13 +209,14 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add note');
       }
-      const newNote: Note = await response.json();
-      setCompany(prevCompany => {
-          if(!prevCompany) return null;
-          return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]}
-      });
+      // const newNote: Note = await response.json(); // Response already contains newNote
+      // setCompany(prevCompany => {
+      //     if(!prevCompany) return null;
+      //     return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]}
+      // });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this company." });
+      fetchCompanyDetails(); // Refetch all details to include new note and new activity
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
@@ -231,7 +247,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
+              <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
@@ -333,10 +350,11 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger> {/* Added Activity Tab */}
         </TabsList>
 
         <TabsContent value="overview">
@@ -403,7 +421,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground" />Notes & Activity</CardTitle>
+                <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground" />Notes</CardTitle>
                 <CardDescription>Chronological notes related to this company.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -612,6 +630,28 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        <TabsContent value="activity">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Company Activity</CardTitle>
+                </CardHeader>
+                <CardContent className="pl-2 pr-2 pt-0">
+                    <ScrollArea className="h-[400px]"> {/* Adjust height as needed */}
+                        {isLoadingActivities ? (
+                            Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-company-activity-${index}`} />)
+                        ) : activities.length > 0 ? (
+                            activities.map(activity => (
+                                <ActivityItem key={activity.id} activity={activity} />
+                            ))
+                        ) : (
+                            <p className="text-muted-foreground text-center py-10">No activities recorded for this company yet.</p>
+                        )}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+        </TabsContent>
+
       </Tabs>
 
       <CompanyFormModal
@@ -649,5 +689,3 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     </div>
   );
 }
-
-    

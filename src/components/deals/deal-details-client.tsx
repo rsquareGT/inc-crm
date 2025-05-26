@@ -2,9 +2,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Deal, Contact, Company, Note, Task } from '@/lib/types';
+import type { Deal, Contact, Company, Note, Task, Activity } from '@/lib/types'; // Added Activity
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Added Tabs
 import { DealFormModal } from './deal-form-modal';
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -18,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks, ExternalLink, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, DollarSign, User, Building, Briefcase, FileText, MessageSquarePlus, MessageSquareText, CheckCircle, CalendarDays, ListChecks, ExternalLink, Loader2, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -29,6 +30,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ActivityItem } from '@/components/shared/activity-item'; // Added
 
 
 interface DealDetailsClientProps {
@@ -40,14 +42,16 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]); // Added
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added
   const [error, setError] = useState<string | null>(null);
 
   const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allDealsList, setAllDealsList] = useState<Deal[]>([]);
+  const [allDealsList, setAllDealsList] = useState<Deal[]>([]); // For TaskFormModal
 
   const { toast } = useToast();
 
@@ -58,8 +62,19 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'task' | 'note'; name: string } | null>(null);
 
+  const ActivityItemSkeleton = () => (
+    <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="flex-1 space-y-1">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+        </div>
+    </div>
+  );
+
   const fetchDealDetails = useCallback(async () => {
     setIsLoading(true);
+    setIsLoadingActivities(true);
     setError(null);
     try {
       const response = await fetch(`/api/deals/${dealId}`);
@@ -80,8 +95,13 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         if (companyRes.ok) setCompany(await companyRes.json());
       } else setCompany(undefined);
 
-      const tasksRes = await fetch(`/api/tasks?dealId=${dealId}`);
+      const [tasksRes, activitiesRes] = await Promise.all([
+         fetch(`/api/tasks?dealId=${dealId}`),
+         fetch(`/api/activities?entityType=deal&entityId=${dealId}&limit=15`)
+      ]);
+      
       if (tasksRes.ok) setTasks(await tasksRes.json()); else setTasks([]);
+      if (activitiesRes.ok) setActivities(await activitiesRes.json()); else setActivities([]);
 
     } catch (err) {
       console.error(err);
@@ -90,6 +110,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
       toast({ title: "Error Fetching Deal Data", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
+      setIsLoadingActivities(false);
     }
   }, [dealId, toast]);
 
@@ -98,7 +119,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         const [contactsRes, companiesRes, dealsRes] = await Promise.all([
             fetch('/api/contacts'),
             fetch('/api/companies'),
-            fetch('/api/deals')
+            fetch('/api/deals') // For TaskFormModal
         ]);
         if (contactsRes.ok) setAllContactsList(await contactsRes.json());
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
@@ -121,7 +142,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
   };
 
   const handleSaveTaskCallback = () => {
-    fetchDealDetails();
+    fetchDealDetails(); // Refetch tasks and potentially activities
     setIsTaskModalOpen(false);
     setEditingTask(null);
   };
@@ -145,10 +166,11 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         throw new Error(errorData.error || 'Failed to update task completion');
       }
       toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTaskPayload.completed ? 'complete' : 'incomplete'}.` });
+      fetchDealDetails(); // Refetch to update activities if task completion is logged
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
-      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t));
+      setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? task : t)); // Revert optimistic update on error
     }
   };
 
@@ -179,7 +201,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
       toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchDealDetails();
+      fetchDealDetails(); // Refetch to update lists and activities
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
@@ -205,13 +227,9 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add note');
       }
-      const newNote: Note = await response.json();
-      setDeal(prevDeal => {
-          if(!prevDeal) return null;
-          return {...prevDeal, notes: [newNote, ...(prevDeal.notes || [])]}
-      });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this deal." });
+      fetchDealDetails(); // Refetch to include new note and activity
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
@@ -237,65 +255,75 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
             </div>
             <Skeleton className="h-10 w-[120px]" /> {/* Edit Button */}
           </div>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader><Skeleton className="h-6 w-1/3 mb-1" /></CardHeader>
-                    <CardContent className="space-y-3">
-                        <Skeleton className="h-5 w-1/2" />
-                        <Skeleton className="h-5 w-full" />
-                        <Skeleton className="h-16 w-full rounded-md" />
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader>
-                        <Skeleton className="h-6 w-1/3 mb-1" />
-                        <Skeleton className="h-4 w-2/3" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Skeleton className="h-4 w-1/4 mb-1" />
-                        <Skeleton className="h-20 w-full rounded-md" />
-                        <Skeleton className="h-9 w-[120px]" />
-                        <ScrollArea className="h-[300px] w-full">
-                            <div className="space-y-3">
-                                {[...Array(2)].map((_, i) => (
-                                    <div key={i} className="p-3 bg-secondary/50 rounded-md">
-                                        <Skeleton className="h-4 w-full mb-1" />
-                                        <Skeleton className="h-4 w-3/4 mb-2" />
-                                        <Skeleton className="h-3 w-1/2" />
+           <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </TabsList>
+            <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-6">
+                    <Card>
+                        <CardHeader><Skeleton className="h-6 w-1/3 mb-1" /></CardHeader>
+                        <CardContent className="space-y-3">
+                            <Skeleton className="h-5 w-1/2" />
+                            <Skeleton className="h-5 w-full" />
+                            <Skeleton className="h-16 w-full rounded-md" />
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <Skeleton className="h-6 w-1/3 mb-1" />
+                            <Skeleton className="h-4 w-2/3" />
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <Skeleton className="h-4 w-1/4 mb-1" />
+                            <Skeleton className="h-20 w-full rounded-md" />
+                            <Skeleton className="h-9 w-[120px]" />
+                            <ScrollArea className="h-[300px] w-full">
+                                <div className="space-y-3">
+                                    {[...Array(2)].map((_, i) => (
+                                        <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
+                                            <Skeleton className="h-4 w-full mb-1" />
+                                            <Skeleton className="h-4 w-3/4 mb-2" />
+                                            <Skeleton className="h-3 w-1/2" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="md:col-span-1 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <Skeleton className="h-6 w-3/4" />
+                                <Skeleton className="h-9 w-[100px]" />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <ScrollArea className="h-[400px]">
+                            <div className="space-y-2">
+                                {[...Array(3)].map((_, i) => (
+                                <div key={`skeleton-task-${i}`} className="p-3 border rounded-md">
+                                    <div className="flex justify-between items-start mb-1">
+                                    <Skeleton className="h-5 w-3/5" />
+                                    <Skeleton className="h-5 w-5" />
                                     </div>
+                                    <Skeleton className="h-4 w-2/5" />
+                                </div>
                                 ))}
                             </div>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="md:col-span-1 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <Skeleton className="h-6 w-3/4" />
-                            <Skeleton className="h-9 w-[100px]" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <ScrollArea className="h-[400px]">
-                        <div className="space-y-2">
-                            {[...Array(3)].map((_, i) => (
-                            <div key={i} className="p-3 border rounded-md">
-                                <div className="flex justify-between items-start mb-1">
-                                <Skeleton className="h-5 w-3/5" />
-                                <Skeleton className="h-5 w-5" />
-                                </div>
-                                <Skeleton className="h-4 w-2/5" />
-                            </div>
-                            ))}
-                        </div>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-            </div>
-           </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </div>
+                </div>
+            </TabsContent>
+           </Tabs>
         </div>
     );
   }
@@ -354,9 +382,16 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-            <Card>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
+          <TabsTrigger value="notes">Notes ({sortedNotes.length})</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger> {/* Added Activity Tab */}
+        </TabsList>
+        
+        <TabsContent value="overview">
+             <Card>
               <CardHeader>
                 <CardTitle>Deal Details</CardTitle>
               </CardHeader>
@@ -383,7 +418,65 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                 </div>
               </CardContent>
             </Card>
+        </TabsContent>
 
+        <TabsContent value="tasks">
+            <Card>
+                <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Tasks</CardTitle>
+                    <Button variant="outline" size="sm" onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+                    </Button>
+                </div>
+                </CardHeader>
+                <CardContent>
+                {tasks.length > 0 ? (
+                    <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                    {tasks.map((task) => (
+                        <div key={task.id} className={`p-3 border rounded-md hover:shadow-md transition-shadow ${task.completed ? 'opacity-60' : ''}`}>
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center">
+                                    <Checkbox
+                                        checked={task.completed}
+                                        onCheckedChange={() => toggleTaskCompletion(task.id)}
+                                        aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
+                                        className="mr-2"
+                                        id={`task-completed-${task.id}`}
+                                    />
+                                    <label htmlFor={`task-completed-${task.id}`} className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</label>
+                                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-7 w-7 p-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
+                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteRequest(task.id, 'task', task.title)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                            {task.dueDate && <p className="text-xs text-muted-foreground ml-6">Due: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
+                            {task.description && <p className="text-xs text-muted-foreground ml-6 mt-1 line-clamp-2">{task.description}</p>}
+                        </div>
+                    ))}
+                    </div>
+                    </ScrollArea>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No tasks associated with this deal yet.</p>
+                )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+
+        <TabsContent value="notes">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
@@ -440,63 +533,30 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
                 )}
               </CardContent>
             </Card>
-        </div>
-        <div className="md:col-span-1 space-y-6">
+        </TabsContent>
+        
+        <TabsContent value="activity">
             <Card>
                 <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Tasks ({tasks.length})</CardTitle>
-                    <Button variant="outline" size="sm" onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Task
-                    </Button>
-                </div>
+                    <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Deal Activity</CardTitle>
                 </CardHeader>
-                <CardContent>
-                {tasks.length > 0 ? (
-                    <ScrollArea className="h-[400px]">
-                    <div className="space-y-2">
-                    {tasks.map((task) => (
-                        <div key={task.id} className={`p-3 border rounded-md hover:shadow-md transition-shadow ${task.completed ? 'opacity-60' : ''}`}>
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center">
-                                    <Checkbox
-                                        checked={task.completed}
-                                        onCheckedChange={() => toggleTaskCompletion(task.id)}
-                                        aria-label={task.completed ? "Mark as incomplete" : "Mark as complete"}
-                                        className="mr-2"
-                                        id={`task-completed-${task.id}`}
-                                    />
-                                    <label htmlFor={`task-completed-${task.id}`} className={`font-medium ${task.completed ? 'line-through' : ''}`}>{task.title}</label>
-                                </div>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-7 w-7 p-0">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
-                                        <Edit className="mr-2 h-4 w-4" /> Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleDeleteRequest(task.id, 'task', task.title)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                    </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                            {task.dueDate && <p className="text-xs text-muted-foreground ml-6">Due: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
-                            {task.description && <p className="text-xs text-muted-foreground ml-6 mt-1 line-clamp-2">{task.description}</p>}
-                        </div>
-                    ))}
-                    </div>
+                <CardContent className="pl-2 pr-2 pt-0">
+                    <ScrollArea className="h-[400px]"> {/* Adjust height as needed */}
+                        {isLoadingActivities ? (
+                            Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-deal-activity-${index}`} />)
+                        ) : activities.length > 0 ? (
+                            activities.map(activity => (
+                                <ActivityItem key={activity.id} activity={activity} />
+                            ))
+                        ) : (
+                            <p className="text-muted-foreground text-center py-10">No activities recorded for this deal yet.</p>
+                        )}
                     </ScrollArea>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">No tasks associated with this deal yet.</p>
-                )}
                 </CardContent>
             </Card>
-        </div>
-      </div>
+        </TabsContent>
+
+      </Tabs>
 
 
       <DealFormModal
@@ -512,7 +572,7 @@ export function DealDetailsClient({ dealId }: DealDetailsClientProps) {
         onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }}
         onSaveCallback={handleSaveTaskCallback}
         task={editingTask}
-        deals={allDealsList}
+        deals={allDealsList} // Pass all deals for the dropdown
         contacts={allContactsList}
         defaultDealId={deal.id}
         defaultContactId={contact?.id}

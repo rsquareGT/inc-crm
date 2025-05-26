@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2, Loader2, UserCircle as UserIcon } from 'lucide-react';
-import type { Task, Deal, Contact, DealStage } from '@/lib/types';
+import { MoreHorizontal, PlusCircle, Edit, Trash2, Briefcase, DollarSign, ListChecks, UserPlus, AlertTriangle, CheckCircle2, Loader2, UserCircle as UserIcon, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
+import type { Task, Deal, Contact, DealStage, Activity } from '@/lib/types'; // Added Activity
 import { TaskFormModal } from '@/components/tasks/task-form-modal';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -15,19 +15,21 @@ import { format, subDays, isWithinInterval } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TaskCard } from './task-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardFooter } from '../ui/card';
+import { Card, CardContent, CardHeader, CardFooter, CardTitle } from '../ui/card'; // Added CardTitle
 import { useAuth } from '@/contexts/auth-context';
+import { ActivityItem } from '@/components/shared/activity-item'; // Added
 
 export function DashboardClient() {
   const { isAuthenticated, isLoading: authContextIsLoading } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]); // Added activities state
 
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [isLoadingDeals, setIsLoadingDeals] = useState(true);
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
-  // Removed isTaskFormDataLoading state
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added activities loading state
 
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,17 @@ export function DashboardClient() {
       </CardFooter>
     </Card>
   );
+  
+  const ActivityItemSkeleton = () => (
+    <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <div className="flex-1 space-y-1">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+        </div>
+    </div>
+  );
+
 
   const fetchData = useCallback(async (endpoint: string, setData: React.Dispatch<React.SetStateAction<any[]>>, setLoading: React.Dispatch<React.SetStateAction<boolean>>, entityName: string) => {
     setLoading(true);
@@ -74,26 +87,28 @@ export function DashboardClient() {
       console.error(err);
       const message = err instanceof Error ? err.message : `An unknown error occurred fetching ${entityName}.`;
       setError(prev => prev ? `${prev}\n${message}` : message);
-      toast({ title: `Error Fetching ${entityName}`, description: message, variant: "destructive" });
+      // toast({ title: `Error Fetching ${entityName}`, description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
-  // Removed fetchTaskFormRelatedData function
 
   useEffect(() => {
     if (isAuthenticated && !authContextIsLoading) {
       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
       fetchData('/api/deals', setDeals, setIsLoadingDeals, 'deals');
       fetchData('/api/contacts', setContacts, setIsLoadingContacts, 'contacts');
+      fetchData('/api/activities?limit=10', setActivities, setIsLoadingActivities, 'activities'); // Fetch recent 10 activities
     } else if (!authContextIsLoading && !isAuthenticated) {
       setTasks([]);
       setDeals([]);
       setContacts([]);
+      setActivities([]);
       setIsLoadingTasks(false);
       setIsLoadingDeals(false);
       setIsLoadingContacts(false);
+      setIsLoadingActivities(false);
     }
   }, [fetchData, isAuthenticated, authContextIsLoading]);
 
@@ -181,7 +196,7 @@ export function DashboardClient() {
     };
   }, [deals, tasks, contacts]);
 
-  if (authContextIsLoading || (isAuthenticated && (isLoadingTasks || isLoadingDeals || isLoadingContacts))) {
+  if (authContextIsLoading || (isAuthenticated && (isLoadingTasks || isLoadingDeals || isLoadingContacts || isLoadingActivities))) {
      return (
       <div>
         <PageSectionHeader title="Dashboard" description="Your sales and activity overview." />
@@ -193,6 +208,17 @@ export function DashboardClient() {
               <StatsCard title="Pending Tasks" value="0" icon={<ListChecks className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
               <StatsCard title="New Contacts (Last 7 Days)" value="0" icon={<UserPlus className="h-5 w-5 text-muted-foreground" />} isLoading={true} />
             </div>
+            {/* Recent Activities Skeleton */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" /> Recent Activities</CardTitle>
+                </CardHeader>
+                <CardContent className="pl-2 pr-2 pt-0">
+                    <ScrollArea className="h-[300px]">
+                        {Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-activity-${index}`} />)}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
           </div>
           <div className="lg:col-span-1 space-y-4">
             <div className="flex justify-between items-center">
@@ -269,6 +295,25 @@ export function DashboardClient() {
               isLoading={isLoadingContacts}
             />
           </div>
+          {/* Recent Activities Section */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Recent Activities</CardTitle>
+                </CardHeader>
+                <CardContent className="pl-2 pr-2 pt-0"> {/* Adjusted padding for content */}
+                    <ScrollArea className="h-[300px]"> {/* Adjust height as needed */}
+                        {isLoadingActivities ? (
+                             Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-activity-${index}`} />)
+                        ) : activities.length > 0 ? (
+                            activities.map(activity => (
+                                <ActivityItem key={activity.id} activity={activity} />
+                            ))
+                        ) : (
+                            <p className="text-muted-foreground text-center py-10">No recent activities.</p>
+                        )}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
         </div>
 
         <div className="lg:col-span-1 space-y-4">
@@ -327,5 +372,3 @@ export function DashboardClient() {
     </div>
   );
 }
-
-    

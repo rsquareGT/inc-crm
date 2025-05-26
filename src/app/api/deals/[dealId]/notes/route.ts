@@ -3,14 +3,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Note } from '@/lib/types';
 import { generateId } from '@/lib/utils';
+import { logActivity } from '@/services/activity-logger';
 
 // POST a new note for a deal, ensuring deal belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
     const { dealId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id');
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -23,10 +26,9 @@ export async function POST(request: NextRequest, { params }: { params: { dealId:
       return NextResponse.json({ error: 'Note content cannot be empty' }, { status: 400 });
     }
 
-    // Check if deal exists and belongs to the organization
-    const dealCheckStmt = db.prepare('SELECT id FROM Deals WHERE id = ? AND organizationId = ?');
-    const dealExists = dealCheckStmt.get(dealId, organizationId);
-    if (!dealExists) {
+    const dealCheckStmt = db.prepare('SELECT id, name FROM Deals WHERE id = ? AND organizationId = ?');
+    const dealData = dealCheckStmt.get(dealId, organizationId) as { id: string; name: string } | undefined;
+    if (!dealData) {
       return NextResponse.json({ error: 'Deal not found or not authorized' }, { status: 404 });
     }
 
@@ -45,6 +47,17 @@ export async function POST(request: NextRequest, { params }: { params: { dealId:
       dealId: dealId,
       organizationId: organizationId,
     };
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'added_note_to_deal',
+      entityType: 'deal',
+      entityId: dealId,
+      entityName: dealData.name,
+      details: { noteId: newNoteId, noteContentPreview: content.trim().substring(0, 50) }
+    });
 
     return NextResponse.json(newNote, { status: 201 });
 

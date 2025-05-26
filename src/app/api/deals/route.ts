@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Deal } from '@/lib/types';
 import { generateId } from '@/lib/utils';
+import { logActivity } from '@/services/activity-logger';
 
 // GET all deals for the user's organization, with optional filters
 export async function GET(request: NextRequest) {
@@ -59,8 +60,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const organizationId = request.headers.get('x-user-organization-id');
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+    const userId = request.headers.get('x-user-id');
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
 
     if (!db) {
@@ -93,7 +96,7 @@ export async function POST(request: NextRequest) {
       description || null,
       now,
       now,
-      organizationId // Use organizationId from session
+      organizationId
     );
 
     const newDeal: Deal = {
@@ -111,6 +114,16 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
       organizationId,
     };
+
+    // Log activity
+    await logActivity({
+      organizationId,
+      userId,
+      activityType: 'created_deal',
+      entityType: 'deal',
+      entityId: newDealId,
+      entityName: name,
+    });
 
     return NextResponse.json(newDeal, { status: 201 });
 

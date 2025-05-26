@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Company, Contact, Deal, Note, User } from '@/lib/types'; // Added User
+import type { Company, Contact, Deal, Note, User } from '@/lib/types'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2 } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context'; // Added useAuth
 
 
 interface CompanyDetailsClientProps {
@@ -37,6 +38,7 @@ interface CompanyDetailsClientProps {
 }
 
 export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
+  const { user: loggedInUser } = useAuth(); // Get current logged-in user
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -47,7 +49,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
   const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
-  const [allUsersList, setAllUsersList] = useState<User[]>([]); // For Account Manager
+  const [allUsersList, setAllUsersList] = useState<User[]>([]); 
 
   const { toast } = useToast();
 
@@ -93,18 +95,25 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const fetchFormDropdownData = useCallback(async () => {
     try {
-        const [companiesRes, contactsRes, usersRes] = await Promise.all([ // Added usersRes
+        const [companiesRes, contactsRes, usersRes] = await Promise.all([ 
             fetch('/api/companies'),
             fetch('/api/contacts'),
-            fetch('/api/users') // Fetch users
+            fetch('/api/users') 
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
         if (contactsRes.ok) setAllContactsList(await contactsRes.json());
-        if (usersRes.ok) setAllUsersList(await usersRes.json()); // Set users
+        if (usersRes.ok) {
+          let usersData: User[] = await usersRes.json();
+          // Client-side safeguard/filter
+          if (loggedInUser?.organizationId) {
+            usersData = usersData.filter(u => u.organizationId === loggedInUser.organizationId);
+          }
+          setAllUsersList(usersData);
+        }
     } catch (err) {
         toast({title: "Error loading form data", description: (err as Error).message, variant: "destructive"});
     }
-  }, [toast]);
+  }, [toast, loggedInUser]); // Added loggedInUser dependency
 
   useEffect(() => {
     fetchCompanyDetails();
@@ -118,13 +127,13 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   };
 
   const handleSaveContactCallback = () => {
-    fetchCompanyDetails(); // Refetch company details to update contacts list potentially
+    fetchCompanyDetails(); 
     setIsContactModalOpen(false);
     setEditingContact(null);
   };
 
   const handleSaveDealCallback = () => {
-    fetchCompanyDetails(); // Refetch company details to update deals list potentially
+    fetchCompanyDetails(); 
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
@@ -200,7 +209,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     }
   };
 
-  // Use allUsersList to find the account manager
+  
   const accountManager = company?.accountManagerId ? allUsersList.find(u => u.id === company.accountManagerId) : undefined;
 
   const formatAddress = () => {
@@ -364,9 +373,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                         <p className="text-sm">{company.companySize || 'N/A'}</p>
                     </div>
                     <div>
-                        <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><UserCircle className="mr-2 h-4 w-4"/>Account Manager</h4>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><UserCircleIcon className="mr-2 h-4 w-4"/>Account Manager</h4>
                         {accountManager ? (
-                        // Link to a user profile page if you plan to have one, otherwise just display name
                         <span className="text-sm"> 
                             {accountManager.firstName} {accountManager.lastName}
                         </span>
@@ -611,7 +619,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         onClose={() => setIsCompanyModalOpen(false)}
         onSaveCallback={handleSaveCompanyCallback}
         company={company}
-        allUsers={allUsersList} // Pass allUsersList here
+        allUsers={allUsersList} 
       />
       <ContactFormModal
         isOpen={isContactModalOpen}
@@ -641,3 +649,5 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     </div>
   );
 }
+
+    

@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown, Loader2 } from 'lucide-react';
-import type { Company, User } from '@/lib/types'; // Changed Contact to User
+import type { Company, User } from '@/lib/types';
 import { CompanyFormModal } from './company-form-modal';
 import { CompanyCard } from './company-card';
 import { PageSectionHeader } from '@/components/shared/page-section-header';
@@ -26,12 +26,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context'; // Added useAuth
 
 type SortByType = 'name' | 'industry' | 'createdAt' | '';
 
 export function CompaniesListClient() {
+  const { user: loggedInUser } = useAuth(); // Get current logged-in user
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [allUsersForForm, setAllUsersForForm] = useState<User[]>([]); // Changed from allContactsForForm
+  const [allUsersForForm, setAllUsersForForm] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormRelatedDataLoading, setIsFormRelatedDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,13 +73,16 @@ export function CompaniesListClient() {
   const fetchFormData = useCallback(async () => {
     setIsFormRelatedDataLoading(true);
     try {
-      // Fetch users instead of contacts
-      const usersResponse = await fetch('/api/users');
+      const usersResponse = await fetch('/api/users'); // API already filters by org
       if(!usersResponse.ok) {
         const errorData = await usersResponse.json();
         throw new Error(errorData.error || `Failed to fetch users for form: ${usersResponse.statusText}`);
       }
-      const usersData: User[] = await usersResponse.json();
+      let usersData: User[] = await usersResponse.json();
+      // Client-side safeguard/filter
+      if (loggedInUser?.organizationId) {
+        usersData = usersData.filter(u => u.organizationId === loggedInUser.organizationId);
+      }
       setAllUsersForForm(usersData);
     } catch (err) {
       console.error("Error fetching form data for Companies List:", err);
@@ -86,7 +91,7 @@ export function CompaniesListClient() {
     } finally {
       setIsFormRelatedDataLoading(false);
     }
-  }, [toast]);
+  }, [toast, loggedInUser]); // Added loggedInUser dependency
 
   useEffect(() => {
     fetchCompanies();
@@ -374,7 +379,7 @@ export function CompaniesListClient() {
                 <CompanyCard
                   key={company.id}
                   company={company}
-                  allUsers={allUsersForForm} // Pass users for displaying account manager name
+                  allUsers={allUsersForForm} 
                   onEdit={() => handleOpenModal(company)}
                   onDelete={() => handleDeleteCompany(company.id)}
                 />
@@ -394,7 +399,7 @@ export function CompaniesListClient() {
         onClose={handleCloseModal}
         onSaveCallback={handleSaveCompanyCallback}
         company={editingCompany}
-        allUsers={allUsersForForm} // Pass users for the dropdown
+        allUsers={allUsersForForm} 
       />
 
       <DeleteConfirmationDialog
@@ -406,3 +411,5 @@ export function CompaniesListClient() {
     </div>
   );
 }
+
+    

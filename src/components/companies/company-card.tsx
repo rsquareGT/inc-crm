@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/shared/tag-badge';
-import { MoreHorizontal, Edit, Trash2, ExternalLink, Building, Globe, MapPin, FileText, Users as UsersIcon } from 'lucide-react'; // Renamed Users to UsersIcon to avoid conflict
+import { MoreHorizontal, Edit, Trash2, ExternalLink, Building, Globe, MapPin, FileText, Users as UsersIcon, UserCircle } from 'lucide-react'; // Added UserCircle
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,7 +93,7 @@ export function CompanyCard({ company, allUsers, onEdit, onDelete }: CompanyCard
         )}
         {accountManager && (
           <div className="flex items-center text-muted-foreground">
-             <UserCircle className="h-4 w-4 mr-2 flex-shrink-0" /> {/* Assuming UserCircle icon */}
+             <UserCircle className="h-4 w-4 mr-2 flex-shrink-0" />
              <span className="truncate" title={`${accountManager.firstName} ${accountManager.lastName}`}>
                AM: {accountManager.firstName} {accountManager.lastName}
              </span>

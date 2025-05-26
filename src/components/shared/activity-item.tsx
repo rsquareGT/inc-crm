@@ -6,16 +6,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { FormattedNoteTimestamp } from './formatted-note-timestamp';
 import { 
-  UserRound, Briefcase, DollarSign, ListChecks, StickyNote, Edit3, Trash2, PlusCircle, CheckCircle2, Building as OrgIcon 
+  UserRound, Briefcase, DollarSign, ListChecks, StickyNote, Edit3, Trash2, PlusCircle, CheckCircle2, Building as OrgIcon, UserX as UserXIconLucide
 } from 'lucide-react';
 
 const getActivityIcon = (entityType: Activity['entityType'], activityType: Activity['activityType']) => {
   if (activityType.startsWith('created_') || activityType.startsWith('added_note_to_')) {
     return <PlusCircle className="h-3.5 w-3.5 text-green-500" />;
   }
-  if (activityType.startsWith('updated_') || activityType === 'completed_task' || activityType === 'activated_user' || activityType === 'deactivated_user') {
-    if (activityType === 'completed_task' || activityType === 'activated_user') return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />;
-    if (activityType === 'deactivated_user') return <UserXIcon className="h-3.5 w-3.5 text-orange-500" />; 
+  if (activityType === 'completed_task' || activityType === 'activated_user') {
+    return <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />;
+  }
+  if (activityType === 'deactivated_user') {
+    return <UserXIconLucide className="h-3.5 w-3.5 text-orange-500" />;
+  }
+  if (activityType.startsWith('updated_')) {
     return <Edit3 className="h-3.5 w-3.5 text-blue-500" />;
   }
   if (activityType.startsWith('deleted_') || activityType.startsWith('deleted_note_from_')) {
@@ -29,12 +33,12 @@ const getActivityIcon = (entityType: Activity['entityType'], activityType: Activ
     case 'task': return <ListChecks className="h-4 w-4 text-lime-500" />;
     case 'note': return <StickyNote className="h-4 w-4 text-slate-500" />;
     case 'organization': return <OrgIcon className="h-4 w-4 text-purple-500" />;
-    case 'user': return <UserRound className="h-4 w-4 text-teal-500" />;
+    case 'user': return <UserRound className="h-4 w-4 text-teal-500" />; // Changed from ShieldAlert
     default: return <Edit3 className="h-4 w-4 text-gray-500" />;
   }
 };
 
-const UserXIcon = (props: React.SVGProps<SVGSVGElement>) => (
+const UserXIcon = (props: React.SVGProps<SVGSVGElement>) => ( // Kept for UserXIconLucide name conflict, though not directly used by name
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="7" x2="17" y2="13"/><line x1="17" y1="7" x2="23" y2="13"/></svg>
 );
 
@@ -47,20 +51,24 @@ const getActivityDescription = (activity: Activity): React.ReactNode => {
 
   // Determine display name and link path based on entity type
   if (activity.entityType === 'organization') {
-    entityLinkPath = `/organization/profile`; // No ID needed for the organization's own profile page
+    entityLinkPath = `/organization/profile`;
     entityDisplayName = activity.entityName ? `organization "${activity.entityName}"` : `the organization profile`;
   } else if (activity.entityType === 'user') {
-    // No user detail page yet, so just display name.
     entityDisplayName = activity.entityName ? `user "${activity.entityName}"` : `a user account`;
-    // entityLinkPath remains empty
+    // No user detail page, so entityLinkPath remains empty
   } else if (activity.entityType === 'task') {
-    // Tasks don't have dedicated detail pages; they redirect to dashboard.
-    // Display task name without a link.
     entityDisplayName = activity.entityName ? `task "${activity.entityName}"` : `a task`;
-    // entityLinkPath remains empty
-  } else { // For 'company', 'contact', 'deal'
-    entityLinkPath = `/${activity.entityType}s/${activity.entityId}`;
+    // Tasks don't have dedicated detail pages, entityLinkPath remains empty
+  } else if (activity.entityType === 'company') {
+    entityLinkPath = `/companies/${activity.entityId}`;
+    entityDisplayName = activity.entityName ? `company "${activity.entityName}"` : `a company`;
+  } else if (activity.entityType === 'contact' || activity.entityType === 'deal') { // For 'contact', 'deal'
+    entityLinkPath = `/${activity.entityType}s/${activity.entityId}`; // Correct for 'contacts' and 'deals'
     entityDisplayName = activity.entityName ? `${activity.entityType} "${activity.entityName}"` : `a ${activity.entityType}`;
+  } else {
+    // Fallback for unknown entity types
+    entityLinkPath = '';
+    entityDisplayName = activity.entityName || activity.entityType;
   }
 
 
@@ -113,7 +121,7 @@ const getActivityDescription = (activity: Activity): React.ReactNode => {
         return (
           <>
             <span className="font-medium">{userName}</span> added a note to {entityLink}
-            {activity.details?.noteContentPreview && <>: <span className="italic text-muted-foreground">"{activity.details.noteContentPreview}..."</span></>}
+            {activity.details?.noteContentPreview && <>: <span className="italic text-muted-foreground">"{String(activity.details.noteContentPreview).substring(0,50)}..."</span></>}
             .
           </>
         );
@@ -123,7 +131,7 @@ const getActivityDescription = (activity: Activity): React.ReactNode => {
          return (
           <>
             <span className="font-medium">{userName}</span> deleted a note from {entityLink}
-            {activity.details?.noteContentPreview && <>: <span className="italic text-muted-foreground">"{activity.details.noteContentPreview}..."</span></>}
+            {activity.details?.noteContentPreview && <>: <span className="italic text-muted-foreground">"{String(activity.details.noteContentPreview).substring(0,50)}..."</span></>}
             .
           </>
         );
@@ -142,12 +150,12 @@ const getActivityDescription = (activity: Activity): React.ReactNode => {
           {changes.map((change, index) => (
             <li key={index}>
               <span className="font-semibold">{change.field}</span>:
-              {change.oldValue !== undefined && change.newValue !== undefined && change.oldValue !== null && change.newValue !== null && ` changed from "${String(change.oldValue).substring(0,50)}${String(change.oldValue).length > 50 ? '...' : ''}" to "${String(change.newValue).substring(0,50)}${String(change.newValue).length > 50 ? '...' : ''}"`}
+              {change.oldValue !== undefined && change.newValue !== undefined && change.oldValue !== null && change.newValue !== null && change.oldValue !== change.newValue && ` changed from "${String(change.oldValue).substring(0,50)}${String(change.oldValue).length > 50 ? '...' : ''}" to "${String(change.newValue).substring(0,50)}${String(change.newValue).length > 50 ? '...' : ''}"`}
               {change.oldValue === undefined && change.newValue !== undefined && ` set to "${String(change.newValue).substring(0,50)}${String(change.newValue).length > 50 ? '...' : ''}"`}
               {change.oldValue !== undefined && change.newValue === undefined && ` cleared (was "${String(change.oldValue).substring(0,50)}${String(change.oldValue).length > 50 ? '...' : ''}")`}
               {(change.oldValue === null || change.oldValue === '') && (change.newValue !== null && change.newValue !== '') && ` set to "${String(change.newValue).substring(0,50)}${String(change.newValue).length > 50 ? '...' : ''}"`}
               {(change.newValue === null || change.newValue === '') && (change.oldValue !== null && change.oldValue !== '') && ` cleared (was "${String(change.oldValue).substring(0,50)}${String(change.oldValue).length > 50 ? '...' : ''}")`}
-              {(change.field.toLowerCase().includes('password') && change.newValue === '[REDACTED]') && ' changed'}
+              {((change.field.toLowerCase().includes('password') && change.newValue === '[REDACTED]') || (change.oldValue === change.newValue)) && ` changed`}
             </li>
           ))}
         </ul>
@@ -186,5 +194,3 @@ export function ActivityItem({ activity }: ActivityItemProps) {
     </div>
   );
 }
-
-    

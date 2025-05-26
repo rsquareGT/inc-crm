@@ -4,7 +4,7 @@
 import { Logo } from './logo';
 import { MainNav } from './main-nav';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, UserCircle, Loader2, Building, Users } from 'lucide-react'; // Added Users
+import { LogIn, LogOut, UserCircle, Loader2, Building, Users, KeyRound } from 'lucide-react'; // Added KeyRound
 import { ThemeToggle } from './theme-toggle';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
@@ -70,11 +70,14 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {/* <DropdownMenuItem asChild>
-                  <Link href="/profile">Profile</Link>  // TODO: Future My Profile Page
-                </DropdownMenuItem>*/}
+                <DropdownMenuItem asChild>
+                  <Link href="/profile/change-password" className="flex items-center w-full">
+                    <KeyRound className="mr-2 h-4 w-4" /> Change Password
+                  </Link>
+                </DropdownMenuItem>
                 {user.role === 'admin' && (
                   <>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/organization/profile" className="flex items-center w-full">
                         <Building className="mr-2 h-4 w-4" /> Manage Organization
@@ -87,9 +90,6 @@ export function AppHeader() {
                     </DropdownMenuItem>
                   </>
                 )}
-                {/* <DropdownMenuItem asChild>
-                  <Link href="/settings">Settings</Link>
-                </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />

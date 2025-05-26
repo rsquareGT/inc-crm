@@ -23,7 +23,7 @@ import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmatio
 import { TagBadge } from '@/components/shared/tag-badge';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'; // Added CardHeader and CardFooter
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 

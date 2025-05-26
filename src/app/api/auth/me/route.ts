@@ -35,9 +35,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token payload.' }, { status: 401 });
     }
 
-    // Changed 'FROM Users' to 'FROM User'
     const stmtUser = db.prepare(
-      'SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt FROM User WHERE id = ?'
+      'SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt FROM Users WHERE id = ?'
     );
     const user = stmtUser.get(userId) as User | undefined;
 

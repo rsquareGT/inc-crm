@@ -25,8 +25,8 @@ async function getAdminFromRequest(request: NextRequest): Promise<{ id: string, 
       console.warn('API Users: User is not an admin or token payload is invalid.');
       return null;
     }
-    return { 
-      id: payload.sub as string, 
+    return {
+      id: payload.sub as string,
       organizationId: payload.organizationId as string,
       role: payload.role as UserRole
     };
@@ -49,15 +49,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
-    // Changed 'FROM Users' to 'FROM User'
     const stmtUsers = db.prepare(\`
-      SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt 
-      FROM User 
-      WHERE organizationId = ? 
+      SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt
+      FROM Users
+      WHERE organizationId = ?
       ORDER BY lastName ASC, firstName ASC
     \`);
     const usersData = stmtUsers.all(admin.organizationId) as User[];
-    
+
     return NextResponse.json(usersData);
   } catch (error) {
     console.error('API Error fetching users:', error);
@@ -88,16 +87,15 @@ export async function POST(request: NextRequest) {
 
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-    
+
     const newUserId = generateId();
     const now = new Date().toISOString();
 
-    // Changed 'INSERT INTO Users' to 'INSERT INTO User'
     const stmt = db.prepare(
-      \`INSERT INTO User (id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt)
+      \`INSERT INTO Users (id, organizationId, email, hashedPassword, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\`
     );
-    
+
     stmt.run(
       newUserId,
       admin.organizationId, // New user belongs to the admin's organization
@@ -129,8 +127,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('API Error creating user:', error);
-    // Changed 'Users.email' to 'User.email' for constraint check
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('User.email')) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('Users.email')) {
         return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to create user.' }, { status: 500 });

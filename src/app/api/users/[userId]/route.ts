@@ -23,10 +23,10 @@ async function getAdminFromRequest(request: NextRequest): Promise<{ id: string, 
       console.warn('API User Detail: User is not an admin or token payload is invalid.');
       return null;
     }
-    return { 
-      id: payload.sub as string, 
+    return {
+      id: payload.sub as string,
       organizationId: payload.organizationId as string,
-      role: payload.role as UserRole 
+      role: payload.role as UserRole
     };
   } catch (error) {
     console.error('API User Detail: Error verifying admin token:', error);
@@ -59,13 +59,13 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     if (typeof isActive !== 'boolean') {
         return NextResponse.json({ error: 'Invalid isActive status. Must be true or false.' }, { status: 400 });
     }
-    
+
     // Prevent admin from deactivating themselves or changing their own role if they are the only admin
     // This is a simplified check. A real system might need more robust logic.
     if (userId === admin.id) {
         if (isActive === false) {
             // A more robust check would be to see if they are the *only* active admin in the organization
-            const activeAdminCountStmt = db.prepare('SELECT COUNT(*) as count FROM User WHERE organizationId = ? AND role = \'admin\' AND isActive = 1');
+            const activeAdminCountStmt = db.prepare('SELECT COUNT(*) as count FROM Users WHERE organizationId = ? AND role = \'admin\' AND isActive = 1');
             const adminCountResult = activeAdminCountStmt.get(admin.organizationId) as { count: number };
             if (adminCountResult.count <= 1) {
                  return NextResponse.json({ error: "Cannot deactivate the only active admin account in the organization." }, { status: 403 });
@@ -79,13 +79,12 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
 
     const now = new Date().toISOString();
 
-    // Changed 'UPDATE Users' to 'UPDATE User'
     const stmt = db.prepare(
-      \`UPDATE User 
+      \`UPDATE Users
        SET firstName = ?, lastName = ?, email = ?, role = ?, profilePictureUrl = ?, isActive = ?, updatedAt = ?
        WHERE id = ? AND organizationId = ?\` // Ensure admin can only update users in their own org
     );
-    
+
     const result = stmt.run(
       firstName,
       lastName,
@@ -101,17 +100,15 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     if (result.changes === 0) {
       return NextResponse.json({ error: 'User not found, not in your organization, or no changes made' }, { status: 404 });
     }
-    
-    // Changed 'FROM Users' to 'FROM User'
-    const stmtUpdatedUser = db.prepare('SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt FROM User WHERE id = ?');
+
+    const stmtUpdatedUser = db.prepare('SELECT id, organizationId, email, firstName, lastName, profilePictureUrl, role, isActive, createdAt, updatedAt FROM Users WHERE id = ?');
     const updatedUserData = stmtUpdatedUser.get(userId) as User;
 
     return NextResponse.json(updatedUserData);
 
   } catch (error: any) {
     console.error(\`API Error updating user \${params.userId}:\`, error);
-    // Changed 'Users.email' to 'User.email' for constraint check
-     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('User.email')) {
+     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' && error.message.includes('Users.email')) {
         return NextResponse.json({ error: 'A user with this email already exists.' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Failed to update user.' }, { status: 500 });

@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon, DollarSign } from 'lucide-react'; // Added DollarSign
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -82,7 +82,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       <Skeleton className="h-4 w-2/5" />
     </div>
   );
-
 
   const fetchCompanyDetails = useCallback(async () => {
     setIsLoading(true);

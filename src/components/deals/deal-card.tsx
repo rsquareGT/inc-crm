@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/shared/tag-badge';
-import { DollarSign, User, Building, Edit3, Trash2, ExternalLink, GripVertical } from 'lucide-react';
+import { User, Building, Edit3, Trash2, ExternalLink, GripVertical } from 'lucide-react'; // Removed DollarSign
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +18,7 @@ import type { DealStage } from '@/lib/types';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import React from 'react';
-import { useAuth } from '@/contexts/auth-context'; // Added
+import { useAuth } from '@/contexts/auth-context';
 
 interface DealCardProps {
   deal: Deal;
@@ -30,16 +30,16 @@ interface DealCardProps {
 }
 
 export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeStage }: DealCardProps) {
-  const { organization } = useAuth(); // Added
-  const currencySymbol = organization?.currencySymbol || '$'; // Added
+  const { organization } = useAuth();
+  const currencySymbol = organization?.currencySymbol || '$';
 
   const formattedValue = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD', // Keep USD here, currencySymbol is for display only
-    currencyDisplay: 'narrowSymbol', // Use narrow symbol to avoid USD prefix
+    currency: 'USD',
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(deal.value).replace('$', currencySymbol); // Replace USD symbol with dynamic one
+  }).format(deal.value).replace('$', currencySymbol);
 
   const tags = deal.tags || [];
 
@@ -100,7 +100,7 @@ export function DealCard({ deal, contact, company, onEdit, onDelete, onChangeSta
       </CardHeader>
       <CardContent className="px-2 pb-1.5 space-y-1 text-xs">
         <div className="flex items-center text-muted-foreground">
-          <DollarSign className="h-3 w-3 mr-1 text-green-500 flex-shrink-0" />
+          {/* Removed DollarSign icon here */}
           <span>{formattedValue}</span>
           {deal.expectedCloseDate && (
             <Badge variant="outline" className="ml-auto text-xs px-1.5 py-0 leading-tight">

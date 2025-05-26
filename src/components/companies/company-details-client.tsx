@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon, DollarSign } from 'lucide-react'; // Added DollarSign
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon } from 'lucide-react'; // Removed DollarSign
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -37,7 +37,7 @@ interface CompanyDetailsClientProps {
 }
 
 export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
-  const { user: loggedInUser } = useAuth();
+  const { user: loggedInUser, organization: authOrganization } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -62,6 +62,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'contact' | 'deal' | 'note'; name: string } | null>(null);
+
+  const currencySymbol = authOrganization?.currencySymbol || '$';
 
   const ActivityItemSkeleton = () => (
     <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
@@ -125,7 +127,13 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
             fetch('/api/users') 
         ]);
         if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
-        if (contactsRes.ok) setAllContactsList(await contactsRes.json());
+        if (contactsRes.ok) {
+             let contactsData: Contact[] = await contactsRes.json();
+             if (loggedInUser?.organizationId) {
+               contactsData = contactsData.filter(c => c.organizationId === loggedInUser.organizationId);
+             }
+             setAllContactsList(contactsData);
+        }
         if (usersRes.ok) {
           let usersData: User[] = await usersRes.json();
           if (loggedInUser?.organizationId) {
@@ -554,8 +562,8 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                             </DropdownMenu>
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center">
-                            <DollarSign className="h-3 w-3 mr-1 text-green-500"/>
-                            {deal.value.toLocaleString()}
+                            {/* Removed DollarSign icon here */}
+                            {deal.value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace('$', currencySymbol || '$')}
                             <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' } className="ml-auto text-xs px-1.5 py-0.5">{deal.stage}</Badge>
                           </div>
                       </div>
@@ -605,5 +613,3 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     </div>
   );
 }
-
-    

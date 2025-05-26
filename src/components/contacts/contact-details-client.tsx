@@ -22,14 +22,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ActivityItem } from '@/components/shared/activity-item';
 import { DealCard } from '@/components/deals/deal-card';
 import { DEAL_STAGES } from '@/lib/constants';
-import { useAuth } from '@/contexts/auth-context'; // Added
+import { useAuth } from '@/contexts/auth-context';
 
 interface ContactDetailsClientProps {
   contactId: string;
 }
 
 export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
-  const { organization: authOrganization } = useAuth(); // Added
+  const { organization: authOrganization } = useAuth();
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -52,7 +52,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'deal' | 'note'; name: string } | null>(null);
 
-  const currencySymbol = authOrganization?.currencySymbol || '$'; // Added
+  const currencySymbol = authOrganization?.currencySymbol || '$';
 
   const ActivityItemSkeleton = () => (
     <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
@@ -64,7 +64,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     </div>
   );
 
-  const DealCardSkeleton = () => ( // Simplified skeleton
+  const DealCardSkeleton = () => ( 
     <Card className="mb-1.5 shadow-sm bg-card">
       <CardHeader className="pb-1 pt-2 px-2">
         <div className="flex justify-between items-start">
@@ -320,7 +320,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </div>
               </CardHeader>
               <CardContent className="flex-grow overflow-hidden p-2">
-                <ScrollArea className="h-[calc(100vh-20rem)]"> {/* Adjusted to be more flexible */}
+                <ScrollArea className="h-[calc(100vh-20rem)]"> 
                    <div className="space-y-1.5 pr-1">
                     {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
                   </div>
@@ -503,7 +503,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                     {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
                   </div>
               ) : deals.length > 0 ? (
-                <ScrollArea className="h-full"> {/* Ensure ScrollArea fills its container */}
+                <ScrollArea className="h-full"> 
                    <div className="space-y-1.5 pr-1">
                     {deals.map((deal) => {
                       const dealCompany = allCompaniesList.find(c => c.id === deal.companyId);

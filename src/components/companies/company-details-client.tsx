@@ -2,10 +2,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Company, Contact, Deal, Note, User, Activity } from '@/lib/types'; // Added Activity
+import type { Company, Contact, Deal, Note, User, Activity } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { CompanyFormModal } from './company-form-modal';
 import { ContactFormModal } from '@/components/contacts/contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
@@ -20,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Globe, MapPin, BuildingIcon, FileText, MessageSquarePlus, MessageSquareText, ExternalLink, Phone, Users, Briefcase, UserCircle as UserCircleIcon, Loader2, ActivityIcon } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -31,7 +30,7 @@ import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-times
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
-import { ActivityItem } from '@/components/shared/activity-item'; // Added
+import { ActivityItem } from '@/components/shared/activity-item';
 
 interface CompanyDetailsClientProps {
   companyId: string;
@@ -42,11 +41,11 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
   const [company, setCompany] = useState<Company | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]); // Added activities state
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added activities loading state
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
@@ -74,6 +73,16 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     </div>
   );
 
+  const RelatedItemSkeleton = () => (
+    <div className="p-3 border rounded-md">
+      <div className="flex justify-between items-start mb-1">
+        <Skeleton className="h-5 w-3/5" />
+        <Skeleton className="h-5 w-5" />
+      </div>
+      <Skeleton className="h-4 w-2/5" />
+    </div>
+  );
+
 
   const fetchCompanyDetails = useCallback(async () => {
     setIsLoading(true);
@@ -90,7 +99,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       const [contactsRes, dealsRes, activitiesRes] = await Promise.all([
         fetch(`/api/contacts?companyId=${companyId}`),
         fetch(`/api/deals?companyId=${companyId}`),
-        fetch(`/api/activities?entityType=company&entityId=${companyId}&limit=15`) // Fetch activities for this company
+        fetch(`/api/activities?entityType=company&entityId=${companyId}&limit=15`)
       ]);
 
       if (contactsRes.ok) setContacts(await contactsRes.json()); else setContacts([]);
@@ -105,7 +114,7 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       toast({ title: "Error Fetching Company Data", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
-      setIsLoadingActivities(false); // Also set activities loading to false
+      setIsLoadingActivities(false);
     }
   }, [companyId, toast]);
 
@@ -209,14 +218,9 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add note');
       }
-      // const newNote: Note = await response.json(); // Response already contains newNote
-      // setCompany(prevCompany => {
-      //     if(!prevCompany) return null;
-      //     return {...prevCompany, notes: [newNote, ...(prevCompany.notes || [])]}
-      // });
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this company." });
-      fetchCompanyDetails(); // Refetch all details to include new note and new activity
+      fetchCompanyDetails(); 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
@@ -234,83 +238,63 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     return parts.join(', ') || 'N/A';
   };
 
+  const sortedNotes = company?.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+
   if (isLoading) {
     return (
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-6 pb-4 border-b">
             <div>
-              <Skeleton className="h-9 w-[180px] mb-2" /> {/* Back to Companies Button */}
-              <Skeleton className="h-9 w-3/4 mb-1" /> {/* Company Name */}
-              <Skeleton className="h-5 w-1/2" /> {/* Industry */}
+              <Skeleton className="h-9 w-[180px] mb-2" />
+              <Skeleton className="h-9 w-3/4 mb-1" />
+              <Skeleton className="h-5 w-1/2" />
             </div>
-            <Skeleton className="h-10 w-[150px]" /> {/* Edit Company Button */}
+            <Skeleton className="h-10 w-[150px]" />
           </div>
-
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </TabsList>
-
-            <TabsContent value="overview">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-1/2 mb-1" /> {/* Card Title */}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center">
-                      <Skeleton className="h-5 w-5 mr-3 rounded-full" /> <Skeleton className="h-5 w-3/4" />
-                    </div>
-                    <div className="flex items-start">
-                      <Skeleton className="h-5 w-5 mr-3 rounded-full mt-0.5" /> <Skeleton className="h-10 w-3/4" />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-2">
-                      {[...Array(4)].map((_, i) => (
-                        <div key={i}>
-                          <Skeleton className="h-4 w-1/3 mb-1" /> <Skeleton className="h-4 w-2/3" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-2 items-center pt-2">
-                      <Skeleton className="h-4 w-10" /> <Skeleton className="h-6 w-16 rounded-full" /> <Skeleton className="h-6 w-20 rounded-full" />
-                    </div>
-                    <div className="space-y-2 pt-2">
-                      <Skeleton className="h-5 w-1/3 mb-1" /> <Skeleton className="h-16 w-full rounded-md" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-1/2 mb-1" /> {/* Card Title */}
-                    <Skeleton className="h-4 w-3/4" /> {/* Card Description */}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-1/4 mb-1" />
-                      <Skeleton className="h-20 w-full rounded-md" /> {/* Textarea */}
-                      <Skeleton className="h-9 w-[120px]" /> {/* Add Note Button */}
-                    </div>
-                     <Skeleton className="h-4 w-1/2 mb-2" /> {/* "No notes" or scroll area title */}
-                    <ScrollArea className="h-[250px] w-full">
-                        <div className="space-y-3">
-                            {[...Array(2)].map((_, i) => (
-                                <div key={i} className="p-3 bg-secondary/50 rounded-md">
-                                    <Skeleton className="h-4 w-full mb-1" />
-                                    <Skeleton className="h-4 w-3/4 mb-2" />
-                                    <Skeleton className="h-3 w-1/2" />
-                                </div>
-                            ))}
-                        </div>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="w-full lg:w-[65%] space-y-6">
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-1/2 mb-1" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center"><Skeleton className="h-5 w-5 mr-3 rounded-full" /><Skeleton className="h-5 w-3/4" /></div>
+                  <div className="flex items-start"><Skeleton className="h-5 w-5 mr-3 rounded-full mt-0.5" /><Skeleton className="h-10 w-3/4" /></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-2">{[...Array(4)].map((_, i) => (<div key={i}><Skeleton className="h-4 w-1/3 mb-1" /> <Skeleton className="h-4 w-2/3" /></div>))}</div>
+                  <div className="flex flex-wrap gap-2 items-center pt-2"><Skeleton className="h-4 w-10" /> <Skeleton className="h-6 w-16 rounded-full" /><Skeleton className="h-6 w-20 rounded-full" /></div>
+                  <div className="space-y-2 pt-2"><Skeleton className="h-5 w-1/3 mb-1" /><Skeleton className="h-16 w-full rounded-md" /></div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-1/3 mb-1" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-20 w-full rounded-md" /><Skeleton className="h-9 w-[120px]" /></div>
+                  <ScrollArea className="h-[250px] w-full"><div className="space-y-3">{[...Array(2)].map((_, i) => (<div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md"><Skeleton className="h-4 w-full mb-1" /><Skeleton className="h-4 w-3/4 mb-2" /><Skeleton className="h-3 w-1/2" /></div>))}</div></ScrollArea>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+                <CardContent><ScrollArea className="h-[250px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-company-activity-${index}`} />)}</ScrollArea></CardContent>
+              </Card>
+            </div>
+            <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit space-y-6">
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <div className="flex justify-between items-center"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-9 w-[100px]" /></div>
+                </CardHeader>
+                <CardContent className="flex-grow overflow-hidden p-2"><ScrollArea className="h-[200px]"><div className="space-y-2">{[...Array(2)].map((_, i) => <RelatedItemSkeleton key={`skeleton-contact-item-${i}`} />)}</div></ScrollArea></CardContent>
+              </Card>
+              <Card className="flex flex-col">
+                <CardHeader>
+                  <div className="flex justify-between items-center"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-9 w-[100px]" /></div>
+                </CardHeader>
+                <CardContent className="flex-grow overflow-hidden p-2"><ScrollArea className="h-[200px]"><div className="space-y-2">{[...Array(2)].map((_, i) => <RelatedItemSkeleton key={`skeleton-deal-item-${i}`} />)}</div></ScrollArea></CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
     );
   }
@@ -328,8 +312,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
       </div>
     );
   }
-
-  const sortedNotes = company?.notes ? [...company.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
 
   return (
     <div className="space-y-6">
@@ -349,16 +331,9 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
         </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts ({contacts.length})</TabsTrigger>
-          <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger> {/* Added Activity Tab */}
-        </TabsList>
-
-        <TabsContent value="overview">
-          <div className="grid gap-6 md:grid-cols-2">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Column */}
+        <div className="w-full lg:w-[65%] space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Company Details</CardTitle>
@@ -376,7 +351,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                     <MapPin className="mr-3 h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                     <span>{formatAddress()}</span>
                   </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-2">
                     <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-1 flex items-center"><Phone className="mr-2 h-4 w-4"/>Phone 1</h4>
@@ -401,7 +375,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                         )}
                     </div>
                 </div>
-
                 {(company.tags || []).length > 0 && (
                   <div className="flex flex-wrap gap-2 items-center pt-2">
                     <span className="text-sm text-muted-foreground">Tags:</span>
@@ -448,7 +421,6 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                     )}
                   </Button>
                 </div>
-
                 {sortedNotes.length > 0 ? (
                   <ScrollArea className="h-[250px] w-full pr-4">
                     <div className="space-y-3">
@@ -475,169 +447,13 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
 
-        <TabsContent value="contacts">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Contacts at {company.name}</CardTitle>
-                <Button onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Contact
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {contacts.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Tags</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {contacts.map((contact) => (
-                      <TableRow key={contact.id}>
-                        <TableCell className="font-medium">
-                          <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
-                            {contact.firstName} {contact.lastName}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{contact.email}</TableCell>
-                        <TableCell>{contact.phone || 'N/A'}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {(contact.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                            {(contact.tags || []).length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/contacts/${contact.id}`} className="flex items-center w-full">
-                                  <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }}>
-                                <Edit className="mr-2 h-4 w-4" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDeleteRequest(contact.id, 'contact', `${contact.firstName} ${contact.lastName}`)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-muted-foreground text-center py-4">No contacts associated with this company yet.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="deals">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Deals with {company.name}</CardTitle>
-                <Button onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {deals.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Value</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Tags</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {deals.map((deal) => {
-                      const dealContact = allContactsList.find(c => c.id === deal.contactId);
-                      return (
-                        <TableRow key={deal.id}>
-                          <TableCell className="font-medium">
-                            <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
-                              {deal.name}
-                            </Link>
-                          </TableCell>
-                          <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
-                          <TableCell>${deal.value.toLocaleString()}</TableCell>
-                          <TableCell>
-                            {dealContact ? (
-                              <Link href={`/contacts/${dealContact.id}`} className="hover:underline text-primary">
-                                {dealContact.firstName} {dealContact.lastName}
-                              </Link>
-                            ) : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {(deal.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                              {(deal.tags || []).length > 2 && <Badge variant="outline">+{deal.tags.length - 2}</Badge>}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
-                                    <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
-                                  <Edit className="mr-2 h-4 w-4" /> Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-muted-foreground text-center py-4">No deals associated with this company yet.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="activity">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Company Activity</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2 pr-2 pt-0">
-                    <ScrollArea className="h-[400px]"> {/* Adjust height as needed */}
+                    <ScrollArea className="h-[400px]">
                         {isLoadingActivities ? (
                             Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-company-activity-${index}`} />)
                         ) : activities.length > 0 ? (
@@ -650,9 +466,110 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
                     </ScrollArea>
                 </CardContent>
             </Card>
-        </TabsContent>
+        </div>
 
-      </Tabs>
+        {/* Right Column */}
+        <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit space-y-6">
+          <Card className="flex flex-col">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-muted-foreground"/>Contacts ({contacts.length})</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Contact
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-grow overflow-hidden p-2">
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[...Array(2)].map((_, i) => <RelatedItemSkeleton key={`skeleton-contact-item-${i}`} />)}
+                </div>
+              ) : contacts.length > 0 ? (
+                <ScrollArea className="h-[200px]">
+                  <div className="space-y-2">
+                    {contacts.map((contact) => (
+                      <div key={contact.id} className="p-3 border rounded-md hover:shadow-md transition-shadow bg-card">
+                          <div className="flex justify-between items-start">
+                              <Link href={`/contacts/${contact.id}`} className="font-medium text-primary hover:underline text-sm truncate">
+                                  {contact.firstName} {contact.lastName}
+                              </Link>
+                              <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-7 w-7 p-0">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                      <DropdownMenuItem asChild><Link href={`/contacts/${contact.id}`} className="flex items-center w-full"><ExternalLink className="mr-2 h-4 w-4"/>View</Link></DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleDeleteRequest(contact.id, 'contact', `${contact.firstName} ${contact.lastName}`)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                  </DropdownMenuContent>
+                              </DropdownMenu>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
+                          {contact.phone && <p className="text-xs text-muted-foreground truncate">{contact.phone}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-muted-foreground text-center py-4 text-sm">No contacts associated.</p>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card className="flex flex-col">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center"><Briefcase className="mr-2 h-5 w-5 text-muted-foreground"/>Deals ({deals.length})</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-grow overflow-hidden p-2">
+              {isLoading ? (
+                 <div className="space-y-2">
+                  {[...Array(2)].map((_, i) => <RelatedItemSkeleton key={`skeleton-deal-item-${i}`} />)}
+                </div>
+              ) : deals.length > 0 ? (
+                <ScrollArea className="h-[200px]">
+                  <div className="space-y-2">
+                    {deals.map((deal) => (
+                      <div key={deal.id} className="p-3 border rounded-md hover:shadow-md transition-shadow bg-card">
+                          <div className="flex justify-between items-start">
+                            <Link href={`/deals/${deal.id}`} className="font-medium text-primary hover:underline text-sm truncate">
+                                {deal.name}
+                            </Link>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-7 w-7 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild><Link href={`/deals/${deal.id}`} className="flex items-center w-full"><ExternalLink className="mr-2 h-4 w-4"/>View</Link></DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true);}}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center">
+                            <DollarSign className="h-3 w-3 mr-1 text-green-500"/>
+                            {deal.value.toLocaleString()}
+                            <Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary' } className="ml-auto text-xs px-1.5 py-0.5">{deal.stage}</Badge>
+                          </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-muted-foreground text-center py-4 text-sm">No deals associated.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <CompanyFormModal
         isOpen={isCompanyModalOpen}
@@ -689,3 +606,5 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
     </div>
   );
 }
+
+    

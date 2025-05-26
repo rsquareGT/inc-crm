@@ -167,6 +167,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
       const stmtUpdateTasks = db.prepare('UPDATE Tasks SET relatedDealId = NULL WHERE relatedDealId = ? AND organizationId = ?');
       stmtUpdateTasks.run(dealId, organizationId);
 
+      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE dealId = ? AND organizationId = ?'); // Also delete associated notes
+      stmtDeleteNotes.run(dealId, organizationId);
+
       const stmtDeleteDeal = db.prepare('DELETE FROM Deals WHERE id = ? AND organizationId = ?');
       const result = stmtDeleteDeal.run(dealId, organizationId);
 

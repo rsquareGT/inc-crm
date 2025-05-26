@@ -1,3 +1,4 @@
+
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { logActivity } from '@/services/activity-logger'; // Added

@@ -238,7 +238,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left Column Skeleton */}
+          {/* Left Column Skeleton (65%) */}
           <div className="w-full lg:w-[65%] space-y-6">
             {/* Contact Info Card Skeleton */}
             <Card>
@@ -262,7 +262,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                   <Skeleton className="h-20 w-full rounded-md" /> {/* Textarea */}
                   <Skeleton className="h-9 w-[120px]" /> {/* Add Note Button */}
                 </div>
-                <ScrollArea className="h-[250px] w-full">
+                <ScrollArea className="h-[200px] w-full">
                   <div className="space-y-3">
                     {[...Array(2)].map((_, i) => (
                       <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
@@ -275,9 +275,14 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </ScrollArea>
               </CardContent>
             </Card>
+            {/* Activity Card Skeleton (moved to left) */}
+            <Card>
+              <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+              <CardContent><ScrollArea className="h-[250px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-left-activity-${index}`} />)}</ScrollArea></CardContent>
+            </Card>
           </div>
 
-          {/* Right Column Skeleton */}
+          {/* Right Column Skeleton (35%) */}
           <div className="w-full lg:w-[35%]">
             {/* Associated Deals Card Skeleton */}
             <Card>
@@ -288,7 +293,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
+                <ScrollArea className="h-[calc(100vh-18rem)]"> {/* Example height for scrollable deals */}
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -299,7 +304,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {[...Array(2)].map((_, i) => (
+                      {[...Array(3)].map((_, i) => (
                         <TableRow key={`skeleton-deal-${i}`}>
                           <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                           <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
@@ -309,17 +314,11 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                       ))}
                     </TableBody>
                   </Table>
-                </div>
+                </ScrollArea>
               </CardContent>
             </Card>
           </div>
         </div>
-        
-        {/* Activity Card Skeleton (Full Width) */}
-        <Card>
-          <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
-          <CardContent><ScrollArea className="h-[300px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-activity-${index}`} />)}</ScrollArea></CardContent>
-        </Card>
       </div>
     );
   }
@@ -365,7 +364,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left Column: Contact Info & Notes */}
+        {/* Left Column: Contact Info, Notes, Activity */}
         <div className="w-full lg:w-[65%] space-y-6">
           {/* Contact Details Card */}
           <Card>
@@ -434,7 +433,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
               </div>
 
               {sortedNotes.length > 0 ? (
-                <ScrollArea className="h-[300px] w-full pr-4">
+                <ScrollArea className="h-[200px] w-full pr-4"> {/* Adjusted height */}
                   <div className="space-y-3">
                     {sortedNotes.map(note => (
                       <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
@@ -459,11 +458,31 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Contact Activity Card (Moved to Left Column) */}
+          <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
+            </CardHeader>
+            <CardContent className="pl-2 pr-2 pt-0">
+                <ScrollArea className="h-[300px]"> {/* Adjusted height */}
+                    {isLoadingActivities ? (
+                        Array.from({ length: 4 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
+                    ) : activities.length > 0 ? (
+                        activities.map(activity => (
+                            <ActivityItem key={activity.id} activity={activity} />
+                        ))
+                    ) : (
+                        <p className="text-muted-foreground text-center py-10">No activities recorded for this contact yet.</p>
+                    )}
+                </ScrollArea>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right Column: Associated Deals */}
-        <div className="w-full lg:w-[35%]">
-          <Card>
+        <div className="w-full lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit"> {/* Sticky applied here, h-fit for natural height */}
+          <Card className="h-full flex flex-col"> {/* Make card take full height of sticky container and be a flex column */}
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Deals ({deals.length})</CardTitle>
@@ -472,53 +491,55 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow overflow-hidden"> {/* Allow content to grow and hide overflow */}
               {deals.length > 0 ? (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Stage</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {deals.map((deal) => (
-                        <TableRow key={deal.id}>
-                            <TableCell className="font-medium">
-                              <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
-                                  {deal.name}
-                              </Link>
-                            </TableCell>
-                            <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
-                            <TableCell>${deal.value.toLocaleString()}</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                  <DropdownMenuItem asChild>
-                                      <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
-                                      <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                      </Link>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
-                                      <Edit className="mr-2 h-4 w-4" /> Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                      <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                  </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <ScrollArea className="h-full"> {/* ScrollArea to take full height of CardContent */}
+                  <Table>
+                      <TableHeader>
+                          <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Stage</TableHead>
+                          <TableHead>Value</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {deals.map((deal) => (
+                          <TableRow key={deal.id}>
+                              <TableCell className="font-medium">
+                                <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
+                                    {deal.name}
+                                </Link>
+                              </TableCell>
+                              <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
+                              <TableCell>${deal.value.toLocaleString()}</TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuItem asChild>
+                                        <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                                        <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
+                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                          </TableRow>
+                          ))}
+                      </TableBody>
+                  </Table>
+                </ScrollArea>
               ) : (
                 <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
               )}
@@ -527,26 +548,6 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </div>
       </div>
       
-      {/* Full Width: Activity Card */}
-      <Card>
-        <CardHeader>
-            <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
-        </CardHeader>
-        <CardContent className="pl-2 pr-2 pt-0">
-            <ScrollArea className="h-[400px]">
-                {isLoadingActivities ? (
-                    Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
-                ) : activities.length > 0 ? (
-                    activities.map(activity => (
-                        <ActivityItem key={activity.id} activity={activity} />
-                    ))
-                ) : (
-                    <p className="text-muted-foreground text-center py-10">No activities recorded for this contact yet.</p>
-                )}
-            </ScrollArea>
-        </CardContent>
-      </Card>
-
       {/* Modals */}
       <ContactFormModal
         isOpen={isContactModalOpen}

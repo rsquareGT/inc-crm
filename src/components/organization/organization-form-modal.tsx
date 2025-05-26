@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,15 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Organization } from '@/lib/types';
+import { TIMEZONE_OPTIONS } from '@/lib/constants';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
 
@@ -30,6 +38,7 @@ const organizationFormSchema = z.object({
   postalCode: z.string().optional(),
   country: z.string().optional(),
   currencySymbol: z.string().max(3, 'Currency symbol too long (e.g., $, €)').optional(),
+  timezone: z.string().optional(),
 });
 
 type OrganizationFormData = z.infer<typeof organizationFormSchema>;
@@ -43,7 +52,7 @@ interface OrganizationFormModalProps {
 
 export function OrganizationFormModal({ isOpen, onClose, onSaveCallback, organization }: OrganizationFormModalProps) {
   const { toast } = useToast();
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<OrganizationFormData>({
+  const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } = useForm<OrganizationFormData>({
     resolver: zodResolver(organizationFormSchema),
   });
 
@@ -58,8 +67,9 @@ export function OrganizationFormModal({ isOpen, onClose, onSaveCallback, organiz
         postalCode: organization.postalCode || '',
         country: organization.country || '',
         currencySymbol: organization.currencySymbol || '$',
+        timezone: organization.timezone || 'Etc/UTC',
       });
-    } else if (isOpen) { // For a scenario where an org might be created (not current use case)
+    } else if (isOpen) { 
       reset({
         name: '',
         logoUrl: '',
@@ -69,6 +79,7 @@ export function OrganizationFormModal({ isOpen, onClose, onSaveCallback, organiz
         postalCode: '',
         country: '',
         currencySymbol: '$',
+        timezone: 'Etc/UTC',
       });
     }
   }, [isOpen, organization, reset]);
@@ -139,16 +150,43 @@ export function OrganizationFormModal({ isOpen, onClose, onSaveCallback, organiz
               <Label htmlFor="postalCode">Postal Code</Label>
               <Input id="postalCode" {...register('postalCode')} disabled={isSubmitting} />
             </div>
-            <div className="md:col-span-1">
+            <div className="md:col-span-2">
               <Label htmlFor="country">Country</Label>
               <Input id="country" {...register('country')} disabled={isSubmitting} />
             </div>
-             <div className="md:col-span-1">
+          </div>
+          
+          <Label className="font-medium text-base block pt-2">Regional Settings</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
+            <div>
               <Label htmlFor="currencySymbol">Currency Symbol</Label>
               <Input id="currencySymbol" {...register('currencySymbol')} placeholder="$" disabled={isSubmitting} />
               {errors.currencySymbol && <p className="text-sm text-destructive mt-1">{errors.currencySymbol.message}</p>}
             </div>
+            <div>
+              <Label htmlFor="timezone">Timezone</Label>
+              <Controller
+                name="timezone"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                    <SelectTrigger id="timezone">
+                      <SelectValue placeholder="Select timezone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMEZONE_OPTIONS.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.timezone && <p className="text-sm text-destructive mt-1">{errors.timezone.message}</p>}
+            </div>
           </div>
+
 
           <DialogFooter className="pt-4">
             <DialogClose asChild>

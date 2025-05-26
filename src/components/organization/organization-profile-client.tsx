@@ -11,16 +11,17 @@ import { OrganizationFormModal } from './organization-form-modal';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
-import { Edit, Building, Image as ImageIcon, MapPin, Globe, DollarSign } from 'lucide-react';
+import { Edit, Building, Image as ImageIcon, MapPin, Globe, DollarSign, Clock } from 'lucide-react';
+import { TIMEZONE_OPTIONS } from '@/lib/constants';
 
 export function OrganizationProfileClient() {
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [isLoadingOrg, setIsLoadingOrg] = useState(true);
+  const { user, organization: authOrganization, isLoading: authLoading, isAuthenticated, fetchUser } = useAuth();
+  const [organization, setOrganization] = useState<Organization | null>(authOrganization); // Initialize with context
+  const [isLoadingOrg, setIsLoadingOrg] = useState(true); // Still have local loading for direct fetch
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchOrganization = useCallback(async (orgId: string) => {
+  const fetchLocalOrganization = useCallback(async (orgId: string) => {
     setIsLoadingOrg(true);
     try {
       const response = await fetch(`/api/organizations/${orgId}`);
@@ -31,24 +32,30 @@ export function OrganizationProfileClient() {
       const data: Organization = await response.json();
       setOrganization(data);
     } catch (err) {
-      console.error("Error fetching organization:", err);
+      console.error("Error fetching organization locally:", err);
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
-      setOrganization(null);
+      setOrganization(null); // Could set to null or keep authOrganization if fetch fails
     } finally {
       setIsLoadingOrg(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    if (isAuthenticated && user?.organizationId && !authLoading) {
-      fetchOrganization(user.organizationId);
+    if (authOrganization) {
+      setOrganization(authOrganization);
+      setIsLoadingOrg(false);
+    } else if (isAuthenticated && user?.organizationId && !authLoading) {
+      fetchLocalOrganization(user.organizationId);
     } else if (!authLoading && !isAuthenticated) {
       setIsLoadingOrg(false);
+      setOrganization(null);
     }
-  }, [user, isAuthenticated, authLoading, fetchOrganization]);
+  }, [user, isAuthenticated, authLoading, authOrganization, fetchLocalOrganization]);
+
 
   const handleSaveCallback = (updatedOrganization: Organization) => {
     setOrganization(updatedOrganization);
+    fetchUser(); // Re-fetch user to update the organization in AuthContext
   };
 
   const formatAddress = (org: Organization | null) => {
@@ -57,7 +64,14 @@ export function OrganizationProfileClient() {
     return parts.join(', ') || 'N/A';
   };
 
-  if (authLoading || isLoadingOrg) {
+  const displayTimezone = (timezoneValue?: string) => {
+    if (!timezoneValue) return 'N/A';
+    const tzOption = TIMEZONE_OPTIONS.find(tz => tz.value === timezoneValue);
+    return tzOption ? tzOption.label : timezoneValue;
+  };
+
+
+  if (authLoading || (isLoadingOrg && !authOrganization) ) {
     return (
       <div>
         <PageSectionHeader title="Organization Profile" description="View and manage your organization details." >
@@ -69,22 +83,31 @@ export function OrganizationProfileClient() {
             <Skeleton className="h-8 w-3/4 mx-auto mb-2" /> {/* Title */}
             <Skeleton className="h-5 w-1/2 mx-auto" /> {/* Description */}
           </CardHeader>
-          <CardContent className="mt-4 space-y-4 p-6">
-            <div className="flex items-center space-x-3">
-              <Skeleton className="h-5 w-5 rounded-full" /> <Skeleton className="h-5 w-40" />
+          <CardContent className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 p-6">
+            <div className="space-y-1">
+                <Skeleton className="h-4 w-1/3 mb-1" />
+                <Skeleton className="h-5 w-2/3" />
             </div>
-            <div className="flex items-center space-x-3">
-              <Skeleton className="h-5 w-5 rounded-full" /> <Skeleton className="h-5 w-60" />
+             <div className="space-y-1">
+                <Skeleton className="h-4 w-1/3 mb-1" />
+                <Skeleton className="h-5 w-2/3" />
             </div>
-            <div className="flex items-center space-x-3">
-              <Skeleton className="h-5 w-5 rounded-full" /> <Skeleton className="h-5 w-20" />
-            </div>
-            <div className="pt-2 border-t">
-                <Skeleton className="h-4 w-1/4 mt-3 mb-2" />
+            <div className="space-y-1 md:col-span-2">
+                <Skeleton className="h-4 w-1/4 mb-1" />
                 <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-5 w-2/3 mt-1" />
+            </div>
+             <div className="space-y-1">
+                <Skeleton className="h-4 w-1/3 mb-1" />
+                <Skeleton className="h-5 w-1/2" />
+            </div>
+             <div className="space-y-1">
+                <Skeleton className="h-4 w-1/3 mb-1" />
+                <Skeleton className="h-5 w-1/2" />
             </div>
           </CardContent>
+           <CardFooter className="p-6 pt-2 text-xs text-muted-foreground">
+            <Skeleton className="h-4 w-1/3" />
+        </CardFooter>
         </Card>
       </div>
     );
@@ -144,22 +167,25 @@ export function OrganizationProfileClient() {
           <CardTitle className="text-3xl font-bold">{organization.name}</CardTitle>
           <CardDescription>Organization ID: {organization.id}</CardDescription>
         </CardHeader>
-        <CardContent className="mt-4 space-y-3 p-6">
-          <div className="flex items-center">
-            <Building className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
-            <span className="text-lg">{organization.name}</span>
-          </div>
-          <div className="flex items-center">
-            <DollarSign className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
-            <span className="text-lg">Currency: {organization.currencySymbol || '$'}</span>
-          </div>
-          <div className="pt-2 border-t">
-            <h4 className="text-sm font-medium text-muted-foreground mt-2 mb-1 flex items-center">
-                <MapPin className="h-4 w-4 mr-2"/> Address
-            </h4>
-            <p className="text-sm">{formatAddress(organization)}</p>
-          </div>
-          
+        <CardContent className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 p-6">
+            <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1 flex items-center"><Building className="h-4 w-4 mr-2"/> Name</h4>
+                <p className="text-sm">{organization.name}</p>
+            </div>
+             <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1 flex items-center"><DollarSign className="h-4 w-4 mr-2"/> Currency Symbol</h4>
+                <p className="text-sm">{organization.currencySymbol || 'N/A'}</p>
+            </div>
+
+            <div className="md:col-span-2">
+                <h4 className="text-sm font-medium text-muted-foreground mb-1 flex items-center"><MapPin className="h-4 w-4 mr-2"/> Address</h4>
+                <p className="text-sm">{formatAddress(organization)}</p>
+            </div>
+           
+            <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1 flex items-center"><Clock className="h-4 w-4 mr-2"/> Timezone</h4>
+                <p className="text-sm">{displayTimezone(organization.timezone)}</p>
+            </div>
         </CardContent>
          <CardFooter className="p-6 pt-2 text-xs text-muted-foreground">
             <p>Last updated: {new Date(organization.updatedAt).toLocaleString()}</p>

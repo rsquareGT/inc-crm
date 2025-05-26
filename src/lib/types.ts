@@ -120,6 +120,7 @@ export interface Organization {
   postalCode?: string;
   country?: string;
   currencySymbol?: string;
+  timezone?: string; // Added timezone
   createdAt: string;
   updatedAt: string;
 }
@@ -139,7 +140,7 @@ export interface User {
   updatedAt: string;
 }
 
-export type ActivityEntityType = 'contact' | 'company' | 'deal' | 'task' | 'note' | 'organization' | 'user'; // Added organization and user
+export type ActivityEntityType = 'contact' | 'company' | 'deal' | 'task' | 'note' | 'organization' | 'user';
 export type ActivityType = 
   | 'created_contact' | 'updated_contact' | 'deleted_contact'
   | 'created_company' | 'updated_company' | 'deleted_company'
@@ -147,19 +148,19 @@ export type ActivityType =
   | 'created_task' | 'updated_task' | 'completed_task' | 'deleted_task'
   | 'added_note_to_contact' | 'added_note_to_company' | 'added_note_to_deal'
   | 'deleted_note_from_contact' | 'deleted_note_from_company' | 'deleted_note_from_deal'
-  | 'updated_organization' // For organization profile updates
-  | 'created_user' | 'updated_user' | 'activated_user' | 'deactivated_user'; // For user management by admin
+  | 'updated_organization'
+  | 'created_user' | 'updated_user' | 'activated_user' | 'deactivated_user';
 
 
 export interface Activity {
   id: string;
   organizationId: string;
-  userId: string;          // User who performed the activity
-  user?: Pick<User, 'firstName' | 'lastName' | 'email' | 'profilePictureUrl'>; // Optional: for displaying user info
+  userId: string;
+  user?: Pick<User, 'firstName' | 'lastName' | 'email' | 'profilePictureUrl'>;
   activityType: ActivityType;
   entityType: ActivityEntityType;
   entityId: string;
-  entityName?: string;      // e.g., Contact name, Deal name for quick display
-  details?: Record<string, any>; // For storing additional info like old/new values
+  entityName?: string;
+  details?: Record<string, any>;
   createdAt: string;
 }

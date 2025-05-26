@@ -4,12 +4,12 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback }
   from 'react';
-import { useRouter } from 'next/navigation'; // Reverted to next/navigation
+import { useRouter } from 'next/navigation';
 import type { User, Organization } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
-  organization: Organization | null; // Added organization
+  organization: Organization | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -21,16 +21,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null); // Added
-  const [isLoading, setIsLoading] = useState(true);
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Start true for initial load
   const router = useRouter();
 
   const fetchUser = useCallback(async (isInitialLoad = false) => {
+    console.log(`AuthContext: fetchUser called. isInitialLoad: ${isInitialLoad}`);
     if (isInitialLoad) {
-      console.log('AuthContext: Initial fetchUser called.');
-      // setIsLoading(true) is handled by the initial state or the mount effect
-    } else {
-      console.log('AuthContext: fetchUser called (revalidation).');
+        setIsLoading(true); // Ensure loading is true for initial determination
     }
 
     try {
@@ -46,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               const orgResponse = await fetch(`/api/organizations/${userData.user.organizationId}`);
               if (orgResponse.ok) {
-                const orgData = await orgResponse.json();
+                const orgData: Organization = await orgResponse.json();
                 setOrganization(orgData);
                 console.log('AuthContext: Organization details fetched:', orgData.name);
               } else {
@@ -75,17 +73,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setOrganization(null);
     } finally {
-      if (isInitialLoad) { // Only adjust main loading for initial fetch
+      // Only set global isLoading to false if it was the initial determination call
+      if (isInitialLoad) {
         setIsLoading(false);
-        console.log('AuthContext: Initial fetchUser sequence finished, isLoading set to false.');
+        console.log('AuthContext: fetchUser (initial load) finished, isLoading set to false.');
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array makes fetchUser stable
+  }, []); 
 
   useEffect(() => {
-    setIsLoading(true); // Set loading true for the very first fetch sequence
-    fetchUser(true);
+    console.log("AuthContext: AuthProvider mounted. Calling initial fetchUser.");
+    fetchUser(true); // True indicates this is the initial auth check on mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -106,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok && data.success && data.user) {
         console.log('AuthContext: /api/auth/login successful. User data received.');
         setUser(data.user); // Set user directly
-        if (data.user.organizationId) { // Fetch organization details immediately after login
+        if (data.user.organizationId) { 
           try {
             const orgResponse = await fetch(`/api/organizations/${data.user.organizationId}`);
             if (orgResponse.ok) {
@@ -114,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setOrganization(orgData);
               console.log('AuthContext: Organization details fetched post-login:', orgData.name);
             } else {
+              console.warn(`AuthContext: Failed to fetch organization details post-login. Status: ${orgResponse.status}`);
               setOrganization(null);
             }
           } catch (orgError) {
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setOrganization(null);
         }
-        if (isLoading) setIsLoading(false); // Ensure loading is false if it was a very quick first login
+        if (isLoading) setIsLoading(false); 
         return true;
       } else {
         console.warn('AuthContext: /api/auth/login failed or data.success was false or no user data.');
@@ -144,8 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     console.log('AuthContext: logout called.');
     setUser(null);
-    setOrganization(null); // Clear organization on logout
-    setIsLoading(true); // To show loading state on login page after redirect
+    setOrganization(null);
     try {
       console.log('AuthContext: Calling /api/auth/logout...');
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -153,25 +152,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('AuthContext: Logout API call failed:', error);
     } finally {
-      console.log('AuthContext: Pushing to /login and setting isLoading to false after slight delay.');
+      console.log('AuthContext: Pushing to /login.');
       router.push('/login');
-      // Delay setting isLoading to false to allow login page to render loading state if needed
-      setTimeout(() => setIsLoading(false), 50);
+      // No need to manually set isLoading here as the login page will re-evaluate auth.
     }
   };
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !isLoading && user) { // only re-fetch if user was previously loaded
+      if (document.visibilityState === 'visible' && user) { // Only re-fetch if user was previously loaded
         console.log('AuthContext: Tab became visible, re-fetching user and organization.');
-        fetchUser(); // Revalidate session and organization
+        fetchUser(false); // false indicates it's a revalidation, not initial load
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchUser, isLoading, user]);
+  }, [fetchUser, user]); // Add user to dep array
 
   return (
     <AuthContext.Provider value={{ user, organization, isAuthenticated: !!user, isLoading, login, logout, fetchUser }}>

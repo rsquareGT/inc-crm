@@ -71,7 +71,7 @@ export async function PUT(request: NextRequest, { params }: { params: { organiza
     }
     const body = await request.json();
     console.log(`API PUT /api/organizations/${targetOrgId} - Request body:`, body);
-    const { name, logoUrl, street, city, state, postalCode, country, currencySymbol } = body;
+    const { name, logoUrl, street, city, state, postalCode, country, currencySymbol, timezone } = body;
 
     if (!name) {
       console.warn(`API PUT /api/organizations/${targetOrgId}: Organization name is required.`);
@@ -99,6 +99,7 @@ export async function PUT(request: NextRequest, { params }: { params: { organiza
     if (postalCode !== undefined && currentOrgData.postalCode !== postalCode) { updates.postalCode = postalCode || null; changes.push({ field: 'Postal Code', oldValue: currentOrgData.postalCode, newValue: postalCode || null });}
     if (country !== undefined && currentOrgData.country !== country) { updates.country = country || null; changes.push({ field: 'Country', oldValue: currentOrgData.country, newValue: country || null });}
     if (currencySymbol !== undefined && currentOrgData.currencySymbol !== currencySymbol) { updates.currencySymbol = currencySymbol || null; changes.push({ field: 'Currency Symbol', oldValue: currentOrgData.currencySymbol, newValue: currencySymbol || null });}
+    if (timezone !== undefined && currentOrgData.timezone !== timezone) { updates.timezone = timezone || null; changes.push({ field: 'Timezone', oldValue: currentOrgData.timezone, newValue: timezone || null });}
 
 
     if (Object.keys(updates).length <= 1) { // Only updatedAt

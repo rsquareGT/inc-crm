@@ -30,9 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // TODO: CRITICAL SECURITY FLAW - Ensure passwords in DB are bcrypt hashed.
-    // This direct string comparison 'password === userData.hashedPassword' was a placeholder.
-    // The following line is the correct way if userData.hashedPassword is a bcrypt hash.
     const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
 
     if (!passwordMatch) {
@@ -70,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
-    const cookieStore = cookies(); // Get the cookie store
+    const cookieStore = cookies(); // Get the cookie store instance
     cookieStore.set('session', jwt, { // Call set on the store instance
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

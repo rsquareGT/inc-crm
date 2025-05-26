@@ -7,7 +7,7 @@ export async function POST() {
     console.log("API Logout: POST request received");
     
     // Use cookies() from next/headers to clear the cookie
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('session', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

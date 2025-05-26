@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import type { User } from '@/lib/types';
 import * as jose from 'jose';
 import bcrypt from 'bcrypt';
-import { cookies } from 'next/headers'; // Import cookies from next/headers
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   console.log("API Login: POST request received");
@@ -32,7 +32,12 @@ export async function POST(request: NextRequest) {
 
     let passwordMatch = false;
     try {
+      // TODO: CRITICAL SECURITY FLAW - Replace with bcrypt.compare once real password hashing is in place.
+      // This direct comparison is only for placeholder "hashed" passwords.
+      // passwordMatch = (password === userData.hashedPassword);
+      // Assuming bcrypt is now in use:
       passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
+      console.log(`API Login: bcrypt.compare result for ${email}: ${passwordMatch}`);
     } catch (compareError) {
         console.error('API Login: bcrypt.compare error:', compareError);
         return NextResponse.json({ error: 'Error during password verification.' }, { status: 500 });
@@ -74,7 +79,7 @@ export async function POST(request: NextRequest) {
     const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
     // Use cookies() from next/headers to set the cookie
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('session', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -88,11 +93,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('API Login Error:', error);
+    // Specific check for bcrypt errors (e.g., if password or hash is malformed)
     if (error instanceof Error && error.message.includes('data and salt arguments required') && error.message.includes('bcrypt')) {
-      console.error('API Login: bcrypt.compare failed. Ensure passwords in DB are correctly hashed.');
+      console.error('API Login: bcrypt.compare failed. Ensure passwords in DB are correctly hashed and provided password is a string.');
       return NextResponse.json({ error: 'Authentication process error. Check server logs.' }, { status: 500 });
     }
-    if (error instanceof Error && error.message.includes('data and salt arguments required')) {
+    if (error instanceof Error && error.message.includes('data and salt arguments required')) { // General check for this error type
       return NextResponse.json({ error: 'Invalid input for password comparison.' }, { status: 400 });
     }
     return NextResponse.json({ error: 'An internal server error occurred during login.' }, { status: 500 });

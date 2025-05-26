@@ -14,7 +14,7 @@ export function FormattedNoteTimestamp({ createdAt }: FormattedNoteTimestampProp
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading) {
+    if (authLoading && !organization) {
       // Wait for auth context to load, especially the organization timezone
       setFormattedDate("Loading date...");
       return;
@@ -26,14 +26,22 @@ export function FormattedNoteTimestamp({ createdAt }: FormattedNoteTimestampProp
       
       // Check if the date is valid before formatting
       if (isNaN(date.getTime())) {
-          throw new Error("Invalid date provided to FormattedNoteTimestamp");
+          console.error("Invalid date provided to FormattedNoteTimestamp:", createdAt);
+          setFormattedDate("Invalid date"); // Show specific error for invalid date
+          return;
       }
 
-      setFormattedDate(formatInTimeZone(date, orgTimezone, "MMM d, yyyy 'at' h:mm a (zzz)"));
+      // Removed (zzz) from the format string
+      setFormattedDate(formatInTimeZone(date, orgTimezone, "MMM d, yyyy 'at' h:mm a"));
     } catch (error) {
-      console.error("Error formatting date in FormattedNoteTimestamp:", error, "Raw date:", createdAt);
+      console.error("Error formatting date in FormattedNoteTimestamp:", error, "Raw date:", createdAt, "Org Timezone:", organization?.timezone);
       // Fallback for invalid dates or errors during formatting
-      setFormattedDate(new Date(createdAt).toLocaleString()); // Basic fallback
+      // Attempting a simpler format if complex one fails, or show error
+      try {
+        setFormattedDate(new Date(createdAt).toLocaleTimeString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric' }));
+      } catch (fallbackError) {
+        setFormattedDate("Error formatting date");
+      }
     }
   }, [createdAt, organization, authLoading]);
 

@@ -4,7 +4,7 @@
 import { Logo } from './logo';
 import { MainNav } from './main-nav';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, UserCircle, Loader2, Building, Users, KeyRound } from 'lucide-react'; // Added KeyRound
+import { LogIn, LogOut, UserCircle, Loader2, Building, Users, KeyRound, Edit3 } from 'lucide-react'; 
 import { ThemeToggle } from './theme-toggle';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
@@ -70,6 +70,11 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile/edit" className="flex items-center w-full">
+                    <Edit3 className="mr-2 h-4 w-4" /> Edit Profile
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/profile/change-password" className="flex items-center w-full">
                     <KeyRound className="mr-2 h-4 w-4" /> Change Password

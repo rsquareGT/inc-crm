@@ -114,6 +114,12 @@ export interface Organization {
   id: string;
   name: string;
   logoUrl?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  currencySymbol?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -133,15 +139,17 @@ export interface User {
   updatedAt: string;
 }
 
-export type ActivityEntityType = 'contact' | 'company' | 'deal' | 'task' | 'note'; // Extend as needed
+export type ActivityEntityType = 'contact' | 'company' | 'deal' | 'task' | 'note' | 'organization' | 'user'; // Added organization and user
 export type ActivityType = 
   | 'created_contact' | 'updated_contact' | 'deleted_contact'
   | 'created_company' | 'updated_company' | 'deleted_company'
   | 'created_deal' | 'updated_deal_stage' | 'updated_deal_details' | 'deleted_deal'
   | 'created_task' | 'updated_task' | 'completed_task' | 'deleted_task'
   | 'added_note_to_contact' | 'added_note_to_company' | 'added_note_to_deal'
-  | 'deleted_note_from_contact' | 'deleted_note_from_company' | 'deleted_note_from_deal';
-  // Add more specific activity types
+  | 'deleted_note_from_contact' | 'deleted_note_from_company' | 'deleted_note_from_deal'
+  | 'updated_organization' // For organization profile updates
+  | 'created_user' | 'updated_user' | 'activated_user' | 'deactivated_user'; // For user management by admin
+
 
 export interface Activity {
   id: string;

@@ -1,20 +1,23 @@
 
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 export async function POST() {
   try {
-    // Clear the session cookie
-    const cookieStore = cookies(); // Get the cookie store instance
-    cookieStore.set('session', '', { // Call set on the store instance
+    console.log("API Logout: POST request received");
+    
+    const response = NextResponse.json({ success: true, message: 'Logged out successfully' });
+
+    // Clear the session cookie by setting its expiry date to the past
+    response.cookies.set('session', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      expires: new Date(0), // Set expiry date to the past
+      expires: new Date(0),
     });
+    console.log("API Logout: Session cookie cleared via NextResponse");
 
-    return NextResponse.json({ success: true, message: 'Logged out successfully' });
+    return response;
   } catch (error) {
     console.error('API Logout Error:', error);
     return NextResponse.json({ error: 'An internal server error occurred during logout.' }, { status: 500 });

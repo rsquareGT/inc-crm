@@ -3,7 +3,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { User } from '@/lib/types';
 import * as jose from 'jose';
-import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
 
 export async function POST(request: NextRequest) {
@@ -30,7 +29,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    const passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
+    // TODO: CRITICAL SECURITY FLAW - Replace this with bcrypt.compare once real passwords are hashed
+    // const passwordMatch = (password === userData.hashedPassword);
+    let passwordMatch = false;
+    try {
+      passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
+    } catch (compareError) {
+        console.error('API Login: bcrypt.compare error:', compareError);
+        return NextResponse.json({ error: 'Error during password verification.' }, { status: 500 });
+    }
+
 
     if (!passwordMatch) {
       console.warn(`API Login: Password mismatch for email: ${email}`);
@@ -67,8 +75,9 @@ export async function POST(request: NextRequest) {
 
     const maxAgeSeconds = parseInt(process.env.JWT_MAX_AGE_SECONDS || '3600', 10);
 
-    const cookieStore = cookies(); // Get the cookie store instance
-    cookieStore.set('session', jwt, { // Call set on the store instance
+    const response = NextResponse.json({ success: true, user: userToSign });
+
+    response.cookies.set('session', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -76,9 +85,9 @@ export async function POST(request: NextRequest) {
       maxAge: maxAgeSeconds,
       expires: new Date(Date.now() + maxAgeSeconds * 1000),
     });
-    console.log(`API Login: Session cookie set for user: ${userToSign.email}`);
+    console.log(`API Login: Session cookie set for user: ${userToSign.email} via NextResponse`);
 
-    return NextResponse.json({ success: true, user: userToSign });
+    return response;
 
   } catch (error) {
     console.error('API Login Error:', error);

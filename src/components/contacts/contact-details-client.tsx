@@ -2,10 +2,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Contact, Company, Deal, Note, Activity } from '@/lib/types'; // Added Activity
+import type { Contact, Company, Deal, Note, Activity } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Added Tabs
 import { ContactFormModal } from './contact-form-modal';
 import { DealFormModal } from '@/components/deals/deal-form-modal';
 import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
@@ -19,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2, ActivityIcon } from 'lucide-react'; // Added ActivityIcon
+import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2, ActivityIcon, DollarSign } from 'lucide-react';
 import { TagBadge } from '@/components/shared/tag-badge';
 import Link from 'next/link';
 import { Badge } from '../ui/badge';
@@ -29,7 +28,7 @@ import { Label } from '@/components/ui/label';
 import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
 import { PageSectionHeader } from '../shared/page-section-header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ActivityItem } from '@/components/shared/activity-item'; // Added
+import { ActivityItem } from '@/components/shared/activity-item';
 
 interface ContactDetailsClientProps {
   contactId: string;
@@ -39,15 +38,15 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [contact, setContact] = useState<Contact | null>(null);
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]); // Added
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingActivities, setIsLoadingActivities] = useState(true); // Added
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [allCompaniesList, setAllCompaniesList] = useState<Company[]>([]);
-  const [allContactsList, setAllContactsList] = useState<Contact[]>([]); 
+  const [allContactsList, setAllContactsList] = useState<Contact[]>([]);
 
   const { toast } = useToast();
 
@@ -214,7 +213,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
       }
       setNewNoteContent('');
       toast({ title: "Note Added", description: "New note saved for this contact." });
-      fetchContactDetails(); // Refetch details to include new note and activity
+      fetchContactDetails();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
@@ -228,6 +227,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   if (isLoading) {
     return (
       <div className="space-y-6">
+        {/* Header Skeleton */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b">
           <div>
             <Skeleton className="h-9 w-[180px] mb-2" /> {/* Back to Contacts Button */}
@@ -236,73 +236,83 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
           </div>
           <Skeleton className="h-10 w-[150px]" /> {/* Edit Contact Button */}
         </div>
-        <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </TabsList>
-            <TabsContent value="overview">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-6">
-                    <Card>
-                    <CardHeader><Skeleton className="h-6 w-1/2 mb-1" /></CardHeader>
-                    <CardContent className="space-y-3">
-                        <Skeleton className="h-5 w-3/4" />
-                        <Skeleton className="h-5 w-1/2" />
-                        <Skeleton className="h-5 w-full" />
-                        <Skeleton className="h-16 w-full rounded-md" />
-                    </CardContent>
-                    </Card>
-                    <Card>
-                    <CardHeader>
-                        <Skeleton className="h-6 w-1/2 mb-1" />
-                        <Skeleton className="h-4 w-3/4" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Skeleton className="h-4 w-1/4 mb-1" />
-                        <Skeleton className="h-20 w-full rounded-md" />
-                        <Skeleton className="h-9 w-[120px]" />
-                        <ScrollArea className="h-[300px] w-full">
-                            <div className="space-y-3">
-                                {[...Array(2)].map((_, i) => (
-                                    <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
-                                        <Skeleton className="h-4 w-full mb-1" />
-                                        <Skeleton className="h-4 w-3/4 mb-2" />
-                                        <Skeleton className="h-3 w-1/2" />
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </CardContent>
-                    </Card>
-                </div>
-                <div className="md:col-span-1 space-y-6">
-                    <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                        <Skeleton className="h-6 w-3/4" />
-                        <Skeleton className="h-9 w-[100px]" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <ScrollArea className="h-[400px]">
-                        <div className="space-y-3">
-                            {[...Array(2)].map((_, i) => (
-                            <div key={`skeleton-deal-${i}`} className="p-3 border rounded-md">
-                                <Skeleton className="h-5 w-3/4 mb-1" />
-                                <Skeleton className="h-4 w-1/2" />
-                            </div>
-                            ))}
-                        </div>
-                        </ScrollArea>
-                    </CardContent>
-                    </Card>
-                </div>
-                </div>
-            </TabsContent>
-        </Tabs>
+
+        {/* Main Info Card Skeleton */}
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-1/3 mb-1" /></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center"><Skeleton className="h-5 w-5 mr-3 rounded-full" /><Skeleton className="h-5 w-3/4" /></div>
+            <div className="flex items-center"><Skeleton className="h-5 w-5 mr-3 rounded-full" /><Skeleton className="h-5 w-1/2" /></div>
+            <div className="flex flex-wrap gap-2 items-center pt-1"><Skeleton className="h-4 w-10" /> <Skeleton className="h-6 w-16 rounded-full" /><Skeleton className="h-6 w-20 rounded-full" /></div>
+            <div className="space-y-2 pt-2"><Skeleton className="h-5 w-1/4 mb-1" /><Skeleton className="h-16 w-full rounded-md" /></div>
+          </CardContent>
+        </Card>
+
+        {/* Associated Deals Card Skeleton */}
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-6 w-1/2" /> {/* Card Title */}
+              <Skeleton className="h-9 w-[100px]" /> {/* Add Deal Button */}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead><Skeleton className="h-4 w-[100px]" /></TableHead>
+                    <TableHead><Skeleton className="h-4 w-[80px]" /></TableHead>
+                    <TableHead><Skeleton className="h-4 w-[100px]" /></TableHead>
+                    <TableHead className="text-right"><Skeleton className="h-4 w-[60px]" /></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...Array(2)].map((_, i) => (
+                    <TableRow key={`skeleton-deal-${i}`}>
+                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notes Card Skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-1/3 mb-1" /> {/* Card Title */}
+            <Skeleton className="h-4 w-2/3" /> {/* Card Description */}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-1/4 mb-1" />
+              <Skeleton className="h-20 w-full rounded-md" /> {/* Textarea */}
+              <Skeleton className="h-9 w-[120px]" /> {/* Add Note Button */}
+            </div>
+            <ScrollArea className="h-[250px] w-full">
+              <div className="space-y-3">
+                {[...Array(2)].map((_, i) => (
+                  <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
+                    <Skeleton className="h-4 w-full mb-1" />
+                    <Skeleton className="h-4 w-3/4 mb-2" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+        
+        {/* Activity Card Skeleton */}
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+          <CardContent><ScrollArea className="h-[300px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-activity-${index}`} />)}</ScrollArea></CardContent>
+        </Card>
       </div>
     );
   }
@@ -347,197 +357,183 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4"> {/* Updated for Activity Tab */}
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="deals">Associated Deals ({deals.length})</TabsTrigger>
-          <TabsTrigger value="notes">Notes ({sortedNotes.length})</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger> {/* Added Activity Tab */}
-        </TabsList>
+      {/* Contact Details Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Contact Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center">
+            <Mail className="mr-3 h-5 w-5 text-muted-foreground" />
+            <a href={`mailto:${contact.email}`} className="text-primary hover:underline">
+              {contact.email}
+            </a>
+          </div>
+          {contact.phone && (
+            <div className="flex items-center">
+              <Phone className="mr-3 h-5 w-5 text-muted-foreground" />
+              <span>{contact.phone}</span>
+            </div>
+          )}
+          {contact.tags && contact.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <span className="text-sm text-muted-foreground">Tags:</span>
+              {contact.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
+            </div>
+          )}
+          <div className="space-y-2 pt-2">
+            <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
+            {contact.description ? (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{contact.description}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">No description for this contact.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="overview">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center">
-                  <Mail className="mr-3 h-5 w-5 text-muted-foreground" />
-                  <a href={`mailto:${contact.email}`} className="text-primary hover:underline">
-                    {contact.email}
-                  </a>
-                </div>
-                {contact.phone && (
-                  <div className="flex items-center">
-                    <Phone className="mr-3 h-5 w-5 text-muted-foreground" />
-                    <span>{contact.phone}</span>
+      {/* Associated Deals Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Deals ({deals.length})</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {deals.length > 0 ? (
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {deals.map((deal) => (
+                    <TableRow key={deal.id}>
+                        <TableCell className="font-medium">
+                          <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
+                              {deal.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
+                        <TableCell>${deal.value.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                  <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
+                                  <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                                  </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
+                                  <Edit className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Notes Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
+          <CardDescription>Chronological notes related to this contact.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-contact-note">Add a new note</Label>
+            <Textarea
+              id="new-contact-note"
+              value={newNoteContent}
+              onChange={(e) => setNewNoteContent(e.target.value)}
+              placeholder="Type your note here..."
+              className="min-h-[80px]"
+              disabled={isAddingNote}
+            />
+            <Button onClick={handleAddNote} size="sm" disabled={isAddingNote || newNoteContent.trim() === ''}>
+              {isAddingNote ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
+                </>
+              )}
+            </Button>
+          </div>
+
+          {sortedNotes.length > 0 ? (
+            <ScrollArea className="h-[300px] w-full pr-4">
+              <div className="space-y-3">
+                {sortedNotes.map(note => (
+                  <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
+                    <p className="whitespace-pre-wrap">{note.content}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                       <FormattedNoteTimestamp createdAt={note.createdAt} />
+                    </p>
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                        onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                     </Button>
                   </div>
-                )}
-                {contact.tags && contact.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 items-center pt-1">
-                    <span className="text-sm text-muted-foreground">Tags:</span>
-                    {contact.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
-                  </div>
-                )}
-                <div className="space-y-2 pt-2">
-                  <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
-                  {contact.description ? (
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{contact.description}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No description for this contact.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-        </TabsContent>
-
-        <TabsContent value="deals">
-             <Card>
-                <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>Associated Deals ({deals.length})</CardTitle>
-                    <Button variant="outline" size="sm" onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
-                    </Button>
-                </div>
-                </CardHeader>
-                <CardContent>
-                {deals.length > 0 ? (
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Stage</TableHead>
-                            <TableHead>Value</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {deals.map((deal) => (
-                            <TableRow key={deal.id}>
-                                <TableCell className="font-medium">
-                                <Link href={`/deals/${deal.id}`} className="hover:underline text-primary">
-                                    {deal.name}
-                                </Link>
-                                </TableCell>
-                                <TableCell><Badge variant={deal.stage === 'Won' ? 'default' : deal.stage === 'Lost' ? 'destructive' : 'secondary'}>{deal.stage}</Badge></TableCell>
-                                <TableCell>${deal.value.toLocaleString()}</TableCell>
-                                <TableCell className="text-right">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                    <DropdownMenuItem asChild>
-                                        <Link href={`/deals/${deal.id}`} className="flex items-center w-full">
-                                        <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}>
-                                        <Edit className="mr-2 h-4 w-4" /> Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleDeleteRequest(deal.id, 'deal', deal.name)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                    </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">No notes yet for this contact.</p>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Activity Card */}
+      <Card>
+        <CardHeader>
+            <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
+        </CardHeader>
+        <CardContent className="pl-2 pr-2 pt-0">
+            <ScrollArea className="h-[400px]">
+                {isLoadingActivities ? (
+                    Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
+                ) : activities.length > 0 ? (
+                    activities.map(activity => (
+                        <ActivityItem key={activity.id} activity={activity} />
+                    ))
                 ) : (
-                    <p className="text-muted-foreground text-center py-4">No deals associated with this contact yet.</p>
+                    <p className="text-muted-foreground text-center py-10">No activities recorded for this contact yet.</p>
                 )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-        
-        <TabsContent value="notes">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
-                <CardDescription>Chronological notes related to this contact.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-contact-note">Add a new note</Label>
-                  <Textarea
-                    id="new-contact-note"
-                    value={newNoteContent}
-                    onChange={(e) => setNewNoteContent(e.target.value)}
-                    placeholder="Type your note here..."
-                    className="min-h-[80px]"
-                    disabled={isAddingNote}
-                  />
-                  <Button onClick={handleAddNote} size="sm" disabled={isAddingNote || newNoteContent.trim() === ''}>
-                    {isAddingNote ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <MessageSquarePlus className="mr-2 h-4 w-4" /> Add Note
-                      </>
-                    )}
-                  </Button>
-                </div>
+            </ScrollArea>
+        </CardContent>
+      </Card>
 
-                {sortedNotes.length > 0 ? (
-                  <ScrollArea className="h-[300px] w-full pr-4">
-                    <div className="space-y-3">
-                      {sortedNotes.map(note => (
-                        <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
-                          <p className="whitespace-pre-wrap">{note.content}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                             <FormattedNoteTimestamp createdAt={note.createdAt} />
-                          </p>
-                           <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                              onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
-                            >
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                           </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No notes yet for this contact.</p>
-                )}
-              </CardContent>
-            </Card>
-        </TabsContent>
-        
-        <TabsContent value="activity">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
-                </CardHeader>
-                <CardContent className="pl-2 pr-2 pt-0">
-                    <ScrollArea className="h-[400px]"> {/* Adjust height as needed */}
-                        {isLoadingActivities ? (
-                            Array.from({ length: 5 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
-                        ) : activities.length > 0 ? (
-                            activities.map(activity => (
-                                <ActivityItem key={activity.id} activity={activity} />
-                            ))
-                        ) : (
-                            <p className="text-muted-foreground text-center py-10">No activities recorded for this contact yet.</p>
-                        )}
-                    </ScrollArea>
-                </CardContent>
-            </Card>
-        </TabsContent>
-
-      </Tabs>
-
-
+      {/* Modals */}
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}

@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import type { Contact, Note } from '@/lib/types';
-import { logActivity } from '@/services/activity-logger'; // Added
+import { logActivity } from '@/services/activity-logger';
 
 // GET a single contact by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { contactId: string } }) {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: { contactI
 
     const stmtContact = db.prepare(`
       SELECT c.*,
-             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt))
+             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId))
               FROM Notes n WHERE n.contactId = c.id AND n.organizationId = c.organizationId ORDER BY n.createdAt DESC) as notes_json
       FROM Contacts c
       WHERE c.id = ? AND c.organizationId = ?
@@ -79,7 +79,7 @@ export async function PUT(request: NextRequest, { params }: { params: { contactI
   try {
     const { contactId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id'); // For activity logging
+    const userId = request.headers.get('x-user-id'); 
 
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
@@ -93,6 +93,14 @@ export async function PUT(request: NextRequest, { params }: { params: { contactI
 
     if (!firstName || !lastName || !email) {
       return NextResponse.json({ error: 'First name, last name, and email are required' }, { status: 400 });
+    }
+
+    // Fetch current contact data for logging changes
+    const stmtCurrentContact = db.prepare('SELECT * FROM Contacts WHERE id = ? AND organizationId = ?');
+    const currentContactData = stmtCurrentContact.get(contactId, organizationId) as Contact | undefined;
+
+    if (!currentContactData) {
+      return NextResponse.json({ error: 'Contact not found or not authorized for update' }, { status: 404 });
     }
 
     const now = new Date().toISOString();
@@ -121,49 +129,61 @@ export async function PUT(request: NextRequest, { params }: { params: { contactI
       return NextResponse.json({ error: 'Contact not found, not authorized, or no changes made' }, { status: 404 });
     }
 
-    // Log activity
-    await logActivity({
-      organizationId,
-      userId,
-      activityType: 'updated_contact',
-      entityType: 'contact',
-      entityId: contactId,
-      entityName: `${firstName} ${lastName}`, // Log with new name
-    });
+    // Log activity with detailed changes
+    const changes: Array<{field: string, oldValue: any, newValue: any}> = [];
+    if (currentContactData.firstName !== firstName) changes.push({ field: 'First Name', oldValue: currentContactData.firstName, newValue: firstName});
+    if (currentContactData.lastName !== lastName) changes.push({ field: 'Last Name', oldValue: currentContactData.lastName, newValue: lastName});
+    if (currentContactData.email !== email) changes.push({ field: 'Email', oldValue: currentContactData.email, newValue: email});
+    if ((currentContactData.phone || null) !== (phone || null)) changes.push({ field: 'Phone', oldValue: currentContactData.phone, newValue: phone || null});
+    if ((currentContactData.companyId || null) !== (companyId === '_none_' ? null : companyId || null)) changes.push({ field: 'Company ID', oldValue: currentContactData.companyId, newValue: (companyId === '_none_' ? null : companyId || null)});
+    if ((currentContactData.description || null) !== (description || null)) changes.push({ field: 'Description', oldValue: currentContactData.description, newValue: description || null });
+    if (JSON.stringify(currentContactData.tags || []) !== JSON.stringify(tags || [])) changes.push({ field: 'Tags', oldValue: currentContactData.tags, newValue: tags || [] });
+
+    if (changes.length > 0) {
+      await logActivity({
+        organizationId,
+        userId,
+        activityType: 'updated_contact',
+        entityType: 'contact',
+        entityId: contactId,
+        entityName: `${firstName} ${lastName}`, 
+        details: { changes }
+      });
+    }
 
 
     const stmtUpdatedContact = db.prepare(`
         SELECT c.*,
-               (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt))
+               (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId))
                 FROM Notes n WHERE n.contactId = c.id AND n.organizationId = c.organizationId ORDER BY n.createdAt DESC) as notes_json
         FROM Contacts c
         WHERE c.id = ? AND c.organizationId = ?
     `);
-    const updatedContactData = stmtUpdatedContact.get(contactId, organizationId) as any;
+    const updatedContactDataRaw = stmtUpdatedContact.get(contactId, organizationId) as any;
 
     let parsedTagsUpdated: string[] = [];
     try {
-      if (updatedContactData.tags) parsedTagsUpdated = JSON.parse(updatedContactData.tags);
+      if (updatedContactDataRaw.tags) parsedTagsUpdated = JSON.parse(updatedContactDataRaw.tags);
     } catch (e) { console.error("Error parsing tags on update", e); }
 
     let parsedNotesUpdated: Note[] = [];
     try {
-      if (updatedContactData.notes_json) parsedNotesUpdated = JSON.parse(updatedContactData.notes_json);
+      if (updatedContactDataRaw.notes_json) parsedNotesUpdated = JSON.parse(updatedContactDataRaw.notes_json);
     } catch (e) { console.error("Error parsing notes_json on update", e); }
 
     const updatedContact: Contact = {
-      id: updatedContactData.id,
-      firstName: updatedContactData.firstName,
-      lastName: updatedContactData.lastName,
-      email: updatedContactData.email,
-      phone: updatedContactData.phone,
-      companyId: updatedContactData.companyId,
-      description: updatedContactData.description,
-      createdAt: updatedContactData.createdAt,
-      updatedAt: updatedContactData.updatedAt,
+      id: updatedContactDataRaw.id,
+      firstName: updatedContactDataRaw.firstName,
+      lastName: updatedContactDataRaw.lastName,
+      email: updatedContactDataRaw.email,
+      phone: updatedContactDataRaw.phone,
+      companyId: updatedContactDataRaw.companyId,
+      description: updatedContactDataRaw.description,
+      createdAt: updatedContactDataRaw.createdAt,
+      updatedAt: updatedContactDataRaw.updatedAt,
       tags: parsedTagsUpdated,
       notes: parsedNotesUpdated,
-      organizationId: updatedContactData.organizationId,
+      organizationId: updatedContactDataRaw.organizationId,
     };
 
     return NextResponse.json(updatedContact);
@@ -187,7 +207,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
   try {
     const { contactId } = params;
     const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id'); // For activity logging
+    const userId = request.headers.get('x-user-id'); 
 
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
@@ -197,7 +217,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
     
-    // Fetch contact name for logging before deletion
     const contactCheckStmt = db.prepare('SELECT firstName, lastName FROM Contacts WHERE id = ? AND organizationId = ?');
     const contactToDeleteData = contactCheckStmt.get(contactId, organizationId) as { firstName: string; lastName: string } | undefined;
 
@@ -220,21 +239,19 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
       const result = stmtDeleteContact.run(contactId, organizationId);
 
       if (result.changes === 0) {
-        // This case should be caught by contactExists check, but as a fallback
         const notFoundError = new Error('Contact not found or not authorized during transaction');
         (notFoundError as any).statusCode = 404;
         throw notFoundError;
       }
     })();
 
-    // Log activity
     await logActivity({
       organizationId,
       userId,
       activityType: 'deleted_contact',
       entityType: 'contact',
       entityId: contactId,
-      entityName: contactName, // Log with name fetched before deletion
+      entityName: contactName, 
     });
 
     return NextResponse.json({ message: 'Contact deleted successfully' }, { status: 200 });
@@ -247,3 +264,5 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
     return NextResponse.json({ error: 'Failed to delete contact.' }, { status: 500 });
   }
 }
+
+    

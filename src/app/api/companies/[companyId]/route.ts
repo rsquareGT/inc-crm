@@ -74,9 +74,9 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
       return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
     }
 
-    // Fetch current company name for logging before update
-    const stmtCurrentCompany = db.prepare('SELECT name FROM Companies WHERE id = ? AND organizationId = ?');
-    const currentCompanyData = stmtCurrentCompany.get(companyId, organizationId) as { name: string } | undefined;
+    // Fetch current company data for logging changes
+    const stmtCurrentCompany = db.prepare('SELECT * FROM Companies WHERE id = ? AND organizationId = ?');
+    const currentCompanyData = stmtCurrentCompany.get(companyId, organizationId) as Company | undefined;
 
     if (!currentCompanyData) {
         return NextResponse.json({ error: 'Company not found or not authorized for update' }, { status: 404 });
@@ -117,15 +117,36 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
       return NextResponse.json({ error: 'Company not found, not authorized, or no changes made' }, { status: 404 });
     }
 
-    // Log activity
-    await logActivity({
-      organizationId,
-      userId,
-      activityType: 'updated_company',
-      entityType: 'company',
-      entityId: companyId,
-      entityName: name, // Log with the new name
-    });
+    // Log activity with detailed changes
+    const changes: Array<{field: string, oldValue: any, newValue: any}> = [];
+    if (currentCompanyData.name !== name) changes.push({ field: 'Name', oldValue: currentCompanyData.name, newValue: name});
+    if ((currentCompanyData.industry || null) !== (industry === '_none_' ? null : industry || null)) changes.push({ field: 'Industry', oldValue: currentCompanyData.industry, newValue: (industry === '_none_' ? null : industry || null) });
+    if ((currentCompanyData.website || null) !== (website || null)) changes.push({ field: 'Website', oldValue: currentCompanyData.website, newValue: website || null });
+    if ((currentCompanyData.street || null) !== (street || null)) changes.push({ field: 'Street', oldValue: currentCompanyData.street, newValue: street || null });
+    if ((currentCompanyData.city || null) !== (city || null)) changes.push({ field: 'City', oldValue: currentCompanyData.city, newValue: city || null });
+    if ((currentCompanyData.state || null) !== (state || null)) changes.push({ field: 'State', oldValue: currentCompanyData.state, newValue: state || null });
+    if ((currentCompanyData.postalCode || null) !== (postalCode || null)) changes.push({ field: 'Postal Code', oldValue: currentCompanyData.postalCode, newValue: postalCode || null });
+    if ((currentCompanyData.country || null) !== (country || null)) changes.push({ field: 'Country', oldValue: currentCompanyData.country, newValue: country || null });
+    if ((currentCompanyData.contactPhone1 || null) !== (contactPhone1 || null)) changes.push({ field: 'Contact Phone 1', oldValue: currentCompanyData.contactPhone1, newValue: contactPhone1 || null });
+    if ((currentCompanyData.contactPhone2 || null) !== (contactPhone2 || null)) changes.push({ field: 'Contact Phone 2', oldValue: currentCompanyData.contactPhone2, newValue: contactPhone2 || null });
+    if ((currentCompanyData.companySize || null) !== (companySize === '_none_' ? null : companySize || null)) changes.push({ field: 'Company Size', oldValue: currentCompanyData.companySize, newValue: (companySize === '_none_' ? null : companySize || null) });
+    if ((currentCompanyData.accountManagerId || null) !== (accountManagerId === '_none_' ? null : accountManagerId || null)) changes.push({ field: 'Account Manager ID', oldValue: currentCompanyData.accountManagerId, newValue: (accountManagerId === '_none_' ? null : accountManagerId || null) });
+    if ((currentCompanyData.description || null) !== (description || null)) changes.push({ field: 'Description', oldValue: currentCompanyData.description, newValue: description || null });
+    if (JSON.stringify(currentCompanyData.tags || []) !== JSON.stringify(tags || [])) changes.push({ field: 'Tags', oldValue: currentCompanyData.tags, newValue: tags || [] });
+
+
+    if (changes.length > 0) {
+      await logActivity({
+        organizationId,
+        userId,
+        activityType: 'updated_company',
+        entityType: 'company',
+        entityId: companyId,
+        entityName: name, // Log with the new name
+        details: { changes }
+      });
+    }
+
 
     const stmtUpdatedCompany = db.prepare(`
         SELECT c.*,
@@ -233,3 +254,5 @@ export async function DELETE(request: NextRequest, { params }: { params: { compa
     return NextResponse.json({ error: 'Failed to delete company.' }, { status: 500 });
   }
 }
+
+    

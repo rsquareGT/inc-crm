@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: { dealId: 
 
     const stmtDeal = db.prepare(`
       SELECT d.*,
-             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt))
+             (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId))
               FROM Notes n WHERE n.dealId = d.id AND n.organizationId = d.organizationId ORDER BY n.createdAt DESC) as notes_json
       FROM Deals d
       WHERE d.id = ? AND d.organizationId = ?
@@ -65,8 +65,8 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
     }
 
     // Fetch current deal for logging comparison
-    const stmtCurrentDeal = db.prepare('SELECT name, stage FROM Deals WHERE id = ? AND organizationId = ?');
-    const currentDealData = stmtCurrentDeal.get(dealId, organizationId) as { name: string; stage: string } | undefined;
+    const stmtCurrentDeal = db.prepare('SELECT * FROM Deals WHERE id = ? AND organizationId = ?');
+    const currentDealData = stmtCurrentDeal.get(dealId, organizationId) as Deal | undefined;
 
     if (!currentDealData) {
         return NextResponse.json({ error: 'Deal not found or not authorized for update' }, { status: 404 });
@@ -98,28 +98,46 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
       return NextResponse.json({ error: 'Deal not found, not authorized, or no changes made' }, { status: 404 });
     }
 
-    // Log activity
+    // Log activity with detailed changes
+    const changes: Array<{field: string, oldValue: any, newValue: any}> = [];
     let activityType: 'updated_deal_stage' | 'updated_deal_details' = 'updated_deal_details';
-    let activityDetails: Record<string, any> = {};
 
+    if (currentDealData.name !== name) changes.push({ field: 'Name', oldValue: currentDealData.name, newValue: name });
+    if (currentDealData.value !== value) changes.push({ field: 'Value', oldValue: currentDealData.value, newValue: value });
     if (currentDealData.stage !== stage) {
-      activityType = 'updated_deal_stage';
-      activityDetails = { old_stage: currentDealData.stage, new_stage: stage };
+      changes.push({ field: 'Stage', oldValue: currentDealData.stage, newValue: stage });
+      activityType = 'updated_deal_stage'; // Prioritize stage change for activity type if it occurred
+    }
+    if ((currentDealData.contactId || null) !== (contactId === '_none_' ? null : contactId || null)) changes.push({ field: 'Contact ID', oldValue: currentDealData.contactId, newValue: (contactId === '_none_' ? null : contactId || null) });
+    if ((currentDealData.companyId || null) !== (companyId === '_none_' ? null : companyId || null)) changes.push({ field: 'Company ID', oldValue: currentDealData.companyId, newValue: (companyId === '_none_' ? null : companyId || null) });
+    if ((currentDealData.expectedCloseDate || null) !== (expectedCloseDate || null)) changes.push({ field: 'Expected Close Date', oldValue: currentDealData.expectedCloseDate, newValue: expectedCloseDate || null });
+    if ((currentDealData.description || null) !== (description || null)) changes.push({ field: 'Description', oldValue: currentDealData.description, newValue: description || null });
+    if (JSON.stringify(currentDealData.tags || []) !== JSON.stringify(tags || [])) changes.push({ field: 'Tags', oldValue: currentDealData.tags, newValue: tags || [] });
+    
+    // If only stage changed, details might be redundant if captured by activityType already.
+    // But for consistency, we can include it.
+    let activityDetails: Record<string, any> = { changes };
+    if (activityType === 'updated_deal_stage') {
+      activityDetails.old_stage = currentDealData.stage;
+      activityDetails.new_stage = stage;
     }
 
-    await logActivity({
-      organizationId,
-      userId,
-      activityType,
-      entityType: 'deal',
-      entityId: dealId,
-      entityName: name, // Log with new name
-      details: activityDetails,
-    });
+
+    if (changes.length > 0) {
+      await logActivity({
+        organizationId,
+        userId,
+        activityType,
+        entityType: 'deal',
+        entityId: dealId,
+        entityName: name, // Log with new name
+        details: activityDetails,
+      });
+    }
 
     const stmtUpdatedDeal = db.prepare(`
         SELECT d.*,
-               (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt))
+               (SELECT json_group_array(json_object('id', n.id, 'content', n.content, 'createdAt', n.createdAt, 'organizationId', n.organizationId, 'companyId', n.companyId, 'contactId', n.contactId, 'dealId', n.dealId))
                 FROM Notes n WHERE n.dealId = d.id AND n.organizationId = d.organizationId ORDER BY n.createdAt DESC) as notes_json
         FROM Deals d
         WHERE d.id = ? AND d.organizationId = ?
@@ -154,7 +172,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
-    // Fetch deal name for logging
     const dealCheckStmt = db.prepare('SELECT name FROM Deals WHERE id = ? AND organizationId = ?');
     const dealToDeleteData = dealCheckStmt.get(dealId, organizationId) as { name: string } | undefined;
 
@@ -167,7 +184,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
       const stmtUpdateTasks = db.prepare('UPDATE Tasks SET relatedDealId = NULL WHERE relatedDealId = ? AND organizationId = ?');
       stmtUpdateTasks.run(dealId, organizationId);
 
-      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE dealId = ? AND organizationId = ?'); // Also delete associated notes
+      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE dealId = ? AND organizationId = ?'); 
       stmtDeleteNotes.run(dealId, organizationId);
 
       const stmtDeleteDeal = db.prepare('DELETE FROM Deals WHERE id = ? AND organizationId = ?');
@@ -180,7 +197,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
       }
     })();
 
-    // Log activity
     await logActivity({
       organizationId,
       userId,
@@ -200,3 +216,5 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
     return NextResponse.json({ error: 'Failed to delete deal.' }, { status: 500 });
   }
 }
+
+    

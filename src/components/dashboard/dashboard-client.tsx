@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { ActivityItem } from '@/components/shared/activity-item';
 
 export function DashboardClient() {
-  const { user, organization, isAuthenticated, isLoading: authContextIsLoading } = useAuth(); // Added organization
+  const { user, organization: authOrganization, isAuthenticated, isLoading: authContextIsLoading, authenticatedFetch } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -39,7 +39,7 @@ export function DashboardClient() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   
-  const currencySymbol = organization?.currencySymbol || '$'; // Get currency symbol
+  const currencySymbol = authOrganization?.currencySymbol || '$';
 
   const TaskCardSkeleton = () => (
     <Card className="mb-3 shadow-md">
@@ -74,11 +74,15 @@ export function DashboardClient() {
     </div>
   );
 
-
   const fetchData = useCallback(async (endpoint: string, setData: React.Dispatch<React.SetStateAction<any[]>>, setLoading: React.Dispatch<React.SetStateAction<boolean>>, entityName: string) => {
+    if (!isAuthenticated) { // Check auth status before fetching
+      setLoading(false);
+      setData([]);
+      return;
+    }
     setLoading(true);
     try {
-      const response = await fetch(endpoint);
+      const response = await authenticatedFetch(endpoint); // Use authenticatedFetch
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `Failed to fetch ${entityName}` }));
         throw new Error(errorData.error || `Failed to fetch ${entityName}: ${response.statusText}`);
@@ -86,13 +90,17 @@ export function DashboardClient() {
       const data = await response.json();
       setData(data);
     } catch (err) {
-      console.error(err);
-      const message = err instanceof Error ? err.message : `An unknown error occurred fetching ${entityName}.`;
-      setError(prev => prev ? `${prev}\n${message}` : message);
+      console.error(`Error fetching ${entityName}:`, err);
+      if (err instanceof Error && err.message.includes("Session expired")) {
+        // AuthContext's authenticatedFetch would have handled logout
+      } else {
+        const message = err instanceof Error ? err.message : `An unknown error occurred fetching ${entityName}.`;
+        setError(prev => prev ? `${prev}\n${message}` : message);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, authenticatedFetch]);
 
 
   useEffect(() => {
@@ -138,7 +146,7 @@ export function DashboardClient() {
     if (!taskToDelete) return;
     const taskTitle = tasks.find(t => t.id === taskToDelete)?.title || "Task";
     try {
-      const response = await fetch(`/api/tasks/${taskToDelete}`, {
+      const response = await authenticatedFetch(`/api/tasks/${taskToDelete}`, { // Use authenticatedFetch
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -165,7 +173,7 @@ export function DashboardClient() {
     setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? updatedTask : t));
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await authenticatedFetch(`/api/tasks/${taskId}`, { // Use authenticatedFetch
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedTask),
@@ -175,7 +183,7 @@ export function DashboardClient() {
         throw new Error(errorData.error || 'Failed to update task completion');
       }
       toast({ title: "Task Status Updated", description: `Task "${task.title}" marked as ${updatedTask.completed ? 'complete' : 'incomplete'}.` });
-       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks'); // Re-fetch to ensure consistency and activity logging
+       fetchData('/api/tasks', setTasks, setIsLoadingTasks, 'tasks');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       toast({ title: "Error Updating Task", description: message, variant: "destructive" });
@@ -194,7 +202,7 @@ export function DashboardClient() {
       openDealsCount: openDeals.length,
       openDealsValue: new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: 'USD', // Base currency for Intl.NumberFormat
+        currency: 'USD', 
         currencyDisplay: 'narrowSymbol',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
@@ -327,7 +335,7 @@ export function DashboardClient() {
             <h2 className="text-xl font-semibold tracking-tight">My Tasks</h2>
             <Button
               onClick={() => handleOpenTaskModal()}
-              disabled={authContextIsLoading || isLoadingDeals || isLoadingContacts}
+              disabled={authContextIsLoading || isLoadingDeals || isLoadingContacts} // Simplified disable logic
               size="sm"
             >
               <PlusCircle className="mr-2 h-4 w-4" /> Add Task

@@ -5,6 +5,8 @@ import type { User } from '@/lib/types';
 import * as jose from 'jose';
 import bcrypt from 'bcrypt';
 import { cookies } from 'next/headers';
+import crypto from 'crypto'; // For generating secure random string
+import { generateId } from '@/lib/utils'; // For RefreshTokens table PK
 
 export async function POST(request: NextRequest) {
   console.log("API Login: POST request received");
@@ -14,9 +16,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
 
-    const { email, password, rememberMe } = await request.json(); // Added rememberMe
+    const { email, password, rememberMe = false } = await request.json();
     console.log(`API Login: Attempting login for email: ${email}, rememberMe: ${rememberMe}`);
-
 
     if (!email || !password) {
       console.warn('API Login: Email or password missing from request');
@@ -33,17 +34,10 @@ export async function POST(request: NextRequest) {
 
     let passwordMatch = false;
     try {
-      // TODO: CRITICAL SECURITY FLAW - Replace with bcrypt.compare once real hashed passwords are in DB
-      // passwordMatch = await bcrypt.compare(password, userData.hashedPassword); 
-      // For now, direct comparison due to placeholder "hashed" passwords
-      passwordMatch = password === userData.hashedPassword; 
-      console.log(`API Login: Password comparison result for ${email}: ${passwordMatch} (Using direct string compare - insecure)`);
-      if (!passwordMatch && userData.hashedPassword !== 'hashed_admin_password123' && userData.hashedPassword !== 'hashed_user_password456' && userData.hashedPassword !== 'hashed_jane_password789') {
-        // If it's not one of our known placeholder hashes, and bcrypt would have been used, log a stronger warning.
-         console.warn(`API Login: Using insecure direct password comparison. Switch to bcrypt.compare for production for user ${email}.`);
-      }
+      passwordMatch = await bcrypt.compare(password, userData.hashedPassword);
+      console.log(`API Login: Password comparison result for ${email}: ${passwordMatch}`);
     } catch (compareError) {
-        console.error('API Login: bcrypt.compare error (or error in direct comparison logic):', compareError);
+        console.error('API Login: bcrypt.compare error:', compareError);
         return NextResponse.json({ error: 'Error during password verification.' }, { status: 500 });
     }
 
@@ -53,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
     console.log(`API Login: Password matched for email: ${email}`);
 
-    const { hashedPassword, ...userToSign } = userData;
+    const { hashedPassword, ...userToReturn } = userData;
 
     if (!process.env.JWT_SECRET) {
       console.error('API Login: JWT_SECRET is not configured on the server.');
@@ -63,55 +57,83 @@ export async function POST(request: NextRequest) {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const alg = 'HS256';
 
-    // Determine token expiration based on rememberMe
-    const accessTokenExpiration = process.env.ACCESS_TOKEN_EXPIRATION_TIME || '15m';
-    const sessionCookieMaxAge = parseInt(process.env.ACCESS_TOKEN_COOKIE_MAX_AGE_SECONDS || '900', 10); // Default to access token's short expiry
+    // 1. Generate Access Token (JWT)
+    const accessTokenPayload = { 
+      sub: userToReturn.id, 
+      email: userToReturn.email, 
+      role: userToReturn.role, 
+      organizationId: userToReturn.organizationId 
+    };
+    const accessToken = await new jose.SignJWT(accessTokenPayload)
+      .setProtectedHeader({ alg })
+      .setIssuedAt()
+      .setExpirationTime(process.env.ACCESS_TOKEN_LIFESPAN_STRING || '15m')
+      .sign(secret);
+    console.log(`API Login: Access Token generated for user: ${userToReturn.email}`);
 
-    // For this step, we are still using one "session" token.
-    // In the next step, we will differentiate access and refresh tokens.
-    // If "Remember Me" is checked, we'll use a longer expiry for this single session token for now.
-    // This will be replaced by a proper refresh token mechanism.
-    const effectiveExpiration = rememberMe ? (process.env.REFRESH_TOKEN_EXPIRATION_TIME || '7d') : accessTokenExpiration;
-    const effectiveMaxAge = rememberMe ? parseInt(process.env.REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS || '604800', 10) : sessionCookieMaxAge;
+    // 2. Generate Refresh Token (Secure Random String)
+    const rawRefreshToken = crypto.randomBytes(32).toString('hex');
+    const saltRounds = 10;
+    const hashedRefreshTokenForDB = await bcrypt.hash(rawRefreshToken, saltRounds);
+    const refreshTokenId = generateId(); // For RefreshTokens table PK
 
-    console.log(`API Login: Effective token expiration: ${effectiveExpiration}, MaxAge for cookie: ${effectiveMaxAge}s`);
+    const refreshTokenDbLifespanSeconds = rememberMe
+      ? parseInt(process.env.LONG_REFRESH_TOKEN_DB_LIFESPAN_SECONDS || '604800') // Default 7 days
+      : parseInt(process.env.SHORT_REFRESH_TOKEN_DB_LIFESPAN_SECONDS || '86400'); // Default 1 day
+      
+    const refreshTokenExpiresAt = new Date(Date.now() + refreshTokenDbLifespanSeconds * 1000);
 
-    let jwt;
+    // 3. Store Hashed Refresh Token in DB
     try {
-      jwt = await new jose.SignJWT({
-          sub: userToSign.id,
-          email: userToSign.email,
-          role: userToSign.role,
-          organizationId: userToSign.organizationId,
-        })
-        .setProtectedHeader({ alg })
-        .setIssuedAt()
-        .setExpirationTime(effectiveExpiration) // Use determined expiration
-        .sign(secret);
-      console.log(`API Login: JWT created successfully for user: ${userToSign.email}`);
-    } catch (jwtError) {
-      console.error('API Login: Error creating JWT:', jwtError);
-      return NextResponse.json({ error: 'Failed to create session token.' }, { status: 500 });
-    }
+        const stmtDeleteOldRefreshTokens = db.prepare('DELETE FROM RefreshTokens WHERE userId = ?');
+        stmtDeleteOldRefreshTokens.run(userToReturn.id); // Clear any old refresh tokens for this user
 
-    const cookieStore = await cookies(); // As per user request and Next.js docs for async context
-    cookieStore.set('session', jwt, { // Still using 'session' for now. Will change to 'access_token' later.
+        const stmtInsertRefreshToken = db.prepare(
+            'INSERT INTO RefreshTokens (id, userId, tokenHash, expiresAt, createdAt) VALUES (?, ?, ?, ?, ?)'
+        );
+        stmtInsertRefreshToken.run(refreshTokenId, userToReturn.id, hashedRefreshTokenForDB, refreshTokenExpiresAt.toISOString(), new Date().toISOString());
+        console.log(`API Login: Refresh Token stored in DB for user: ${userToReturn.id}`);
+    } catch (dbError) {
+        console.error('API Login: Error storing refresh token in DB:', dbError);
+        return NextResponse.json({ error: 'Failed to establish a secure session.' }, { status: 500 });
+    }
+    
+    // 4. Set Cookies
+    const cookieStore = await cookies();
+
+    const accessTokenCookieMaxAge = parseInt(process.env.ACCESS_TOKEN_COOKIE_MAX_AGE_SECONDS || '900'); // 15 minutes
+    cookieStore.set('access_token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      maxAge: accessTokenCookieMaxAge,
       path: '/',
-      maxAge: effectiveMaxAge, // Use determined maxAge
+      sameSite: 'lax',
     });
-    console.log(`API Login: Session cookie set for user: ${userToSign.email} with maxAge ${effectiveMaxAge}s.`);
+    console.log(`API Login: access_token cookie set with maxAge ${accessTokenCookieMaxAge}s.`);
 
-    return NextResponse.json({ success: true, user: userToSign });
+    const refreshTokenCookieMaxAge = rememberMe
+        ? parseInt(process.env.LONG_REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS || '604800') // 7 days
+        : parseInt(process.env.SHORT_REFRESH_TOKEN_COOKIE_MAX_AGE_SECONDS || '86400'); // 1 day
+
+    cookieStore.set('refresh_token', rawRefreshToken, { // Store the raw token in cookie
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: refreshTokenCookieMaxAge,
+      path: '/api/auth/refresh-token', // IMPORTANT: Restrict path to refresh endpoint only
+      sameSite: 'strict', 
+    });
+    console.log(`API Login: refresh_token cookie set with maxAge ${refreshTokenCookieMaxAge}s for path /api/auth/refresh-token.`);
+
+    // Remove old 'session' cookie if it exists, as we are now using access_token and refresh_token
+    if (cookieStore.has('session')) {
+      console.log("API Login: Old 'session' cookie found, deleting it.");
+      cookieStore.delete('session');
+    }
+
+    return NextResponse.json({ success: true, user: userToReturn });
 
   } catch (error) {
     console.error('API Login Error:', error);
-    if (error instanceof Error && error.message.includes('bcrypt') && error.message.includes('data and salt arguments required')) {
-      console.error('API Login: bcrypt.compare failed. Ensure passwords in DB are correctly hashed and provided password is a string.');
-      return NextResponse.json({ error: 'Authentication process error. Check server logs.' }, { status: 500 });
-    }
     if (error instanceof Error && (error as any).code && typeof (error as any).code === 'string' && (error as any).code.startsWith('SQLITE_')) {
         console.error(`API Login: SQLite Error - Code: ${(error as any).code}, Message: ${error.message}`);
         return NextResponse.json({ error: `Database operation failed: ${error.message}` }, { status: 500 });

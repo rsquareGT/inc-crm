@@ -4,7 +4,7 @@
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback }
   from 'react';
-import { useRouter } from 'nextjs-toploader/app';
+import { useRouter } from 'next/navigation'; // Using standard Next.js router
 import type { User, Organization } from '@/lib/types';
 
 interface AuthContextType {
@@ -12,7 +12,7 @@ interface AuthContextType {
   organization: Organization | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>; // Added rememberMe
   logout: () => Promise<void>;
   fetchUser: (isInitialLoad?: boolean) => Promise<void>;
 }
@@ -22,14 +22,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start true for initial load
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   const fetchUser = useCallback(async (isInitialLoad = false) => {
     console.log(`AuthContext: fetchUser called. isInitialLoad: ${isInitialLoad}`);
-    if (isInitialLoad) {
-        setIsLoading(true); // Ensure loading is true for initial determination
-    }
+    // setIsLoading(true) should ideally only be set by the initial mount effect or explicitly by login/logout
 
     try {
       const response = await fetch('/api/auth/me');
@@ -39,7 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userData.success && userData.user) {
           setUser(userData.user);
           console.log('AuthContext: User set from /api/auth/me:', userData.user.email);
-          // Fetch organization details if user is set and has organizationId
           if (userData.user.organizationId) {
             try {
               const orgResponse = await fetch(`/api/organizations/${userData.user.organizationId}`);
@@ -56,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setOrganization(null);
             }
           } else {
-            setOrganization(null); // No organizationId for user
+            setOrganization(null);
           }
         } else {
           setUser(null);
@@ -73,58 +70,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setOrganization(null);
     } finally {
-      // Only set global isLoading to false if it was the initial determination call
       if (isInitialLoad) {
         setIsLoading(false);
         console.log('AuthContext: fetchUser (initial load) finished, isLoading set to false.');
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Keep empty if fetchUser doesn't depend on context's own state like isLoading
 
   useEffect(() => {
-    console.log("AuthContext: AuthProvider mounted. Calling initial fetchUser.");
-    fetchUser(true); // True indicates this is the initial auth check on mount
+    console.log("AuthContext: AuthProvider mounted. Setting isLoading true and calling initial fetchUser.");
+    setIsLoading(true); // Set loading true before initial fetch
+    fetchUser(true); 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // fetchUser has stable identity due to useCallback with empty deps
 
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    console.log(`AuthContext: login called for ${email}`);
-    // Form can manage its own button loading state. Context isLoading is for initial page load.
+  const login = async (email: string, password: string, rememberMe: boolean = false): Promise<boolean> => { // Added rememberMe
+    console.log(`AuthContext: login called for ${email}, rememberMe: ${rememberMe}`);
+    // Do not set context's isLoading to true here, LoginForm manages its own submit state.
     try {
       console.log('AuthContext: Calling /api/auth/login...');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }), // Pass rememberMe
       });
       const data = await response.json();
       console.log(`AuthContext: /api/auth/login response status: ${response.status}`, data);
 
       if (response.ok && data.success && data.user) {
-        console.log('AuthContext: /api/auth/login successful. User data received.');
-        setUser(data.user); // Set user directly
+        console.log('AuthContext: /api/auth/login successful. User data received. Directly setting user.');
+        setUser(data.user); // Set user immediately from login response
         if (data.user.organizationId) {
-          try {
-            const orgResponse = await fetch(`/api/organizations/${data.user.organizationId}`);
-            if (orgResponse.ok) {
-              const orgData = await orgResponse.json();
-              setOrganization(orgData);
-              console.log('AuthContext: Organization details fetched post-login:', orgData.name);
-            } else {
-              console.warn(`AuthContext: Failed to fetch organization details post-login. Status: ${orgResponse.status}`);
+          // Fetch organization in background, not blocking login success reporting
+          fetch(`/api/organizations/${data.user.organizationId}`)
+            .then(async (orgResponse) => {
+              if (orgResponse.ok) {
+                const orgData = await orgResponse.json();
+                setOrganization(orgData);
+                console.log('AuthContext: Organization details fetched post-login:', orgData.name);
+              } else {
+                console.warn(`AuthContext: Failed to fetch organization details post-login. Status: ${orgResponse.status}`);
+                setOrganization(null);
+              }
+            })
+            .catch(orgError => {
+              console.error('AuthContext: Error fetching organization details post-login:', orgError);
               setOrganization(null);
-            }
-          } catch (orgError) {
-            console.error('AuthContext: Error fetching organization details post-login:', orgError);
-            setOrganization(null);
-          }
+            });
         } else {
           setOrganization(null);
         }
-        if (isLoading) setIsLoading(false);
-        return true;
+        // If login happens during initial context loading, ensure isLoading is set to false
+        if (isLoading) setIsLoading(false); 
+        return true; // Login API succeeded and user data obtained
       } else {
         console.warn('AuthContext: /api/auth/login failed or data.success was false or no user data.');
         setUser(null);
@@ -137,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setOrganization(null);
       if (isLoading) setIsLoading(false);
-      throw error;
+      throw error; // Re-throw to be caught by LoginForm
     }
   };
 
@@ -145,6 +144,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('AuthContext: logout called.');
     setUser(null);
     setOrganization(null);
+    // Context isLoading isn't directly relevant for logout action itself,
+    // but can be set true if there's an intermediate state before redirect.
+    // For simplicity, we immediately update state and then call API.
     try {
       console.log('AuthContext: Calling /api/auth/logout...');
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -153,23 +155,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('AuthContext: Logout API call failed:', error);
     } finally {
       console.log('AuthContext: Pushing to /login.');
-      router.push('/login');
-      // No need to manually set isLoading here as the login page will re-evaluate auth.
+      router.push('/login'); // Redirect after clearing state and calling API
     }
   };
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && user) { // Only re-fetch if user was previously loaded
+      if (document.visibilityState === 'visible' && user && !isLoading) { 
         console.log('AuthContext: Tab became visible, re-fetching user and organization.');
-        fetchUser(false); // false indicates it's a revalidation, not initial load
+        fetchUser(false); 
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchUser, user]); // Add user to dep array
+  }, [fetchUser, user, isLoading]);
 
   return (
     <AuthContext.Provider value={{ user, organization, isAuthenticated: !!user, isLoading, login, logout, fetchUser }}>

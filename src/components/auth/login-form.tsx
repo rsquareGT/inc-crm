@@ -5,10 +5,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'nextjs-toploader/app';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox'; // Added
 import { Loader2, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 const loginSchema = z.object({
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
   password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional().default(false), // Added
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -26,38 +28,41 @@ export function LoginForm() {
   const { toast } = useToast();
   
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const [loginApiSuccess, setLoginApiSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  // Ref to track if redirect has been initiated by useEffect to prevent multiple pushes
   const redirectInitiated = useRef(false);
 
 
   const {
     register,
     handleSubmit,
+    control, // Needed for Checkbox
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     }
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    console.log("LoginForm: onSubmit called");
+    console.log("LoginForm: onSubmit called with data:", data);
     setIsSubmittingForm(true);
+    setLoginApiSuccess(false);
     setFormError(null);
-    redirectInitiated.current = false; // Reset redirect flag on new attempt
+    redirectInitiated.current = false;
 
     try {
-      const loginSuccessful = await contextLogin(data.email, data.password);
+      const loginSuccessful = await contextLogin(data.email, data.password, data.rememberMe); // Pass rememberMe
       if (loginSuccessful) {
         console.log("LoginForm: contextLogin reported success. Waiting for context update and redirect effect.");
-        // Redirection is now handled by useEffect watching isAuthenticated
+        setLoginApiSuccess(true); 
+        // Redirection is handled by useEffect watching isAuthenticated
       } else {
-        // This case means contextLogin itself determined session verification failed post-API call
-        setFormError('Login successful, but failed to verify session. Please try again.');
-        console.warn("LoginForm: contextLogin reported failure to verify session.");
+        setFormError('Login successful by API, but failed to verify session via context. Please try again.');
+        console.warn("LoginForm: contextLogin reported failure to verify session after API success.");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unexpected error occurred during login.';
@@ -66,38 +71,33 @@ export function LoginForm() {
       console.error("LoginForm: contextLogin threw an error:", error);
     } finally {
       // Only set submitting to false if redirect hasn't been triggered by useEffect
-      // This will be re-evaluated by the useEffect for isAuthenticated
-      if (!redirectInitiated.current) {
+      // This state will be re-evaluated by the button text logic
+      if (!redirectInitiated.current && !loginApiSuccess) {
          setIsSubmittingForm(false);
       }
     }
   };
   
   useEffect(() => {
-    console.log(`LoginForm useEffect: isAuthenticated: ${isAuthenticated}, authContextLoading: ${authContextLoading}, redirectInitiated: ${redirectInitiated.current}`);
-    // Redirect if authenticated, not in initial context loading, and redirect not already started
-    if (isAuthenticated && !authContextLoading && !redirectInitiated.current) {
+    console.log(`LoginForm useEffect: isAuthenticated: ${isAuthenticated}, authContextLoading: ${authContextLoading}, loginApiSuccess: ${loginApiSuccess}, authUser: ${!!authUser}, redirectInitiated: ${redirectInitiated.current}`);
+    if (loginApiSuccess && isAuthenticated && !authContextLoading && authUser && !redirectInitiated.current) {
       console.log("LoginForm useEffect: Conditions met for redirect. Attempting redirect to /dashboard.");
-      redirectInitiated.current = true; // Set flag before pushing
-      setIsSubmittingForm(true); // Keep button disabled while redirecting
+      redirectInitiated.current = true; 
       router.push('/dashboard');
-    } else if (!isAuthenticated && !authContextLoading && redirectInitiated.current) {
-      // If somehow redirect was initiated but auth state reverted before push completed (unlikely but safeguard)
-      console.warn("LoginForm useEffect: Redirect was initiated but auth state is false. Resetting redirectInitiated.");
-      redirectInitiated.current = false;
-      setIsSubmittingForm(false);
     }
-  }, [isAuthenticated, authContextLoading, router]);
+  }, [isAuthenticated, authContextLoading, authUser, loginApiSuccess, router]);
 
 
   let buttonText = "Sign In";
   let buttonIcon = <LogIn className="mr-2 h-4 w-4" />;
 
   if (isSubmittingForm) {
-    if (redirectInitiated.current) { // If redirect has been flagged by useEffect
-        buttonText = "Redirecting...";
-    } else { // API call in progress, or waiting for context update before redirect effect runs
-        buttonText = "Signing In...";
+    if (loginApiSuccess && !redirectInitiated.current) {
+      buttonText = "Validated. Please wait...";
+    } else if (redirectInitiated.current) {
+      buttonText = "Redirecting...";
+    } else {
+      buttonText = "Validating User...";
     }
     buttonIcon = <Loader2 className="mr-2 h-4 w-4 animate-spin" />;
   }
@@ -133,6 +133,12 @@ export function LoginForm() {
           className={errors.password || formError ? 'border-destructive' : ''}
         />
         {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
+      </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox id="rememberMe" {...register('rememberMe')} disabled={isSubmittingForm} />
+        <Label htmlFor="rememberMe" className="text-sm font-normal text-muted-foreground">
+          Remember me
+        </Label>
       </div>
       <Button type="submit" className="w-full" disabled={isSubmittingForm}>
         {buttonIcon}

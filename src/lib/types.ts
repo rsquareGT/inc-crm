@@ -120,7 +120,7 @@ export interface Organization {
   postalCode?: string;
   country?: string;
   currencySymbol?: string;
-  timezone?: string; // Added timezone
+  timezone?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -138,6 +138,14 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RefreshToken {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  expiresAt: string; // ISO date string
+  createdAt: string; // ISO date string
 }
 
 export type ActivityEntityType = 'contact' | 'company' | 'deal' | 'task' | 'note' | 'organization' | 'user';

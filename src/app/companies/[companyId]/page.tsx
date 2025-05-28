@@ -32,7 +32,7 @@ async function getCompanyInitialData(companyId: string): Promise<{ company: Comp
 
 
 export default async function CompanyDetailsPage({ params }: CompanyDetailsPageProps) {
-  const { companyId } = params;
+  const { companyId } = await params;
   // const { company } = await getCompanyInitialData(companyId); // Server-side fetch example
   // For this phase, we'll primarily rely on client-side fetching within CompanyDetailsClient.
   // Passing companyId to the client component is sufficient for it to fetch its own data.
@@ -48,10 +48,10 @@ export default async function CompanyDetailsPage({ params }: CompanyDetailsPageP
         companyId={companyId}
         // initialCompany={company} // Pass if using server-side fetch
         // For now, these are fetched client-side or use mocks
-        // initialContacts={[]} 
+        // initialContacts={[]}
         // initialDeals={[]}
-        // allCompanies={[]} 
-        // allContacts={[]} 
+        // allCompanies={[]}
+        // allContacts={[]}
       />
     </AppPageShell>
   );

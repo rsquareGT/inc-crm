@@ -8,7 +8,7 @@ import { logActivity } from '@/services/activity-logger'; // Added
 // POST a new note for a contact, ensuring contact belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { contactId: string } }) {
   try {
-    const { contactId } = params;
+    const { contactId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id'); // For activity logging
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, { params }: { params: { contact
       contactId: contactId,
       organizationId: organizationId,
     };
-    
+
     // Log activity
     await logActivity({
       organizationId,

@@ -7,7 +7,7 @@ import { logActivity } from '@/services/activity-logger';
 // GET a single contact by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { contactId: string } }) {
   try {
-    const { contactId } = params;
+    const { contactId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
@@ -77,9 +77,9 @@ export async function GET(request: NextRequest, { params }: { params: { contactI
 // PUT (update) an existing contact, ensuring it belongs to the user's organization
 export async function PUT(request: NextRequest, { params }: { params: { contactId: string } }) {
   try {
-    const { contactId } = params;
+    const { contactId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id'); 
+    const userId = request.headers.get('x-user-id');
 
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
@@ -146,7 +146,7 @@ export async function PUT(request: NextRequest, { params }: { params: { contactI
         activityType: 'updated_contact',
         entityType: 'contact',
         entityId: contactId,
-        entityName: `${firstName} ${lastName}`, 
+        entityName: `${firstName} ${lastName}`,
         details: { changes }
       });
     }
@@ -205,9 +205,9 @@ export async function PUT(request: NextRequest, { params }: { params: { contactI
 // DELETE a contact, ensuring it belongs to the user's organization
 export async function DELETE(request: NextRequest, { params }: { params: { contactId: string } }) {
   try {
-    const { contactId } = params;
+    const { contactId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id'); 
+    const userId = request.headers.get('x-user-id');
 
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
@@ -216,7 +216,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
-    
+
     const contactCheckStmt = db.prepare('SELECT firstName, lastName FROM Contacts WHERE id = ? AND organizationId = ?');
     const contactToDeleteData = contactCheckStmt.get(contactId, organizationId) as { firstName: string; lastName: string } | undefined;
 
@@ -231,7 +231,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
 
       const stmtUpdateDeals = db.prepare('UPDATE Deals SET contactId = NULL WHERE contactId = ? AND organizationId = ?');
       stmtUpdateDeals.run(contactId, organizationId);
-      
+
       const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE contactId = ? AND organizationId = ?');
       stmtDeleteNotes.run(contactId, organizationId);
 
@@ -251,7 +251,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
       activityType: 'deleted_contact',
       entityType: 'contact',
       entityId: contactId,
-      entityName: contactName, 
+      entityName: contactName,
     });
 
     return NextResponse.json({ message: 'Contact deleted successfully' }, { status: 200 });
@@ -264,5 +264,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { conta
     return NextResponse.json({ error: 'Failed to delete contact.' }, { status: 500 });
   }
 }
-
-    

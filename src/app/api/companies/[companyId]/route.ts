@@ -7,7 +7,7 @@ import { logActivity } from '@/services/activity-logger';
 // GET a single company by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { companyId: string } }) {
   try {
-    const { companyId } = params;
+    const { companyId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: { companyI
 export async function PUT(request: NextRequest, { params }: { params: { companyId: string } }) {
   console.log(`API PUT /api/companies/${params.companyId} - Request received`);
   try {
-    const { companyId } = params;
+    const { companyId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 
@@ -192,7 +192,7 @@ export async function PUT(request: NextRequest, { params }: { params: { companyI
 export async function DELETE(request: NextRequest, { params }: { params: { companyId: string } }) {
   console.log(`API DELETE /api/companies/${params.companyId} - Request received`);
   try {
-    const { companyId } = params;
+    const { companyId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 
@@ -221,7 +221,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { compa
 
       const stmtUpdateDeals = db.prepare('UPDATE Deals SET companyId = NULL WHERE companyId = ? AND organizationId = ?');
       stmtUpdateDeals.run(companyId, organizationId);
-      
+
       const stmtDeleteCompany = db.prepare('DELETE FROM Companies WHERE id = ? AND organizationId = ?');
       const result = stmtDeleteCompany.run(companyId, organizationId);
 
@@ -254,5 +254,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { compa
     return NextResponse.json({ error: 'Failed to delete company.' }, { status: 500 });
   }
 }
-
-    

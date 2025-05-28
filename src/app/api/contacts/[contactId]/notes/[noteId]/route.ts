@@ -6,14 +6,14 @@ import { logActivity } from '@/services/activity-logger'; // Added
 // DELETE a note for a contact, ensuring note belongs to user's organization
 export async function DELETE(request: NextRequest, { params }: { params: { contactId: string, noteId: string } }) {
   try {
-    const { contactId, noteId } = params;
+    const { contactId, noteId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id'); // For activity logging
-    
+
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
     }
-    
+
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }

@@ -8,7 +8,7 @@ import { logActivity } from '@/services/activity-logger';
 // POST a new note for a deal, ensuring deal belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
-    const { dealId } = params;
+    const { dealId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 

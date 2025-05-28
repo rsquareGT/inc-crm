@@ -57,13 +57,15 @@ export async function POST(request: NextRequest) {
         break;
       }
     }
-    
+
+const cookieStore = await cookies();
+
     if (!dbTokenRecord || !matchedUserId) {
       console.warn('API Refresh Token: Refresh token not found in DB or hash mismatch.');
       // Clear potentially compromised/invalid cookies
       const clearResponse = NextResponse.json({ error: 'Invalid refresh token.' }, { status: 401 });
-      clearResponse.cookies.delete(ACCESS_TOKEN_NAME, { path: '/' });
-      clearResponse.cookies.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
+      cookieStore.delete(ACCESS_TOKEN_NAME, { path: '/' });
+      cookieStore.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
       return clearResponse;
     }
 
@@ -72,8 +74,8 @@ export async function POST(request: NextRequest) {
       console.warn(`API Refresh Token: Refresh token for user ${matchedUserId} has expired.`);
       db.prepare('DELETE FROM RefreshTokens WHERE id = ?').run(dbTokenRecord.id); // Clean up expired token
       const clearResponse = NextResponse.json({ error: 'Refresh token expired.' }, { status: 401 });
-      clearResponse.cookies.delete(ACCESS_TOKEN_NAME, { path: '/' });
-      clearResponse.cookies.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
+      cookieStore.delete(ACCESS_TOKEN_NAME, { path: '/' });
+      cookieStore.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
       return clearResponse;
     }
 
@@ -86,18 +88,18 @@ export async function POST(request: NextRequest) {
       // This case should ideally not happen if FK constraints are working.
       db.prepare('DELETE FROM RefreshTokens WHERE id = ?').run(dbTokenRecord.id); // Clean up orphaned token
       const clearResponse = NextResponse.json({ error: 'User associated with token not found.' }, { status: 401 });
-      clearResponse.cookies.delete(ACCESS_TOKEN_NAME, { path: '/' });
-      clearResponse.cookies.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
+      cookieStore.delete(ACCESS_TOKEN_NAME, { path: '/' });
+      cookieStore.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
       return clearResponse;
     }
 
     const secret = new TextEncoder().encode(JWT_SECRET);
     const alg = 'HS256';
-    const accessTokenPayload = { 
-      sub: userData.id, 
-      email: userData.email, 
-      role: userData.role, 
-      organizationId: userData.organizationId 
+    const accessTokenPayload = {
+      sub: userData.id,
+      email: userData.email,
+      role: userData.role,
+      organizationId: userData.organizationId
     };
     const newAccessToken = await new jose.SignJWT(accessTokenPayload)
       .setProtectedHeader({ alg })
@@ -108,9 +110,9 @@ export async function POST(request: NextRequest) {
     console.log(`API Refresh Token: New access token generated for user: ${userData.email}`);
 
     const response = NextResponse.json({ success: true, message: 'Token refreshed successfully.' });
-    
+
     const accessTokenCookieMaxAge = parseInt(process.env.ACCESS_TOKEN_COOKIE_MAX_AGE_SECONDS || '900'); // 15 minutes
-    response.cookies.set(ACCESS_TOKEN_NAME, newAccessToken, {
+    cookieStore.set(ACCESS_TOKEN_NAME, newAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: accessTokenCookieMaxAge,
@@ -131,8 +133,8 @@ export async function POST(request: NextRequest) {
     }
     // Generic error, clear cookies as a precaution
     const errorResponse = NextResponse.json({ error: 'An internal server error occurred during token refresh.' }, { status: 500 });
-    errorResponse.cookies.delete(ACCESS_TOKEN_NAME, { path: '/' });
-    errorResponse.cookies.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
+    cookieStore.delete(ACCESS_TOKEN_NAME, { path: '/' });
+    cookieStore.delete(REFRESH_TOKEN_NAME, { path: '/api/auth/refresh-token' });
     return errorResponse;
   }
 }

@@ -1,11 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'nextjs-toploader/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,10 +25,11 @@ export function LoginForm() {
   const router = useRouter();
   const { login: contextLogin, isAuthenticated, user: authUser, isLoading: authContextLoading } = useAuth();
   const { toast } = useToast();
-  
+
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [loginApiSuccess, setLoginApiSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [buttonText, setButtonText] = useState("Sign In");
   const redirectInitiated = useRef(false);
 
 
@@ -58,7 +58,7 @@ export function LoginForm() {
       const loginSuccessful = await contextLogin(data.email, data.password, data.rememberMe); // Pass rememberMe
       if (loginSuccessful) {
         console.log("LoginForm: contextLogin reported success. Waiting for context update and redirect effect.");
-        setLoginApiSuccess(true); 
+        setLoginApiSuccess(true);
         // Redirection is handled by useEffect watching isAuthenticated
       } else {
         setFormError('Login successful by API, but failed to verify session via context. Please try again.');
@@ -77,30 +77,29 @@ export function LoginForm() {
       }
     }
   };
-  
+
   useEffect(() => {
     console.log(`LoginForm useEffect: isAuthenticated: ${isAuthenticated}, authContextLoading: ${authContextLoading}, loginApiSuccess: ${loginApiSuccess}, authUser: ${!!authUser}, redirectInitiated: ${redirectInitiated.current}`);
     if (loginApiSuccess && isAuthenticated && !authContextLoading && authUser && !redirectInitiated.current) {
       console.log("LoginForm useEffect: Conditions met for redirect. Attempting redirect to /dashboard.");
-      redirectInitiated.current = true; 
+      redirectInitiated.current = true;
       router.push('/dashboard');
     }
   }, [isAuthenticated, authContextLoading, authUser, loginApiSuccess, router]);
 
-
-  let buttonText = "Sign In";
-  let buttonIcon = <LogIn className="mr-2 h-4 w-4" />;
-
-  if (isSubmittingForm) {
-    if (loginApiSuccess && !redirectInitiated.current) {
-      buttonText = "Validated. Please wait...";
-    } else if (redirectInitiated.current) {
-      buttonText = "Redirecting...";
+  useEffect(() => {
+    if (isSubmittingForm) {
+      if (loginApiSuccess && !redirectInitiated.current) {
+        setButtonText("Validated. Please wait...");
+      } else if (redirectInitiated.current) {
+        setButtonText("Redirecting...");
+      } else {
+        setButtonText("Validating User...");
+      }
     } else {
-      buttonText = "Validating User...";
+      setButtonText("Sign In");
     }
-    buttonIcon = <Loader2 className="mr-2 h-4 w-4 animate-spin" />;
-  }
+  }, [isSubmittingForm, loginApiSuccess, redirectInitiated.current]);
 
 
   return (
@@ -141,7 +140,7 @@ export function LoginForm() {
         </Label>
       </div>
       <Button type="submit" className="w-full" disabled={isSubmittingForm}>
-        {buttonIcon}
+        {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
         {buttonText}
       </Button>
     </form>

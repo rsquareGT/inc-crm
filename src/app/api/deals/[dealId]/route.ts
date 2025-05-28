@@ -7,7 +7,7 @@ import { logActivity } from '@/services/activity-logger';
 // GET a single deal by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
-    const { dealId } = params;
+    const { dealId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: { dealId: 
 // PUT (update) an existing deal, ensuring it belongs to the user's organization
 export async function PUT(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
-    const { dealId } = params;
+    const { dealId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 
@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
     if ((currentDealData.expectedCloseDate || null) !== (expectedCloseDate || null)) changes.push({ field: 'Expected Close Date', oldValue: currentDealData.expectedCloseDate, newValue: expectedCloseDate || null });
     if ((currentDealData.description || null) !== (description || null)) changes.push({ field: 'Description', oldValue: currentDealData.description, newValue: description || null });
     if (JSON.stringify(currentDealData.tags || []) !== JSON.stringify(tags || [])) changes.push({ field: 'Tags', oldValue: currentDealData.tags, newValue: tags || [] });
-    
+
     // If only stage changed, details might be redundant if captured by activityType already.
     // But for consistency, we can include it.
     let activityDetails: Record<string, any> = { changes };
@@ -160,7 +160,7 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
 // DELETE a deal, ensuring it belongs to the user's organization
 export async function DELETE(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
-    const { dealId } = params;
+    const { dealId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 
@@ -184,7 +184,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
       const stmtUpdateTasks = db.prepare('UPDATE Tasks SET relatedDealId = NULL WHERE relatedDealId = ? AND organizationId = ?');
       stmtUpdateTasks.run(dealId, organizationId);
 
-      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE dealId = ? AND organizationId = ?'); 
+      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE dealId = ? AND organizationId = ?');
       stmtDeleteNotes.run(dealId, organizationId);
 
       const stmtDeleteDeal = db.prepare('DELETE FROM Deals WHERE id = ? AND organizationId = ?');
@@ -216,5 +216,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
     return NextResponse.json({ error: 'Failed to delete deal.' }, { status: 500 });
   }
 }
-
-    

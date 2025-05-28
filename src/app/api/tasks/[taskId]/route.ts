@@ -7,7 +7,7 @@ import { logActivity } from '@/services/activity-logger';
 // GET a single task by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { taskId: string } }) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
@@ -40,9 +40,9 @@ export async function GET(request: NextRequest, { params }: { params: { taskId: 
 // PUT (update) an existing task, ensuring it belongs to the user's organization
 export async function PUT(request: NextRequest, { params }: { params: { taskId: string } }) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id'); 
+    const userId = request.headers.get('x-user-id');
 
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
@@ -142,9 +142,9 @@ export async function PUT(request: NextRequest, { params }: { params: { taskId: 
 // DELETE a task, ensuring it belongs to the user's organization
 export async function DELETE(request: NextRequest, { params }: { params: { taskId: string } }) {
   try {
-    const { taskId } = params;
+    const { taskId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id'); 
+    const userId = request.headers.get('x-user-id');
 
     if (!organizationId || !userId) {
       return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
@@ -185,5 +185,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { taskI
     return NextResponse.json({ error: 'Failed to delete task.' }, { status: 500 });
   }
 }
-
-    

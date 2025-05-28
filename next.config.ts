@@ -2,6 +2,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  reactStrictMode: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -12,16 +13,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'placehold.co',
+        hostname: '*',
         port: '',
         pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '2020i.com',
-        port: '',
-        pathname: '/**',
-      },
+      }
     ],
   },
 };

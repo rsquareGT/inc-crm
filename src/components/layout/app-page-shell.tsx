@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -12,7 +11,8 @@ interface AppPageShellProps {
 }
 
 export function AppPageShell({ children }: AppPageShellProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading,user } = useAuth();
+
   const router = useRouter();
 
   useEffect(() => {
@@ -24,6 +24,7 @@ export function AppPageShell({ children }: AppPageShellProps) {
     }
   }, [isAuthenticated, isLoading, router]);
 
+  // Show nothing while loading to avoid flash
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">

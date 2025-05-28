@@ -42,9 +42,10 @@ export async function POST(request: NextRequest) {
 
 
     const response = NextResponse.json({ success: true, message: 'Logged out successfully' });
-    
+
+
     // Clear access_token cookie
-    response.cookies.set(ACCESS_TOKEN_NAME, '', {
+    cookieStore.set(ACCESS_TOKEN_NAME, '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     console.log("API Logout: access_token cookie cleared.");
 
     // Clear refresh_token cookie
-    response.cookies.set(REFRESH_TOKEN_NAME, '', {
+    cookieStore.set(REFRESH_TOKEN_NAME, '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -62,11 +63,11 @@ export async function POST(request: NextRequest) {
       expires: new Date(0), // Set expiry to the past
     });
     console.log("API Logout: refresh_token cookie cleared.");
-    
+
     // Remove old 'session' cookie if it exists
     if (cookieStore.has('session')) {
         console.log("API Logout: Old 'session' cookie found, deleting it.");
-        response.cookies.delete('session', { path: '/', expires: new Date(0) });
+        cookieStore.delete('session', { path: '/', expires: new Date(0) });
     }
 
 

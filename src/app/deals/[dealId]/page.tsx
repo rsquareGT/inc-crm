@@ -29,7 +29,7 @@ async function getDealInitialData(dealId: string): Promise<{ deal: Deal | null }
 
 
 export default async function DealDetailsPage({ params }: DealDetailsPageProps) {
-  const { dealId } = params;
+  const { dealId } = await params;
   // const { deal } = await getDealInitialData(dealId); // Server-side fetch example
   // Passing dealId to the client component is sufficient for it to fetch its own data.
   // `allContacts`, `allCompanies`, `allDeals` are needed for form dropdowns and will be fetched by the client component.

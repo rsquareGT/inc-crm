@@ -1,9 +1,8 @@
-
 'use client';
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation'; // Standard router
+import { useRouter } from 'nextjs-toploader/app';
 import type { User, Organization } from '@/lib/types';
 
 interface AuthContextType {
@@ -56,12 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authenticatedFetch = useCallback(
     async (url: string, options?: RequestInit): Promise<Response> => {
       const originalResponse = await fetch(url, options);
+      const headers = options?.headers instanceof Headers ? options.headers : new Headers(options?.headers || {});
 
-      if (originalResponse.status === 401 && !options?.headers?.get('X-No-Refresh')) {
+      if (originalResponse.status === 401 && !headers.get('X-No-Refresh')) {
         if (!isRefreshingRef.current) {
           isRefreshingRef.current = true;
           console.log(`AuthContext: API call to ${url} resulted in 401. Attempting token refresh.`);
-          
+
           activeRefreshPromiseRef.current = fetch('/api/auth/refresh-token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-No-Refresh': 'true' },
@@ -119,67 +119,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return originalResponse;
     },
-    [logout] 
+    [logout]
   );
 
   const fetchUser = useCallback(async (isInitialLoad = false) => {
     if (isInitialLoad) {
       console.log("AuthContext: Initial fetchUser called. Setting isLoading true.");
       setIsLoading(true);
-    } else {
-      console.log("AuthContext: fetchUser called (revalidation).");
     }
-
     try {
-      const response = await authenticatedFetch('/api/auth/me', {
-        headers: isInitialLoad ? { 'X-No-Refresh': 'true' } : undefined, // Prevent refresh on very first load if token is immediately bad
-      });
-      console.log(`AuthContext: /api/auth/me response status: ${response.status}`);
+      // Add retry logic with backoff
+      let retries = 3;
+      let lastError;
 
-      if (response.ok) {
-        const userData = await response.json();
-        if (userData.success && userData.user) {
-          setUser(userData.user);
-          console.log('AuthContext: User set from /api/auth/me:', userData.user.email);
-          if (userData.user.organizationId) {
-            const orgResponse = await authenticatedFetch(`/api/organizations/${userData.user.organizationId}`);
-            if (orgResponse.ok) {
-              const orgData: Organization = await orgResponse.json();
-              setOrganization(orgData);
-            } else {
-              console.warn(`AuthContext: Failed to fetch organization details. Status: ${orgResponse.status}`);
-              setOrganization(null);
+      while (retries > 0) {
+        try {
+          const response = await authenticatedFetch('/api/auth/me', {
+            headers: isInitialLoad ? {
+                'X-No-Refresh': 'true'
+            } : undefined
+          });
+
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.success && userData.user) {
+              setUser(userData.user);
+              if (userData.user.organizationId) {
+                const orgResponse = await authenticatedFetch(`/api/organizations/${userData.user.organizationId}`);
+                if (orgResponse.ok) {
+                  const orgData = await orgResponse.json();
+                  setOrganization(orgData);
+                  return; // Success - exit retry loop
+                }
+              }
             }
-          } else {
+            // If we get here with a 200 but no valid user, clear the state
+            setUser(null);
             setOrganization(null);
+            return;
+          } else if (response.status === 401) {
+            // Clear state on definitive unauthorized
+            setUser(null);
+            setOrganization(null);
+            return;
           }
-        } else {
-          setUser(null);
-          setOrganization(null);
-          console.log('AuthContext: /api/auth/me success but no user data or success flag false.');
+          throw new Error(`Failed to fetch user: ${response.status}`);
+        } catch (err) {
+          lastError = err;
+          retries--;
+          if (retries > 0) {
+            await new Promise(res => setTimeout(res, (3 - retries) * 1000));
+          }
         }
-      } else {
-        // If /api/auth/me failed (e.g. 401 after no-refresh, or other error)
-        // and authenticatedFetch didn't throw (meaning no logout was triggered by refresh failure)
-        setUser(null);
-        setOrganization(null);
       }
-    } catch (error) {
-      console.error('AuthContext: Error in fetchUser (may have been logged out by authenticatedFetch):', error);
-      // If authenticatedFetch threw an error that caused logout, user state should be null.
-      // If it's another type of error, ensure state is cleared.
-      if (user) { // Check current state before clearing
-          setUser(null);
-          setOrganization(null);
-      }
+
+      // If we get here, all retries failed
+      console.error('AuthContext: All retries failed:', lastError);
+      setUser(null);
+      setOrganization(null);
+
     } finally {
       if (isInitialLoad) {
         setIsLoading(false);
         console.log("AuthContext: fetchUser (initial load) finished, isLoading set to false.");
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticatedFetch, user]); // user is here for the clearing logic if /me fails when user was previously set.
+  }, [authenticatedFetch]);
 
   const login = async (email: string, password: string, rememberMe: boolean = false): Promise<boolean> => {
     console.log(`AuthContext: login called for ${email}, rememberMe: ${rememberMe}`);

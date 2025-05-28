@@ -1,6 +1,6 @@
-
 import { NextResponse, type NextRequest } from 'next/server';
 import * as jose from 'jose';
+import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const ACCESS_TOKEN_NAME = 'access_token'; // Use a constant
@@ -32,7 +32,8 @@ async function verifyToken(token: string, secret: string): Promise<jose.JWTPaylo
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const accessToken = request.cookies.get(ACCESS_TOKEN_NAME)?.value;
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get(ACCESS_TOKEN_NAME)?.value;
   let userPayload: jose.JWTPayload | null = null;
 
   console.log(`Middleware: Processing request for ${pathname}`);
@@ -53,10 +54,10 @@ export async function middleware(request: NextRequest) {
     if (!PUBLIC_PAGE_PATHS.some(p => pathname.startsWith(p)) && !pathname.startsWith('/api/auth')) {
         // Only redirect if not already on a public page or auth API, to prevent redirect loops
         const response = NextResponse.redirect(new URL('/login?error=config_error', request.url));
-        response.cookies.delete(ACCESS_TOKEN_NAME);
+        cookieStore.delete(ACCESS_TOKEN_NAME);
         // Also clear refresh_token if it exists
-        if (request.cookies.has('refresh_token')) {
-            response.cookies.delete('refresh_token', { path: '/api/auth/refresh-token' });
+        if (cookieStore.has('refresh_token')) {
+            cookieStore.delete('refresh_token'); // Delete the cookie with default options
         }
         return response;
     }
@@ -94,11 +95,19 @@ export async function middleware(request: NextRequest) {
         console.log(`Middleware: No valid access token for API route ${pathname}. Allowing request for API to handle auth.`);
         return NextResponse.next();
     }
+    // Special handling for /api/auth/me when called from login page
+    if (pathname === '/api/auth/me') {
+        const referer = request.headers.get('referer');
+        if (referer?.includes('/login')) {
+            console.log('Middleware: Allowing /api/auth/me request from login page');
+            return NextResponse.next();
+        }
+    }
     // If it's a page route or /api/auth/me without a valid token
     console.log(`Middleware: No valid access token for protected path ${pathname}. Redirecting to /login.`);
     const response = NextResponse.redirect(new URL('/login', request.url));
     // Clear potentially invalid access_token. Refresh token is handled by refresh_token endpoint or login.
-    response.cookies.delete(ACCESS_TOKEN_NAME);
+    cookieStore.delete(ACCESS_TOKEN_NAME);
     return response;
   }
 
@@ -111,17 +120,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // Inject user details into request headers for backend services
-  const requestHeaders = new Headers(request.headers);
-  if (userPayload.sub) requestHeaders.set('x-user-id', userPayload.sub as string);
-  if (userPayload.email) requestHeaders.set('x-user-email', userPayload.email as string);
-  if (userPayload.role) requestHeaders.set('x-user-role', userPayload.role as string);
-  if (userPayload.organizationId) requestHeaders.set('x-user-organization-id', userPayload.organizationId as string);
-  
+  const headers: { [key: string]: string } = {};
+  if (userPayload.sub) headers['x-user-id'] = userPayload.sub as string;
+  if (userPayload.email) headers['x-user-email'] = userPayload.email as string;
+  if (userPayload.role) headers['x-user-role'] = userPayload.role as string;
+  if (userPayload.organizationId) headers['x-user-organization-id'] = userPayload.organizationId as string;
+
   console.log(`Middleware: Forwarding request for ${pathname} with user headers.`);
   return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+    headers,
   });
 }
 

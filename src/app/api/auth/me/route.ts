@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import * as jose from 'jose';
 import { db } from '@/lib/db';
 import type { User } from '@/lib/types';
+import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -18,7 +19,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Database connection error.' }, { status: 500 });
   }
 
-  const sessionToken = request.cookies.get('session')?.value;
+  const cookieStore = await cookies()
+  const sessionToken = cookieStore.get('access_token')?.value;
 
   if (!sessionToken) {
     console.log('API /me: No session token found in cookies.');

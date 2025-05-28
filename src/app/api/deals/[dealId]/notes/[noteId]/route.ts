@@ -6,7 +6,7 @@ import { logActivity } from '@/services/activity-logger';
 // DELETE a note for a deal, ensuring note belongs to user's organization
 export async function DELETE(request: NextRequest, { params }: { params: { dealId: string, noteId: string } }) {
   try {
-    const { dealId, noteId } = params;
+    const { dealId, noteId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 
@@ -17,7 +17,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
     if (!db) {
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
-    
+
     const dealCheckStmt = db.prepare('SELECT name FROM Deals WHERE id = ? AND organizationId = ?');
     const dealData = dealCheckStmt.get(dealId, organizationId) as { name: string } | undefined;
 

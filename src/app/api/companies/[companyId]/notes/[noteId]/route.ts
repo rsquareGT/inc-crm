@@ -6,7 +6,7 @@ import { logActivity } from '@/services/activity-logger';
 // DELETE a note for a company, ensuring note belongs to user's organization
 export async function DELETE(request: NextRequest, { params }: { params: { companyId: string, noteId: string } }) {
   try {
-    const { companyId, noteId } = params;
+    const { companyId, noteId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 
@@ -21,7 +21,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { compa
     // Fetch company name for logging
     const companyCheckStmt = db.prepare('SELECT name FROM Companies WHERE id = ? AND organizationId = ?');
     const companyData = companyCheckStmt.get(companyId, organizationId) as { name: string } | undefined;
-    
+
     if (!companyData) {
       return NextResponse.json({ error: 'Company not found or not authorized for note deletion' }, { status: 404 });
     }

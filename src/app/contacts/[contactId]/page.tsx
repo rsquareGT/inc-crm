@@ -16,8 +16,8 @@ interface ContactDetailsPageProps {
 // The getContactData function based on mock data is no longer needed.
 // ContactDetailsClient will handle client-side fetching.
 
-export default function ContactDetailsPage({ params }: ContactDetailsPageProps) {
-  const { contactId } = params;
+export default async function ContactDetailsPage({ params }: ContactDetailsPageProps) {
+  const { contactId } = await params;
 
   // ContactDetailsClient will fetch its own data using the contactId.
   // No initial data needs to be passed from here other than the ID.

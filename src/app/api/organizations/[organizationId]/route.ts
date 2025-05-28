@@ -6,11 +6,12 @@ import { logActivity } from '@/services/activity-logger';
 
 // GET an organization by ID
 export async function GET(request: NextRequest, { params }: { params: { organizationId: string } }) {
-  console.log(`API GET /api/organizations/${params.organizationId} - Request received`);
+
   try {
-    const { organizationId } = params;
+    const { organizationId } = await params;
     const requestingOrgId = request.headers.get('x-user-organization-id');
-    
+    console.log(`API GET /api/organizations/${organizationId} - Request received`);
+
     if (!requestingOrgId) {
         console.warn(`API GET /api/organizations/${organizationId}: Unauthorized: Organization ID missing from session.`);
         return NextResponse.json({ error: 'Unauthorized: Organization ID missing from session.' }, { status: 401 });
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { organiza
         console.warn(`API GET /api/organizations/${organizationId}: Forbidden: User from org ${requestingOrgId} trying to access org ${organizationId}.`);
         return NextResponse.json({ error: 'Forbidden: You can only view your own organization.' }, { status: 403 });
     }
-    
+
     if (!db) {
       console.error(`API GET /api/organizations/${organizationId}: Database connection is not available`);
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: { organiza
 export async function PUT(request: NextRequest, { params }: { params: { organizationId: string } }) {
   console.log(`API PUT /api/organizations/${params.organizationId} - Request received`);
   try {
-    const { organizationId: targetOrgId } = params;
+    const { organizationId: targetOrgId } = await params;
     const requestingUserId = request.headers.get('x-user-id');
     const requestingOrgId = request.headers.get('x-user-organization-id');
     const userRole = request.headers.get('x-user-role');
@@ -59,12 +60,12 @@ export async function PUT(request: NextRequest, { params }: { params: { organiza
       console.warn(`API PUT /api/organizations/${targetOrgId}: Forbidden: User ${requestingUserId} (role: ${userRole}) is not an admin.`);
       return NextResponse.json({ error: 'Forbidden: Only admins can update organization details.' }, { status: 403 });
     }
-    
+
     if (targetOrgId !== requestingOrgId) {
       console.warn(`API PUT /api/organizations/${targetOrgId}: Forbidden: Admin ${requestingUserId} from org ${requestingOrgId} trying to update different org ${targetOrgId}.`);
       return NextResponse.json({ error: 'Forbidden: Admins can only update their own organization.' }, { status: 403 });
     }
-    
+
     if (!db) {
       console.error(`API PUT /api/organizations/${targetOrgId}: Database connection is not available`);
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
@@ -108,14 +109,14 @@ export async function PUT(request: NextRequest, { params }: { params: { organiza
         const unchangedOrganization = stmtUnchangedOrg.get(targetOrgId) as Organization;
         return NextResponse.json(unchangedOrganization); // Return current data if no changes
     }
-    
+
     const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const values = [...Object.values(updates), targetOrgId];
 
     const stmtUpdate = db.prepare(
       `UPDATE Organizations SET ${setClauses} WHERE id = ?`
     );
-    
+
     const result = stmtUpdate.run(...values);
 
     if (result.changes === 0) {
@@ -123,15 +124,15 @@ export async function PUT(request: NextRequest, { params }: { params: { organiza
       // This might happen if ID is wrong, but currentOrgData check should prevent it.
       return NextResponse.json({ error: 'Organization not found or no changes made during update' }, { status: 404 });
     }
-    
+
     if (changes.length > 0) {
       await logActivity({
-        organizationId: requestingOrgId, 
+        organizationId: requestingOrgId,
         userId: requestingUserId,
         activityType: 'updated_organization',
         entityType: 'organization',
         entityId: targetOrgId,
-        entityName: updates.name || currentOrgData.name, 
+        entityName: updates.name || currentOrgData.name,
         details: { changes }
       });
     }

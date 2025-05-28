@@ -6,10 +6,12 @@ import { logActivity } from '@/services/activity-logger';
 
 // PUT (update) an existing user
 export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
-  console.log(`API PUT /api/users/${params.userId} - Request received`);
+
   try {
-    const { userId: targetUserId } = params; // ID of the user being updated
-    
+    const { userId: targetUserId } = await params; // ID of the user being updated
+
+    console.log(`API PUT /api/users/${targetUserId} - Request received`);
+
     const requestingUserId = request.headers.get('x-user-id');
     const requestingUserOrganizationId = request.headers.get('x-user-organization-id');
     const requestingUserRole = request.headers.get('x-user-role') as UserRole;
@@ -23,7 +25,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
       console.error(`API PUT /api/users/${targetUserId}: Database connection is not available`);
       return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
     }
-    
+
     const body = await request.json();
     console.log(`API PUT /api/users/${targetUserId} - Request body:`, body);
 
@@ -54,13 +56,13 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
         updates.email = email; changes.push({ field: 'Email', oldValue: currentUserData.email, newValue: email });
       }
       if (profilePictureUrl !== undefined && currentUserData.profilePictureUrl !== profilePictureUrl) { updates.profilePictureUrl = profilePictureUrl; changes.push({ field: 'Profile Picture URL', oldValue: currentUserData.profilePictureUrl, newValue: profilePictureUrl });}
-      
+
       // Users cannot change their own role, isActive status, or orgId via this self-edit profile
       if (body.role !== undefined || body.isActive !== undefined || body.organizationId !== undefined) {
          console.warn(`API PUT /api/users/${targetUserId}: User trying to update restricted fields (role, isActive, organizationId) for self.`);
          // Silently ignore these attempts or return a 403, for now ignoring.
       }
-    } 
+    }
     // Admin editing a user
     else if (requestingUserRole === 'admin') {
       if (firstName !== undefined && currentUserData.firstName !== firstName) { updates.firstName = firstName; changes.push({ field: 'First Name', oldValue: currentUserData.firstName, newValue: firstName });}
@@ -74,7 +76,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
         updates.email = email; changes.push({ field: 'Email', oldValue: currentUserData.email, newValue: email });
       }
       if (profilePictureUrl !== undefined && currentUserData.profilePictureUrl !== profilePictureUrl) { updates.profilePictureUrl = profilePictureUrl; changes.push({ field: 'Profile Picture URL', oldValue: currentUserData.profilePictureUrl, newValue: profilePictureUrl });}
-      
+
       if (role !== undefined && currentUserData.role !== role) {
         if (role !== 'admin' && role !== 'user') return NextResponse.json({ error: 'Invalid role specified. Must be "admin" or "user".' }, { status: 400 });
         if (targetUserId === requestingUserId && role !== 'admin' && currentUserData.role === 'admin') { // Admin trying to demote self
@@ -82,7 +84,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
         }
         updates.role = role; changes.push({ field: 'Role', oldValue: currentUserData.role, newValue: role });
       }
-      
+
       if (isActive !== undefined && typeof isActive === 'boolean' && currentUserData.isActive !== isActive) {
         if (targetUserId === requestingUserId && !isActive) { // Admin trying to deactivate self
             const activeAdminCountStmt = db.prepare('SELECT COUNT(*) as count FROM Users WHERE organizationId = ? AND role = \'admin\' AND isActive = 1');
@@ -93,13 +95,13 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
         }
         updates.isActive = isActive ? 1 : 0; changes.push({ field: 'Status', oldValue: currentUserData.isActive ? 'Active' : 'Inactive', newValue: isActive ? 'Active' : 'Inactive' });
       }
-    } 
+    }
     // Not admin and not self-editing
     else {
       console.warn(`API PUT /api/users/${targetUserId}: Unauthorized attempt to update user by ${requestingUserId}.`);
       return NextResponse.json({ error: 'Forbidden: You do not have permission to update this user.' }, { status: 403 });
     }
-    
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ message: 'No changes to apply.', user: currentUserData }, { status: 200 });
     }
@@ -117,7 +119,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
       console.warn(`API PUT /api/users/${targetUserId}: Update failed or no rows affected for user in organization ${requestingUserOrganizationId}.`);
       return NextResponse.json({ error: 'User not found or no changes made during update' }, { status: 404 });
     }
-    
+
     let activityType: 'updated_user' | 'activated_user' | 'deactivated_user' = 'updated_user';
     if (updates.isActive !== undefined) {
         activityType = updates.isActive === 1 ? 'activated_user' : 'deactivated_user';
@@ -126,7 +128,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
     if (changes.length > 0) {
       await logActivity({
         organizationId: requestingUserOrganizationId,
-        userId: requestingUserId, 
+        userId: requestingUserId,
         activityType: activityType,
         entityType: 'user',
         entityId: targetUserId,

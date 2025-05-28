@@ -8,7 +8,7 @@ import { logActivity } from '@/services/activity-logger';
 // POST a new note for a company, ensuring company belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { companyId: string } }) {
   try {
-    const { companyId } = params;
+    const { companyId } = await params;
     const organizationId = request.headers.get('x-user-organization-id');
     const userId = request.headers.get('x-user-id');
 

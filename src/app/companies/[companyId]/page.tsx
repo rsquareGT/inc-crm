@@ -1,13 +1,12 @@
-
-import { AppPageShell } from '@/components/layout/app-page-shell';
-import { CompanyDetailsClient } from '@/components/companies/company-details-client';
+import { AppPageShell } from "@/components/layout/app-page-shell";
+import { CompanyDetailsClient } from "@/components/companies/company-details-client";
 // mockCompanies, mockContacts, mockDeals are no longer the primary source for this page.
 // Data will be fetched server-side or client-side from APIs.
-import type { Company, Contact, Deal } from '@/lib/types';
-import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import type { Company, Contact, Deal } from "@/lib/types";
+import { PageSectionHeader } from "@/components/shared/page-section-header";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 interface CompanyDetailsPageProps {
   params: { companyId: string };
@@ -21,7 +20,10 @@ async function getCompanyInitialData(companyId: string): Promise<{ company: Comp
   // For now, we'll pass null and let the client fetch.
   // To prevent build errors if API is not ready, we pass a minimal structure or null.
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9002'}/api/companies/${companyId}`, { cache: 'no-store'});
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9002"}/api/companies/${companyId}`,
+      { cache: "no-store" }
+    );
     if (!res.ok) return { company: null };
     return { company: await res.json() };
   } catch (error) {
@@ -29,7 +31,6 @@ async function getCompanyInitialData(companyId: string): Promise<{ company: Comp
     return { company: null };
   }
 }
-
 
 export default async function CompanyDetailsPage({ params }: CompanyDetailsPageProps) {
   const { companyId } = await params;

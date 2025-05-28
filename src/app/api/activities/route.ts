@@ -1,23 +1,25 @@
-
-import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import type { Activity } from '@/lib/types';
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import type { Activity } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   try {
-    const organizationId = request.headers.get('x-user-organization-id');
+    const organizationId = request.headers.get("x-user-organization-id");
     if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
 
     const { searchParams } = new URL(request.url);
-    const entityType = searchParams.get('entityType');
-    const entityId = searchParams.get('entityId');
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const entityType = searchParams.get("entityType");
+    const entityId = searchParams.get("entityId");
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
 
     let query = `
       SELECT 
@@ -33,11 +35,11 @@ export async function GET(request: NextRequest) {
     const queryParams: any[] = [organizationId];
 
     if (entityType && entityId) {
-      query += ' AND a.entityType = ? AND a.entityId = ?';
+      query += " AND a.entityType = ? AND a.entityId = ?";
       queryParams.push(entityType, entityId);
     }
-    
-    query += ' ORDER BY a.createdAt DESC LIMIT ?';
+
+    query += " ORDER BY a.createdAt DESC LIMIT ?";
     queryParams.push(limit > 0 && limit <= 100 ? limit : 20); // Cap limit for safety
 
     const stmtActivities = db.prepare(query);
@@ -63,10 +65,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(activities);
   } catch (error) {
-    console.error('API Error fetching activities:', error);
-    let errorMessage = 'Failed to fetch activities.';
+    console.error("API Error fetching activities:", error);
+    let errorMessage = "Failed to fetch activities.";
     if (error instanceof Error) {
-        errorMessage = error.message;
+      errorMessage = error.message;
     }
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }

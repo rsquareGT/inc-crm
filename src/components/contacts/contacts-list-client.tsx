@@ -1,7 +1,6 @@
+"use client";
 
-'use client';
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -10,24 +9,44 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown } from 'lucide-react';
-import type { Contact, Company } from '@/lib/types';
-import { ContactFormModal } from './contact-form-modal';
-import { ContactCard } from './contact-card';
-import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
-import { TagBadge } from '@/components/shared/tag-badge';
-import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'; // Added CardHeader and CardFooter
-import Link from 'next/link';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  MoreHorizontal,
+  PlusCircle,
+  Edit,
+  Trash2,
+  ExternalLink,
+  LayoutGrid,
+  ListFilter,
+  ArrowUpDown,
+} from "lucide-react";
+import type { Contact, Company } from "@/lib/types";
+import { ContactFormModal } from "./contact-form-modal";
+import { ContactCard } from "./contact-card";
+import { PageSectionHeader } from "@/components/shared/page-section-header";
+import { DeleteConfirmationDialog } from "@/components/shared/delete-confirmation-dialog";
+import { TagBadge } from "@/components/shared/tag-badge";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"; // Added CardHeader and CardFooter
+import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
 
-type SortByType = 'lastName' | 'email' | 'companyName' | 'createdAt' | '';
+type SortByType = "lastName" | "email" | "companyName" | "createdAt" | "";
 
 export function ContactsListClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -42,16 +61,16 @@ export function ContactsListClient() {
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<SortByType>('lastName');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<SortByType>("lastName");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const fetchContacts = useCallback(async () => {
     setIsLoadingContacts(true);
     setError(null);
     try {
-      const response = await fetch('/api/contacts');
+      const response = await fetch("/api/contacts");
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to fetch contacts: ${response.statusText}`);
@@ -60,7 +79,7 @@ export function ContactsListClient() {
       setContacts(data);
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(message);
       toast({ title: "Error Fetching Contacts", description: message, variant: "destructive" });
     } finally {
@@ -71,17 +90,26 @@ export function ContactsListClient() {
   const fetchCompaniesForForm = useCallback(async () => {
     setIsLoadingCompanies(true);
     try {
-      const response = await fetch('/api/companies');
+      const response = await fetch("/api/companies");
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to fetch companies for form: ${response.statusText}`);
+        throw new Error(
+          errorData.error || `Failed to fetch companies for form: ${response.statusText}`
+        );
       }
       const data: Company[] = await response.json();
       setCompanies(data);
     } catch (err) {
       console.error("Error loading companies for ContactFormModal:", err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred loading companies for form.';
-      toast({ title: "Error Loading Companies for Form", description: message, variant: "destructive" });
+      const message =
+        err instanceof Error
+          ? err.message
+          : "An unknown error occurred loading companies for form.";
+      toast({
+        title: "Error Loading Companies for Form",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingCompanies(false);
     }
@@ -114,22 +142,25 @@ export function ContactsListClient() {
 
   const confirmDeleteContact = async () => {
     if (!contactToDelete) return;
-    const contact = contacts.find(c => c.id === contactToDelete);
+    const contact = contacts.find((c) => c.id === contactToDelete);
     const contactName = contact ? `${contact.firstName} ${contact.lastName}` : "Contact";
 
     try {
       const response = await fetch(`/api/contacts/${contactToDelete}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to delete contact: ${response.statusText}`);
       }
-      toast({ title: "Contact Deleted", description: `Contact "${contactName}" has been deleted.`});
-      setContacts(prevContacts => prevContacts.filter(c => c.id !== contactToDelete));
+      toast({
+        title: "Contact Deleted",
+        description: `Contact "${contactName}" has been deleted.`,
+      });
+      setContacts((prevContacts) => prevContacts.filter((c) => c.id !== contactToDelete));
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
       toast({ title: "Error Deleting Contact", description: message, variant: "destructive" });
     } finally {
       setShowDeleteDialog(false);
@@ -138,45 +169,56 @@ export function ContactsListClient() {
   };
 
   const getCompanyName = (companyId?: string) => {
-    const company = companies.find(c => c.id === companyId);
+    const company = companies.find((c) => c.id === companyId);
     if (company) {
-      return <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{company.name}</Link>;
+      return (
+        <Link href={`/companies/${company.id}`} className="hover:underline text-primary">
+          {company.name}
+        </Link>
+      );
     }
-    return 'N/A';
+    return "N/A";
   };
-  
+
   const resolvedCompanies = useMemo(() => {
-      const map = new Map<string, Company>();
-      companies.forEach(c => map.set(c.id, c));
-      return map;
+    const map = new Map<string, Company>();
+    companies.forEach((c) => map.set(c.id, c));
+    return map;
   }, [companies]);
 
   const displayedContacts = useMemo(() => {
     let items = [...contacts];
     if (searchTerm) {
-      items = items.filter(contact =>
-        `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.email.toLowerCase().includes(searchTerm.toLowerCase())
+      items = items.filter(
+        (contact) =>
+          `${contact.firstName} ${contact.lastName}`
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          contact.email.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (sortBy) {
       items.sort((a, b) => {
         let comparison = 0;
-        const factor = sortOrder === 'asc' ? 1 : -1;
+        const factor = sortOrder === "asc" ? 1 : -1;
 
-        if (sortBy === 'lastName') {
-          comparison = (a.lastName || '').toLowerCase().localeCompare((b.lastName || '').toLowerCase());
+        if (sortBy === "lastName") {
+          comparison = (a.lastName || "")
+            .toLowerCase()
+            .localeCompare((b.lastName || "").toLowerCase());
           if (comparison === 0) {
-            comparison = (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase());
+            comparison = (a.firstName || "")
+              .toLowerCase()
+              .localeCompare((b.firstName || "").toLowerCase());
           }
-        } else if (sortBy === 'email') {
-          comparison = (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
-        } else if (sortBy === 'companyName') {
-          const companyA = a.companyId ? resolvedCompanies.get(a.companyId)?.name || '' : '';
-          const companyB = b.companyId ? resolvedCompanies.get(b.companyId)?.name || '' : '';
+        } else if (sortBy === "email") {
+          comparison = (a.email || "").toLowerCase().localeCompare((b.email || "").toLowerCase());
+        } else if (sortBy === "companyName") {
+          const companyA = a.companyId ? resolvedCompanies.get(a.companyId)?.name || "" : "";
+          const companyB = b.companyId ? resolvedCompanies.get(b.companyId)?.name || "" : "";
           comparison = companyA.toLowerCase().localeCompare(companyB.toLowerCase());
-        } else if (sortBy === 'createdAt') {
+        } else if (sortBy === "createdAt") {
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         }
         return comparison * factor;
@@ -184,7 +226,6 @@ export function ContactsListClient() {
     }
     return items;
   }, [contacts, searchTerm, sortBy, sortOrder, resolvedCompanies]);
-
 
   if (isLoadingContacts || isLoadingCompanies) {
     return (
@@ -206,9 +247,9 @@ export function ContactsListClient() {
             <Skeleton className="h-10 w-[150px]" />
           </div>
         </div>
-         <Card className="shadow-sm">
-          <CardContent className={viewMode === 'list' ? "p-0" : "pt-6"}>
-            {viewMode === 'list' ? (
+        <Card className="shadow-sm">
+          <CardContent className={viewMode === "list" ? "p-0" : "pt-6"}>
+            {viewMode === "list" ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -223,33 +264,57 @@ export function ContactsListClient() {
                 <TableBody>
                   {Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={`skeleton-row-${index}`}>
-                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                      <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[150px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[180px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[100px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[120px]" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Skeleton className="h-5 w-12 rounded-full" />
+                          <Skeleton className="h-5 w-12 rounded-full" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-8 w-8" />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             ) : (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {Array.from({ length: 8 }).map((_, index) => (
                   <Card key={`skeleton-contact-card-${index}`} className="shadow-md flex flex-col">
                     <CardHeader className="pb-3 pt-4 px-4">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center min-w-0">
-                            <Skeleton className="h-5 w-5 mr-2 rounded-full" />
-                            <Skeleton className="h-5 w-3/4" />
+                          <Skeleton className="h-5 w-5 mr-2 rounded-full" />
+                          <Skeleton className="h-5 w-3/4" />
                         </div>
                         <Skeleton className="h-6 w-6" />
                       </div>
                     </CardHeader>
                     <CardContent className="px-4 pb-3 space-y-2 text-sm flex-grow">
-                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
-                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-4/5" /></div>
-                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                        <Skeleton className="h-4 w-3/5" />
+                      </div>
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                        <Skeleton className="h-4 w-4/5" />
+                      </div>
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                        <Skeleton className="h-4 w-3/5" />
+                      </div>
                     </CardContent>
                     <CardFooter className="px-4 pt-2 pb-4 flex flex-wrap gap-1 border-t mt-auto">
                       <Skeleton className="h-5 w-12 rounded-full" />
@@ -266,15 +331,15 @@ export function ContactsListClient() {
   }
 
   if (error && contacts.length === 0) {
-     return (
+    return (
       <div>
         <PageSectionHeader title="Contacts" description="Manage your contacts.">
-           <Button onClick={() => handleOpenModal()} disabled={isLoadingCompanies}>
-             <PlusCircle className="mr-2 h-4 w-4" /> Add New Contact
-           </Button>
+          <Button onClick={() => handleOpenModal()} disabled={isLoadingCompanies}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Contact
+          </Button>
         </PageSectionHeader>
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
-            <p className="text-lg text-destructive">Error loading contacts: {error}</p>
+          <p className="text-lg text-destructive">Error loading contacts: {error}</p>
         </div>
       </div>
     );
@@ -307,14 +372,31 @@ export function ContactsListClient() {
               <SelectItem value="createdAt">Date Created</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} aria-label="Toggle sort order">
-            <ArrowUpDown className={`h-4 w-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            aria-label="Toggle sort order"
+          >
+            <ArrowUpDown
+              className={`h-4 w-4 transition-transform ${sortOrder === "desc" ? "rotate-180" : ""}`}
+            />
           </Button>
           <div className="flex items-center border rounded-md">
-            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} aria-label="List view">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+            >
               <ListFilter className="h-4 w-4" />
             </Button>
-            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} aria-label="Grid view">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+            >
               <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
@@ -322,8 +404,8 @@ export function ContactsListClient() {
       </div>
 
       <Card className="shadow-sm">
-        <CardContent className={viewMode === 'list' ? "p-0" : "pt-6"}>
-          {viewMode === 'list' ? (
+        <CardContent className={viewMode === "list" ? "p-0" : "pt-6"}>
+          {viewMode === "list" ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -339,17 +421,24 @@ export function ContactsListClient() {
                 {displayedContacts.map((contact) => (
                   <TableRow key={contact.id}>
                     <TableCell className="font-medium">
-                      <Link href={`/contacts/${contact.id}`} className="hover:underline text-primary">
-                          {contact.firstName} {contact.lastName}
+                      <Link
+                        href={`/contacts/${contact.id}`}
+                        className="hover:underline text-primary"
+                      >
+                        {contact.firstName} {contact.lastName}
                       </Link>
                     </TableCell>
                     <TableCell>{contact.email}</TableCell>
-                    <TableCell>{contact.phone || 'N/A'}</TableCell>
+                    <TableCell>{contact.phone || "N/A"}</TableCell>
                     <TableCell>{getCompanyName(contact.companyId)}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {(contact.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                        {(contact.tags || []).length > 2 && <Badge variant="outline">+{contact.tags.length - 2}</Badge>}
+                        {(contact.tags || []).slice(0, 2).map((tag) => (
+                          <TagBadge key={tag} tag={tag} />
+                        ))}
+                        {(contact.tags || []).length > 2 && (
+                          <Badge variant="outline">+{contact.tags.length - 2}</Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -362,14 +451,23 @@ export function ContactsListClient() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                              <Link href={`/contacts/${contact.id}`} className="flex items-center w-full">
-                                 <ExternalLink className="mr-2 h-4 w-4" /> View Details
-                              </Link>
+                            <Link
+                              href={`/contacts/${contact.id}`}
+                              className="flex items-center w-full"
+                            >
+                              <ExternalLink className="mr-2 h-4 w-4" /> View Details
+                            </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleOpenModal(contact)} disabled={isLoadingCompanies}>
+                          <DropdownMenuItem
+                            onClick={() => handleOpenModal(contact)}
+                            disabled={isLoadingCompanies}
+                          >
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDeleteContact(contact.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteContact(contact.id)}
+                            className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground"
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -379,13 +477,15 @@ export function ContactsListClient() {
                 ))}
                 {displayedContacts.length === 0 && !isLoadingContacts && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">No contacts found.</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">
+                      No contacts found.
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           ) : (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {displayedContacts.map((contact) => (
                 <ContactCard
                   key={contact.id}
@@ -417,7 +517,11 @@ export function ContactsListClient() {
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={confirmDeleteContact}
-        itemName={contacts.find(c => c.id === contactToDelete)?.firstName + " " + (contacts.find(c => c.id === contactToDelete)?.lastName || "") || "this contact"}
+        itemName={
+          contacts.find((c) => c.id === contactToDelete)?.firstName +
+            " " +
+            (contacts.find((c) => c.id === contactToDelete)?.lastName || "") || "this contact"
+        }
       />
     </div>
   );

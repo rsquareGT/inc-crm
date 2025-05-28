@@ -1,24 +1,26 @@
-
-import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import type { Deal } from '@/lib/types';
-import { generateId } from '@/lib/utils';
-import { logActivity } from '@/services/activity-logger';
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import type { Deal } from "@/lib/types";
+import { generateId } from "@/lib/utils";
+import { logActivity } from "@/services/activity-logger";
 
 // GET all deals for the user's organization, with optional filters
 export async function GET(request: NextRequest) {
   try {
-    const organizationId = request.headers.get('x-user-organization-id');
+    const organizationId = request.headers.get("x-user-organization-id");
     if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
     const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-    const contactId = searchParams.get('contactId');
+    const companyId = searchParams.get("companyId");
+    const contactId = searchParams.get("contactId");
 
     let query = `
       SELECT d.*,
@@ -30,15 +32,15 @@ export async function GET(request: NextRequest) {
     const queryParams: any[] = [organizationId];
 
     if (companyId) {
-      query += ' AND d.companyId = ?';
+      query += " AND d.companyId = ?";
       queryParams.push(companyId);
     }
     if (contactId) {
-      query += ' AND d.contactId = ?';
+      query += " AND d.contactId = ?";
       queryParams.push(contactId);
     }
 
-    query += ' ORDER BY d.name ASC';
+    query += " ORDER BY d.name ASC";
 
     const stmtDeals = db.prepare(query);
     const dealsData = stmtDeals.all(...queryParams) as any[];
@@ -51,29 +53,35 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(deals);
   } catch (error) {
-    console.error('API Error fetching deals:', error);
-    return NextResponse.json({ error: 'Failed to fetch deals.' }, { status: 500 });
+    console.error("API Error fetching deals:", error);
+    return NextResponse.json({ error: "Failed to fetch deals." }, { status: 500 });
   }
 }
 
 // POST a new deal for the user's organization
 export async function POST(request: NextRequest) {
   try {
-    const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id');
+    const organizationId = request.headers.get("x-user-organization-id");
+    const userId = request.headers.get("x-user-id");
 
     if (!organizationId || !userId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization or User ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
     const body = await request.json();
     const { name, value, stage, contactId, companyId, expectedCloseDate, tags, description } = body;
 
     if (!name || value === undefined || !stage) {
-      return NextResponse.json({ error: 'Deal name, value, and stage are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Deal name, value, and stage are required" },
+        { status: 400 }
+      );
     }
 
     const newDealId = generateId();
@@ -89,8 +97,8 @@ export async function POST(request: NextRequest) {
       name,
       value,
       stage,
-      contactId === '_none_' ? null : contactId || null,
-      companyId === '_none_' ? null : companyId || null,
+      contactId === "_none_" ? null : contactId || null,
+      companyId === "_none_" ? null : companyId || null,
       expectedCloseDate || null,
       JSON.stringify(tags || []),
       description || null,
@@ -104,8 +112,8 @@ export async function POST(request: NextRequest) {
       name,
       value,
       stage,
-      contactId: contactId === '_none_' ? undefined : contactId,
-      companyId: companyId === '_none_' ? undefined : companyId,
+      contactId: contactId === "_none_" ? undefined : contactId,
+      companyId: companyId === "_none_" ? undefined : companyId,
       expectedCloseDate,
       tags: tags || [],
       description,
@@ -119,16 +127,15 @@ export async function POST(request: NextRequest) {
     await logActivity({
       organizationId,
       userId,
-      activityType: 'created_deal',
-      entityType: 'deal',
+      activityType: "created_deal",
+      entityType: "deal",
       entityId: newDealId,
       entityName: name,
     });
 
     return NextResponse.json(newDeal, { status: 201 });
-
   } catch (error) {
-    console.error('API Error creating deal:', error);
-    return NextResponse.json({ error: 'Failed to create deal.' }, { status: 500 });
+    console.error("API Error creating deal:", error);
+    return NextResponse.json({ error: "Failed to create deal." }, { status: 500 });
   }
 }

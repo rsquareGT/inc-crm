@@ -1,7 +1,6 @@
-
-import { AppPageShell } from '@/components/layout/app-page-shell';
-import { EditProfileForm } from '@/components/profile/edit-profile-form';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppPageShell } from "@/components/layout/app-page-shell";
+import { EditProfileForm } from "@/components/profile/edit-profile-form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function EditProfilePage() {
   return (
@@ -10,9 +9,7 @@ export default function EditProfilePage() {
         <Card className="shadow-xl">
           <CardHeader>
             <CardTitle className="text-2xl font-bold tracking-tight">Edit Your Profile</CardTitle>
-            <CardDescription>
-              Update your personal information.
-            </CardDescription>
+            <CardDescription>Update your personal information.</CardDescription>
           </CardHeader>
           <CardContent>
             <EditProfileForm />

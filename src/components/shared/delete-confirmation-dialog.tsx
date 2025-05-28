@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   AlertDialog,
@@ -35,7 +35,8 @@ export function DeleteConfirmationDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>
-            {description || `This action cannot be undone. This will permanently delete ${itemName}.`}
+            {description ||
+              `This action cannot be undone. This will permanently delete ${itemName}.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

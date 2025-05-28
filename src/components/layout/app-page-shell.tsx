@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'nextjs-toploader/app'; // Using standard Next.js router
-import { AppHeader } from './app-header';
-import { useAuth } from '@/contexts/auth-context';
-import { Loader2 } from 'lucide-react';
+import { useEffect } from "react";
+import { useRouter } from "nextjs-toploader/app"; // Using standard Next.js router
+import { AppHeader } from "./app-header";
+import { useAuth } from "@/contexts/auth-context";
+import { Loader2 } from "lucide-react";
 
 interface AppPageShellProps {
   children: React.ReactNode;
 }
 
 export function AppPageShell({ children }: AppPageShellProps) {
-  const { isAuthenticated, isLoading,user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   const router = useRouter();
 
@@ -20,7 +20,7 @@ export function AppPageShell({ children }: AppPageShellProps) {
     // If the auth state is resolved (not loading) and the user is not authenticated,
     // redirect to login. This can happen if a session expires while the user is on a page.
     if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
+      router.replace("/login");
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -41,11 +41,11 @@ export function AppPageShell({ children }: AppPageShellProps) {
   // Note: The middleware should ideally handle the redirect before this component even renders
   // for unauthenticated access to protected routes.
   if (!isAuthenticated) {
-     return (
+    return (
       <div className="min-h-screen flex flex-col">
         <AppHeader />
         <main className="flex-1 container py-8 max-w-7xl flex items-center justify-center">
-           <p>Redirecting to login...</p>
+          <p>Redirecting to login...</p>
         </main>
       </div>
     );
@@ -55,9 +55,7 @@ export function AppPageShell({ children }: AppPageShellProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader />
-      <main className="flex-1 container py-8 max-w-7xl">
-        {children}
-      </main>
+      <main className="flex-1 container py-8 max-w-7xl">{children}</main>
     </div>
   );
 }

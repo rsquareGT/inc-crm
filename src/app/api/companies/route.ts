@@ -1,20 +1,22 @@
-
-import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import type { Company } from '@/lib/types';
-import { generateId } from '@/lib/utils';
-import { logActivity } from '@/services/activity-logger';
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import type { Company } from "@/lib/types";
+import { generateId } from "@/lib/utils";
+import { logActivity } from "@/services/activity-logger";
 
 // GET all companies for the user's organization
 export async function GET(request: NextRequest) {
   try {
-    const organizationId = request.headers.get('x-user-organization-id');
+    const organizationId = request.headers.get("x-user-organization-id");
     if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
 
     const stmtCompanies = db.prepare(`
@@ -35,29 +37,47 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(companies);
   } catch (error) {
-    console.error('API Error fetching companies:', error);
-    return NextResponse.json({ error: 'Failed to fetch companies.' }, { status: 500 });
+    console.error("API Error fetching companies:", error);
+    return NextResponse.json({ error: "Failed to fetch companies." }, { status: 500 });
   }
 }
 
 // POST a new company for the user's organization
 export async function POST(request: NextRequest) {
   try {
-    const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id');
+    const organizationId = request.headers.get("x-user-organization-id");
+    const userId = request.headers.get("x-user-id");
 
     if (!organizationId || !userId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization or User ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
     const body = await request.json();
-    const { name, industry, website, street, city, state, postalCode, country, contactPhone1, contactPhone2, companySize, accountManagerId, tags, description } = body;
+    const {
+      name,
+      industry,
+      website,
+      street,
+      city,
+      state,
+      postalCode,
+      country,
+      contactPhone1,
+      contactPhone2,
+      companySize,
+      accountManagerId,
+      tags,
+      description,
+    } = body;
 
     if (!name) {
-      return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
+      return NextResponse.json({ error: "Company name is required" }, { status: 400 });
     }
 
     const newCompanyId = generateId();
@@ -71,7 +91,7 @@ export async function POST(request: NextRequest) {
     stmt.run(
       newCompanyId,
       name,
-      industry === '_none_' ? null : industry || null,
+      industry === "_none_" ? null : industry || null,
       website || null,
       street || null,
       city || null,
@@ -80,8 +100,8 @@ export async function POST(request: NextRequest) {
       country || null,
       contactPhone1 || null,
       contactPhone2 || null,
-      companySize === '_none_' ? null : companySize || null,
-      accountManagerId === '_none_' ? null : accountManagerId || null,
+      companySize === "_none_" ? null : companySize || null,
+      accountManagerId === "_none_" ? null : accountManagerId || null,
       JSON.stringify(tags || []),
       description || null,
       now,
@@ -92,7 +112,7 @@ export async function POST(request: NextRequest) {
     const newCompany: Company = {
       id: newCompanyId,
       name,
-      industry: industry === '_none_' ? undefined : industry,
+      industry: industry === "_none_" ? undefined : industry,
       website,
       street,
       city,
@@ -101,8 +121,8 @@ export async function POST(request: NextRequest) {
       country,
       contactPhone1,
       contactPhone2,
-      companySize: companySize === '_none_' ? undefined : companySize,
-      accountManagerId: accountManagerId === '_none_' ? undefined : accountManagerId,
+      companySize: companySize === "_none_" ? undefined : companySize,
+      accountManagerId: accountManagerId === "_none_" ? undefined : accountManagerId,
       tags: tags || [],
       description,
       notes: [],
@@ -115,16 +135,15 @@ export async function POST(request: NextRequest) {
     await logActivity({
       organizationId,
       userId,
-      activityType: 'created_company',
-      entityType: 'company',
+      activityType: "created_company",
+      entityType: "company",
       entityId: newCompanyId,
       entityName: name,
     });
 
     return NextResponse.json(newCompany, { status: 201 });
-
   } catch (error) {
-    console.error('API Error creating company:', error);
-    return NextResponse.json({ error: 'Failed to create company.' }, { status: 500 });
+    console.error("API Error creating company:", error);
+    return NextResponse.json({ error: "Failed to create company." }, { status: 500 });
   }
 }

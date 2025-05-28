@@ -1,8 +1,7 @@
+"use client";
 
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'nextjs-toploader/app'; // Using standard Next.js router
+import { useEffect } from "react";
+import { useRouter } from "nextjs-toploader/app"; // Using standard Next.js router
 
 export default function HomePage() {
   const router = useRouter();
@@ -11,7 +10,7 @@ export default function HomePage() {
     // Default redirect to dashboard. Middleware will handle auth.
     // If not authenticated, middleware redirects to /login.
     // If authenticated, this will go to /dashboard.
-    router.replace('/dashboard');
+    router.replace("/dashboard");
   }, [router]);
 
   return (

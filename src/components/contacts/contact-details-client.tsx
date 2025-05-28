@@ -1,28 +1,52 @@
+"use client";
 
-'use client';
-
-import React, { useState, useEffect, useCallback } from 'react';
-import type { Contact, Company, Deal, Note, Activity, DealStage, Organization } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { ContactFormModal } from './contact-form-modal';
-import { DealFormModal } from '@/components/deals/deal-form-modal';
-import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { MoreHorizontal, Edit, Trash2, PlusCircle, ArrowLeft, Mail, Phone, Briefcase, FileText, MessageSquarePlus, MessageSquareText, UserCircle, ExternalLink, Loader2, ActivityIcon, DollarSign, GripVertical } from 'lucide-react';
-import { TagBadge } from '@/components/shared/tag-badge';
-import Link from 'next/link';
-import { Badge } from '../ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
-import { FormattedNoteTimestamp } from '@/components/shared/formatted-note-timestamp';
-import { PageSectionHeader } from '../shared/page-section-header';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ActivityItem } from '@/components/shared/activity-item';
-import { DealCard } from '@/components/deals/deal-card';
-import { DEAL_STAGES } from '@/lib/constants';
-import { useAuth } from '@/contexts/auth-context';
+import React, { useState, useEffect, useCallback } from "react";
+import type { Contact, Company, Deal, Note, Activity, DealStage, Organization } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import { ContactFormModal } from "./contact-form-modal";
+import { DealFormModal } from "@/components/deals/deal-form-modal";
+import { DeleteConfirmationDialog } from "@/components/shared/delete-confirmation-dialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  PlusCircle,
+  ArrowLeft,
+  Mail,
+  Phone,
+  Briefcase,
+  FileText,
+  MessageSquarePlus,
+  MessageSquareText,
+  UserCircle,
+  ExternalLink,
+  Loader2,
+  ActivityIcon,
+  DollarSign,
+  GripVertical,
+} from "lucide-react";
+import { TagBadge } from "@/components/shared/tag-badge";
+import Link from "next/link";
+import { Badge } from "../ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { FormattedNoteTimestamp } from "@/components/shared/formatted-note-timestamp";
+import { PageSectionHeader } from "../shared/page-section-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ActivityItem } from "@/components/shared/activity-item";
+import { DealCard } from "@/components/deals/deal-card";
+import { DEAL_STAGES } from "@/lib/constants";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ContactDetailsClientProps {
   contactId: string;
@@ -34,7 +58,7 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [company, setCompany] = useState<Company | undefined>(undefined);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteContent, setNewNoteContent] = useState("");
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
@@ -50,21 +74,25 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'deal' | 'note'; name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{
+    id: string;
+    type: "deal" | "note";
+    name: string;
+  } | null>(null);
 
-  const currencySymbol = authOrganization?.currencySymbol || '$';
+  const currencySymbol = authOrganization?.currencySymbol || "$";
 
   const ActivityItemSkeleton = () => (
     <div className="flex items-start space-x-3 py-3 border-b border-border/50 last:border-b-0">
-        <Skeleton className="h-8 w-8 rounded-full" />
-        <div className="flex-1 space-y-1">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-        </div>
+      <Skeleton className="h-8 w-8 rounded-full" />
+      <div className="flex-1 space-y-1">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
     </div>
   );
 
-  const DealCardSkeleton = () => ( 
+  const DealCardSkeleton = () => (
     <Card className="mb-1.5 shadow-sm bg-card">
       <CardHeader className="pb-1 pt-2 px-2">
         <div className="flex justify-between items-start">
@@ -73,8 +101,14 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         </div>
       </CardHeader>
       <CardContent className="px-2 pb-1.5 space-y-1 text-xs">
-        <div className="flex items-center"><Skeleton className="h-3 w-3 mr-1 rounded-full" /><Skeleton className="h-3 w-2/5" /></div>
-        <div className="flex items-center"><Skeleton className="h-3 w-3 mr-1 rounded-full" /><Skeleton className="h-3 w-3/5" /></div>
+        <div className="flex items-center">
+          <Skeleton className="h-3 w-3 mr-1 rounded-full" />
+          <Skeleton className="h-3 w-2/5" />
+        </div>
+        <div className="flex items-center">
+          <Skeleton className="h-3 w-3 mr-1 rounded-full" />
+          <Skeleton className="h-3 w-3/5" />
+        </div>
       </CardContent>
       <CardFooter className="px-2 pt-1 pb-1.5 flex flex-wrap gap-0.5">
         <Skeleton className="h-4 w-10 rounded-full" />
@@ -97,7 +131,10 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
             errorText = errorJson.error;
           }
         } catch (e) {
-          console.error("API error response (contact details) was not JSON:", (await response.text()).substring(0,500));
+          console.error(
+            "API error response (contact details) was not JSON:",
+            (await response.text()).substring(0, 500)
+          );
         }
         throw new Error(errorText);
       }
@@ -108,8 +145,8 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         const companyRes = await fetch(`/api/companies/${contactData.companyId}`);
         if (companyRes.ok) setCompany(await companyRes.json());
         else {
-            console.warn(`Failed to fetch company ${contactData.companyId} for contact ${contactId}`);
-            setCompany(undefined);
+          console.warn(`Failed to fetch company ${contactData.companyId} for contact ${contactId}`);
+          setCompany(undefined);
         }
       } else {
         setCompany(undefined);
@@ -117,20 +154,19 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
 
       const [dealsRes, activitiesRes] = await Promise.all([
         fetch(`/api/deals?contactId=${contactId}`),
-        fetch(`/api/activities?entityType=contact&entityId=${contactId}&limit=15`)
+        fetch(`/api/activities?entityType=contact&entityId=${contactId}&limit=15`),
       ]);
-      
-      if (dealsRes.ok) setDeals(await dealsRes.json()); 
+
+      if (dealsRes.ok) setDeals(await dealsRes.json());
       else {
         console.warn(`Failed to fetch deals for contact ${contactId}`);
         setDeals([]);
       }
-      if (activitiesRes.ok) setActivities(await activitiesRes.json()); else setActivities([]);
-
-
+      if (activitiesRes.ok) setActivities(await activitiesRes.json());
+      else setActivities([]);
     } catch (err) {
       console.error("Error in fetchContactDetails:", err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred';
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
       setError(message);
       toast({ title: "Error Fetching Contact Data", description: message, variant: "destructive" });
     } finally {
@@ -141,21 +177,23 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
 
   const fetchFormDropdownData = useCallback(async () => {
     try {
-        const [companiesRes, contactsResForDealForm] = await Promise.all([
-            fetch('/api/companies'), 
-            fetch('/api/contacts') 
-        ]);
-        if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
-        else console.warn("Failed to fetch companies list for forms on contact detail page");
+      const [companiesRes, contactsResForDealForm] = await Promise.all([
+        fetch("/api/companies"),
+        fetch("/api/contacts"),
+      ]);
+      if (companiesRes.ok) setAllCompaniesList(await companiesRes.json());
+      else console.warn("Failed to fetch companies list for forms on contact detail page");
 
-        if (contactsResForDealForm.ok) setAllContactsList(await contactsResForDealForm.json());
-        else console.warn("Failed to fetch contacts list for DealFormModal on contact detail page");
-
+      if (contactsResForDealForm.ok) setAllContactsList(await contactsResForDealForm.json());
+      else console.warn("Failed to fetch contacts list for DealFormModal on contact detail page");
     } catch (err) {
-        toast({title: "Error loading form dependencies", description: (err as Error).message, variant: "destructive"});
+      toast({
+        title: "Error loading form dependencies",
+        description: (err as Error).message,
+        variant: "destructive",
+      });
     }
   }, [toast]);
-
 
   useEffect(() => {
     fetchContactDetails();
@@ -163,80 +201,94 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   }, [fetchContactDetails, fetchFormDropdownData]);
 
   const handleSaveContactCallback = () => {
-    fetchContactDetails(); 
+    fetchContactDetails();
     setIsContactModalOpen(false);
   };
 
   const handleSaveDealCallback = () => {
-    fetchContactDetails(); 
+    fetchContactDetails();
     setIsDealModalOpen(false);
     setEditingDeal(null);
   };
 
   const handleChangeDealStage = async (dealId: string, newStage: DealStage) => {
-    const originalDeal = deals.find(d => d.id === dealId);
+    const originalDeal = deals.find((d) => d.id === dealId);
     if (!originalDeal) return;
 
-    const updatedDealPayload = { ...originalDeal, stage: newStage, updatedAt: new Date().toISOString() };
-    
-    setDeals(prevDeals => 
-      prevDeals.map(deal => 
-        deal.id === dealId ? updatedDealPayload : deal
-      )
+    const updatedDealPayload = {
+      ...originalDeal,
+      stage: newStage,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDeals((prevDeals) =>
+      prevDeals.map((deal) => (deal.id === dealId ? updatedDealPayload : deal))
     );
 
     try {
       const response = await fetch(`/api/deals/${dealId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedDealPayload), 
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedDealPayload),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({error: "Failed to update deal stage"}));
-        throw new Error(errorData.error || 'Failed to update deal stage');
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Failed to update deal stage" }));
+        throw new Error(errorData.error || "Failed to update deal stage");
       }
-      toast({ title: "Deal Stage Updated", description: `"${originalDeal.name}" moved to ${newStage}.` });
-      fetchContactDetails(); 
+      toast({
+        title: "Deal Stage Updated",
+        description: `"${originalDeal.name}" moved to ${newStage}.`,
+      });
+      fetchContactDetails();
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
       toast({ title: "Error Updating Stage", description: message, variant: "destructive" });
-      setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? originalDeal : d));
+      setDeals((prevDeals) => prevDeals.map((d) => (d.id === dealId ? originalDeal : d)));
     }
   };
 
-  const handleDeleteRequest = (id: string, type: 'deal' | 'note', name: string) => {
+  const handleDeleteRequest = (id: string, type: "deal" | "note", name: string) => {
     setItemToDelete({ id, type, name });
     setShowDeleteDialog(true);
   };
 
   const confirmDeleteItem = async () => {
     if (!itemToDelete || !contact) return;
-    let endpoint = '';
-    let successMessage = '';
+    let endpoint = "";
+    let successMessage = "";
 
-    if (itemToDelete.type === 'note') {
+    if (itemToDelete.type === "note") {
       endpoint = `/api/contacts/${contact.id}/notes/${itemToDelete.id}`;
       successMessage = "Note has been deleted.";
-    } else if (itemToDelete.type === 'deal') {
-      endpoint = `/api/deals/${itemToDelete.id}`; 
+    } else if (itemToDelete.type === "deal") {
+      endpoint = `/api/deals/${itemToDelete.id}`;
       successMessage = `Deal "${itemToDelete.name}" deleted.`;
     }
 
     if (!endpoint) return;
 
     try {
-      const response = await fetch(endpoint, { method: 'DELETE' });
+      const response = await fetch(endpoint, { method: "DELETE" });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to delete ${itemToDelete.type}`);
       }
-      toast({ title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`, description: successMessage });
-      fetchContactDetails(); 
+      toast({
+        title: `${itemToDelete.type.charAt(0).toUpperCase() + itemToDelete.type.slice(1)} Deleted`,
+        description: successMessage,
+      });
+      fetchContactDetails();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      toast({ title: `Error Deleting ${itemToDelete.type}`, description: message, variant: "destructive" });
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
+      toast({
+        title: `Error Deleting ${itemToDelete.type}`,
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setShowDeleteDialog(false);
       setItemToDelete(null);
@@ -244,33 +296,37 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
   };
 
   const handleAddNote = async () => {
-    if (!contact || newNoteContent.trim() === '') {
+    if (!contact || newNoteContent.trim() === "") {
       toast({ title: "Cannot add empty note or no contact context", variant: "destructive" });
       return;
     }
     setIsAddingNote(true);
     try {
       const response = await fetch(`/api/contacts/${contact.id}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: newNoteContent.trim() }),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add note');
+        throw new Error(errorData.error || "Failed to add note");
       }
-      setNewNoteContent('');
+      setNewNoteContent("");
       toast({ title: "Note Added", description: "New note saved for this contact." });
       fetchContactDetails();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
       toast({ title: "Error Adding Note", description: message, variant: "destructive" });
     } finally {
       setIsAddingNote(false);
     }
   };
 
-  const sortedNotes = contact?.notes ? [...contact.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  const sortedNotes = contact?.notes
+    ? [...contact.notes].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+    : [];
 
   if (isLoading) {
     return (
@@ -287,12 +343,26 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="lg:w-[65%] space-y-6">
             <Card>
-              <CardHeader><Skeleton className="h-6 w-1/3 mb-1" /></CardHeader>
+              <CardHeader>
+                <Skeleton className="h-6 w-1/3 mb-1" />
+              </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center"><Skeleton className="h-5 w-5 mr-3 rounded-full" /><Skeleton className="h-5 w-3/4" /></div>
-                <div className="flex items-center"><Skeleton className="h-5 w-5 mr-3 rounded-full" /><Skeleton className="h-5 w-1/2" /></div>
-                <div className="flex flex-wrap gap-2 items-center pt-1"><Skeleton className="h-4 w-10" /> <Skeleton className="h-6 w-16 rounded-full" /><Skeleton className="h-6 w-20 rounded-full" /></div>
-                <div className="space-y-2 pt-2"><Skeleton className="h-5 w-1/4 mb-1" /><Skeleton className="h-16 w-full rounded-md" /></div>
+                <div className="flex items-center">
+                  <Skeleton className="h-5 w-5 mr-3 rounded-full" />
+                  <Skeleton className="h-5 w-3/4" />
+                </div>
+                <div className="flex items-center">
+                  <Skeleton className="h-5 w-5 mr-3 rounded-full" />
+                  <Skeleton className="h-5 w-1/2" />
+                </div>
+                <div className="flex flex-wrap gap-2 items-center pt-1">
+                  <Skeleton className="h-4 w-10" /> <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <div className="space-y-2 pt-2">
+                  <Skeleton className="h-5 w-1/4 mb-1" />
+                  <Skeleton className="h-16 w-full rounded-md" />
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -301,18 +371,40 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 <Skeleton className="h-4 w-2/3" />
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2"><Skeleton className="h-4 w-1/4 mb-1" /><Skeleton className="h-20 w-full rounded-md" /><Skeleton className="h-9 w-[120px]" /></div>
-                <ScrollArea className="h-[200px] w-full"><div className="space-y-3">{[...Array(2)].map((_, i) => (<div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md"><Skeleton className="h-4 w-full mb-1" /><Skeleton className="h-4 w-3/4 mb-2" /><Skeleton className="h-3 w-1/2" /></div>))}</div></ScrollArea>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-1/4 mb-1" />
+                  <Skeleton className="h-20 w-full rounded-md" />
+                  <Skeleton className="h-9 w-[120px]" />
+                </div>
+                <ScrollArea className="h-[200px] w-full">
+                  <div className="space-y-3">
+                    {[...Array(2)].map((_, i) => (
+                      <div key={`skeleton-note-${i}`} className="p-3 bg-secondary/50 rounded-md">
+                        <Skeleton className="h-4 w-full mb-1" />
+                        <Skeleton className="h-4 w-3/4 mb-2" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </CardContent>
             </Card>
-             <Card>
-              <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
-              <CardContent><ScrollArea className="h-[250px]">{Array.from({ length: 3 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-left-activity-${index}`} />)}</ScrollArea></CardContent>
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[250px]">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <ActivityItemSkeleton key={`skeleton-left-activity-${index}`} />
+                  ))}
+                </ScrollArea>
+              </CardContent>
             </Card>
           </div>
 
           <div className="lg:w-[35%] lg:sticky lg:top-[calc(theme(spacing.16)_+_theme(spacing.8))] h-fit">
-             <Card className="h-full flex flex-col">
+            <Card className="h-full flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <Skeleton className="h-6 w-1/2" />
@@ -320,9 +412,11 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                 </div>
               </CardHeader>
               <CardContent className="flex-grow overflow-hidden p-2">
-                <ScrollArea className="h-[calc(100vh-20rem)]"> 
-                   <div className="space-y-1.5 pr-1">
-                    {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
+                <ScrollArea className="h-[calc(100vh-20rem)]">
+                  <div className="space-y-1.5 pr-1">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <DealCardSkeleton key={`skeleton-deal-${i}`} />
+                    ))}
                   </div>
                 </ScrollArea>
               </CardContent>
@@ -337,12 +431,17 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
     return (
       <div className="container mx-auto py-8">
         <Button variant="outline" asChild className="mb-4">
-            <Link href="/contacts">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Contacts
-            </Link>
-          </Button>
-        <PageSectionHeader title="Contact Not Found" description={error || "The contact you are looking for does not exist or could not be loaded."} />
+          <Link href="/contacts">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Contacts
+          </Link>
+        </Button>
+        <PageSectionHeader
+          title="Contact Not Found"
+          description={
+            error || "The contact you are looking for does not exist or could not be loaded."
+          }
+        />
       </div>
     );
   }
@@ -364,7 +463,9 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
           {company && (
             <p className="text-muted-foreground flex items-center mt-1 ml-11">
               <Briefcase className="mr-2 h-4 w-4" />
-              <Link href={`/companies/${company.id}`} className="hover:underline text-primary">{company.name}</Link>
+              <Link href={`/companies/${company.id}`} className="hover:underline text-primary">
+                {company.name}
+              </Link>
             </p>
           )}
         </div>
@@ -396,23 +497,33 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
               {contact.tags && contact.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 items-center pt-1">
                   <span className="text-sm text-muted-foreground">Tags:</span>
-                  {contact.tags.map(tag => <TagBadge key={tag} tag={tag} />)}
+                  {contact.tags.map((tag) => (
+                    <TagBadge key={tag} tag={tag} />
+                  ))}
                 </div>
               )}
               <div className="space-y-2 pt-2">
-                <h4 className="font-semibold flex items-center"><FileText className="mr-2 h-5 w-5 text-muted-foreground"/>Description</h4>
+                <h4 className="font-semibold flex items-center">
+                  <FileText className="mr-2 h-5 w-5 text-muted-foreground" />
+                  Description
+                </h4>
                 {contact.description ? (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">{contact.description}</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-secondary/30 p-3 rounded-md">
+                    {contact.description}
+                  </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">No description for this contact.</p>
                 )}
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground"/>Notes</CardTitle>
+              <CardTitle className="flex items-center">
+                <MessageSquareText className="mr-2 h-5 w-5 text-muted-foreground" />
+                Notes
+              </CardTitle>
               <CardDescription>Chronological notes related to this contact.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -426,7 +537,11 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                   className="min-h-[80px]"
                   disabled={isAddingNote}
                 />
-                <Button onClick={handleAddNote} size="sm" disabled={isAddingNote || newNoteContent.trim() === ''}>
+                <Button
+                  onClick={handleAddNote}
+                  size="sm"
+                  disabled={isAddingNote || newNoteContent.trim() === ""}
+                >
                   {isAddingNote ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -443,46 +558,58 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
               {sortedNotes.length > 0 ? (
                 <ScrollArea className="h-[200px] w-full pr-4">
                   <div className="space-y-3">
-                    {sortedNotes.map(note => (
-                      <div key={note.id} className="p-3 bg-secondary/50 rounded-md text-sm relative group">
+                    {sortedNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="p-3 bg-secondary/50 rounded-md text-sm relative group"
+                      >
                         <p className="whitespace-pre-wrap">{note.content}</p>
                         <p className="text-xs text-muted-foreground mt-1">
                           <FormattedNoteTimestamp createdAt={note.createdAt} />
                         </p>
                         <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                            onClick={() => handleDeleteRequest(note.id, 'note', 'this note')}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                          onClick={() => handleDeleteRequest(note.id, "note", "this note")}
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
                         </Button>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No notes yet for this contact.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No notes yet for this contact.
+                </p>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-                <CardTitle className="flex items-center"><ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />Contact Activity</CardTitle>
+              <CardTitle className="flex items-center">
+                <ActivityIcon className="mr-2 h-5 w-5 text-muted-foreground" />
+                Contact Activity
+              </CardTitle>
             </CardHeader>
             <CardContent className="pl-2 pr-2 pt-0">
-                <ScrollArea className="h-[250px]">
-                    {isLoadingActivities ? (
-                        Array.from({ length: 4 }).map((_, index) => <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />)
-                    ) : activities.length > 0 ? (
-                        activities.map(activity => (
-                            <ActivityItem key={activity.id} activity={activity} />
-                        ))
-                    ) : (
-                        <p className="text-muted-foreground text-center py-10">No activities recorded for this contact yet.</p>
-                    )}
-                </ScrollArea>
+              <ScrollArea className="h-[250px]">
+                {isLoadingActivities ? (
+                  Array.from({ length: 4 }).map((_, index) => (
+                    <ActivityItemSkeleton key={`skeleton-contact-activity-${index}`} />
+                  ))
+                ) : activities.length > 0 ? (
+                  activities.map((activity) => (
+                    <ActivityItem key={activity.id} activity={activity} />
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center py-10">
+                    No activities recorded for this contact yet.
+                  </p>
+                )}
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>
@@ -491,31 +618,49 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
           <Card className="h-full flex flex-col">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-muted-foreground"/>Associated Deals ({deals.length})</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => { setEditingDeal(null); setIsDealModalOpen(true); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
+                <CardTitle className="flex items-center">
+                  <DollarSign className="mr-2 h-5 w-5 text-muted-foreground" />
+                  Associated Deals ({deals.length})
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingDeal(null);
+                    setIsDealModalOpen(true);
+                  }}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Deal
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="flex-grow overflow-hidden p-2">
               {isLoading ? (
-                 <div className="space-y-1.5 pr-1">
-                    {Array.from({ length: 3 }).map((_, i) => <DealCardSkeleton key={`skeleton-deal-${i}`} />)}
-                  </div>
+                <div className="space-y-1.5 pr-1">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <DealCardSkeleton key={`skeleton-deal-${i}`} />
+                  ))}
+                </div>
               ) : deals.length > 0 ? (
-                <ScrollArea className="h-full"> 
-                   <div className="space-y-1.5 pr-1">
+                <ScrollArea className="h-full">
+                  <div className="space-y-1.5 pr-1">
                     {deals.map((deal) => {
-                      const dealCompany = allCompaniesList.find(c => c.id === deal.companyId);
-                      const dealContactForCard = contact?.id === deal.contactId ? contact : allContactsList.find(c => c.id === deal.contactId); 
+                      const dealCompany = allCompaniesList.find((c) => c.id === deal.companyId);
+                      const dealContactForCard =
+                        contact?.id === deal.contactId
+                          ? contact
+                          : allContactsList.find((c) => c.id === deal.contactId);
                       return (
                         <DealCard
                           key={deal.id}
                           deal={deal}
                           contact={dealContactForCard || undefined}
                           company={dealCompany}
-                          onEdit={() => { setEditingDeal(deal); setIsDealModalOpen(true); }}
-                          onDelete={() => handleDeleteRequest(deal.id, 'deal', deal.name)}
+                          onEdit={() => {
+                            setEditingDeal(deal);
+                            setIsDealModalOpen(true);
+                          }}
+                          onDelete={() => handleDeleteRequest(deal.id, "deal", deal.name)}
                           onChangeStage={handleChangeDealStage}
                         />
                       );
@@ -523,27 +668,32 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
                   </div>
                 </ScrollArea>
               ) : (
-                <p className="text-muted-foreground text-center py-4 text-sm">No deals associated with this contact yet.</p>
+                <p className="text-muted-foreground text-center py-4 text-sm">
+                  No deals associated with this contact yet.
+                </p>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
-      
+
       <ContactFormModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
         onSaveCallback={handleSaveContactCallback}
         contact={contact}
-        companies={allCompaniesList} 
+        companies={allCompaniesList}
       />
       <DealFormModal
         isOpen={isDealModalOpen}
-        onClose={() => { setIsDealModalOpen(false); setEditingDeal(null); }}
+        onClose={() => {
+          setIsDealModalOpen(false);
+          setEditingDeal(null);
+        }}
         onSaveCallback={handleSaveDealCallback}
         deal={editingDeal}
-        contacts={allContactsList} 
-        companies={allCompaniesList} 
+        contacts={allContactsList}
+        companies={allCompaniesList}
         defaultContactId={contact.id}
         defaultCompanyId={contact.companyId}
       />
@@ -552,7 +702,11 @@ export function ContactDetailsClient({ contactId }: ContactDetailsClientProps) {
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={confirmDeleteItem}
         itemName={itemToDelete?.name || "this item"}
-        description={itemToDelete?.type === 'note' ? 'This action cannot be undone. This will permanently delete this note.' : undefined}
+        description={
+          itemToDelete?.type === "note"
+            ? "This action cannot be undone. This will permanently delete this note."
+            : undefined
+        }
       />
     </div>
   );

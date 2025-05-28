@@ -4,28 +4,28 @@ DealFlow is a comprehensive CRM application designed to help businesses manage t
 
 ## Features
 
-*   **Contact Management:** Add, edit, and delete contact information.
-*   **Company Directory:** Organize and track companies and their associated contacts.
-*   **Deal Tracking:** Manage deals through customizable pipeline stages (e.g., Opportunity, Proposal Sent, Won, Lost).
-*   **Kanban Board:** Visualize your deal pipeline and easily move deals through stages using a drag-and-drop interface.
-*   **Task & Note Management:** Create and assign tasks, and add notes to deals and contacts.
-*   **Tagging:** Categorize contacts and deals with a flexible tagging system for easy filtering and organization.
-*   **Smart Tag Suggestions:** Leverage AI-powered suggestions to automatically tag contacts and deals.
+- **Contact Management:** Add, edit, and delete contact information.
+- **Company Directory:** Organize and track companies and their associated contacts.
+- **Deal Tracking:** Manage deals through customizable pipeline stages (e.g., Opportunity, Proposal Sent, Won, Lost).
+- **Kanban Board:** Visualize your deal pipeline and easily move deals through stages using a drag-and-drop interface.
+- **Task & Note Management:** Create and assign tasks, and add notes to deals and contacts.
+- **Tagging:** Categorize contacts and deals with a flexible tagging system for easy filtering and organization.
+- **Smart Tag Suggestions:** Leverage AI-powered suggestions to automatically tag contacts and deals.
 
 ## Technology Stack
 
-*   **Frontend:** Next.js, React, Tailwind CSS
-*   **UI Components:** Radix UI
-*   **Backend:** Node.js, Firebase, SQLite
-*   **AI:** Genkit (for smart tag suggestions)
+- **Frontend:** Next.js, React, Tailwind CSS
+- **UI Components:** Radix UI
+- **Backend:** Node.js, Firebase, SQLite
+- **AI:** Genkit (for smart tag suggestions)
 
 ## Getting Started
 
 ### Prerequisites
 
-*   Node.js (>= 18.x)
-*   npm or yarn
-*   Firebase project
+- Node.js (>= 18.x)
+- npm or yarn
+- Firebase project
 
 ### Installation
 

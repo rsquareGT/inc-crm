@@ -1,10 +1,14 @@
-'use server';
+"use server";
 
-import { suggestTags as aiSuggestTags, type SuggestTagsInput, type SuggestTagsOutput } from '@/ai/flows/suggest-tags';
+import {
+  suggestTags as aiSuggestTags,
+  type SuggestTagsInput,
+  type SuggestTagsOutput,
+} from "@/ai/flows/suggest-tags";
 
 interface SuggestTagsResult {
   success: boolean;
-  tags?: SuggestTagsOutput['tags'];
+  tags?: SuggestTagsOutput["tags"];
   error?: string;
 }
 

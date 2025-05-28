@@ -1,20 +1,22 @@
-
-import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import type { Deal } from '@/lib/types';
-import { logActivity } from '@/services/activity-logger';
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import type { Deal } from "@/lib/types";
+import { logActivity } from "@/services/activity-logger";
 
 // GET a single deal by ID, ensuring it belongs to the user's organization
 export async function GET(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
     const { dealId } = await params;
-    const organizationId = request.headers.get('x-user-organization-id');
+    const organizationId = request.headers.get("x-user-organization-id");
     if (!organizationId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
 
     const stmtDeal = db.prepare(`
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: { dealId: 
     const dealData = stmtDeal.get(dealId, organizationId) as any;
 
     if (!dealData) {
-      return NextResponse.json({ error: 'Deal not found or not authorized' }, { status: 404 });
+      return NextResponse.json({ error: "Deal not found or not authorized" }, { status: 404 });
     }
 
     const deal: Deal = {
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest, { params }: { params: { dealId: 
     return NextResponse.json(deal);
   } catch (error) {
     console.error(`API Error fetching deal ${params.dealId}:`, error);
-    return NextResponse.json({ error: 'Failed to fetch deal.' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch deal." }, { status: 500 });
   }
 }
 
@@ -47,29 +49,38 @@ export async function GET(request: NextRequest, { params }: { params: { dealId: 
 export async function PUT(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
     const { dealId } = await params;
-    const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id');
+    const organizationId = request.headers.get("x-user-organization-id");
+    const userId = request.headers.get("x-user-id");
 
     if (!organizationId || !userId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization or User ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
     const body = await request.json();
     const { name, value, stage, contactId, companyId, expectedCloseDate, tags, description } = body;
 
     if (!name || value === undefined || !stage) {
-      return NextResponse.json({ error: 'Deal name, value, and stage are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Deal name, value, and stage are required" },
+        { status: 400 }
+      );
     }
 
     // Fetch current deal for logging comparison
-    const stmtCurrentDeal = db.prepare('SELECT * FROM Deals WHERE id = ? AND organizationId = ?');
+    const stmtCurrentDeal = db.prepare("SELECT * FROM Deals WHERE id = ? AND organizationId = ?");
     const currentDealData = stmtCurrentDeal.get(dealId, organizationId) as Deal | undefined;
 
     if (!currentDealData) {
-        return NextResponse.json({ error: 'Deal not found or not authorized for update' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deal not found or not authorized for update" },
+        { status: 404 }
+      );
     }
 
     const now = new Date().toISOString();
@@ -84,8 +95,8 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
       name,
       value,
       stage,
-      contactId === '_none_' ? null : contactId || null,
-      companyId === '_none_' ? null : companyId || null,
+      contactId === "_none_" ? null : contactId || null,
+      companyId === "_none_" ? null : companyId || null,
       expectedCloseDate || null,
       JSON.stringify(tags || []),
       description || null,
@@ -95,40 +106,65 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
     );
 
     if (result.changes === 0) {
-      return NextResponse.json({ error: 'Deal not found, not authorized, or no changes made' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Deal not found, not authorized, or no changes made" },
+        { status: 404 }
+      );
     }
 
     // Log activity with detailed changes
-    const changes: Array<{field: string, oldValue: any, newValue: any}> = [];
-    let activityType: 'updated_deal_stage' | 'updated_deal_details' = 'updated_deal_details';
+    const changes: Array<{ field: string; oldValue: any; newValue: any }> = [];
+    let activityType: "updated_deal_stage" | "updated_deal_details" = "updated_deal_details";
 
-    if (currentDealData.name !== name) changes.push({ field: 'Name', oldValue: currentDealData.name, newValue: name });
-    if (currentDealData.value !== value) changes.push({ field: 'Value', oldValue: currentDealData.value, newValue: value });
+    if (currentDealData.name !== name)
+      changes.push({ field: "Name", oldValue: currentDealData.name, newValue: name });
+    if (currentDealData.value !== value)
+      changes.push({ field: "Value", oldValue: currentDealData.value, newValue: value });
     if (currentDealData.stage !== stage) {
-      changes.push({ field: 'Stage', oldValue: currentDealData.stage, newValue: stage });
-      activityType = 'updated_deal_stage'; // Prioritize stage change for activity type if it occurred
+      changes.push({ field: "Stage", oldValue: currentDealData.stage, newValue: stage });
+      activityType = "updated_deal_stage"; // Prioritize stage change for activity type if it occurred
     }
-    if ((currentDealData.contactId || null) !== (contactId === '_none_' ? null : contactId || null)) changes.push({ field: 'Contact ID', oldValue: currentDealData.contactId, newValue: (contactId === '_none_' ? null : contactId || null) });
-    if ((currentDealData.companyId || null) !== (companyId === '_none_' ? null : companyId || null)) changes.push({ field: 'Company ID', oldValue: currentDealData.companyId, newValue: (companyId === '_none_' ? null : companyId || null) });
-    if ((currentDealData.expectedCloseDate || null) !== (expectedCloseDate || null)) changes.push({ field: 'Expected Close Date', oldValue: currentDealData.expectedCloseDate, newValue: expectedCloseDate || null });
-    if ((currentDealData.description || null) !== (description || null)) changes.push({ field: 'Description', oldValue: currentDealData.description, newValue: description || null });
-    if (JSON.stringify(currentDealData.tags || []) !== JSON.stringify(tags || [])) changes.push({ field: 'Tags', oldValue: currentDealData.tags, newValue: tags || [] });
+    if ((currentDealData.contactId || null) !== (contactId === "_none_" ? null : contactId || null))
+      changes.push({
+        field: "Contact ID",
+        oldValue: currentDealData.contactId,
+        newValue: contactId === "_none_" ? null : contactId || null,
+      });
+    if ((currentDealData.companyId || null) !== (companyId === "_none_" ? null : companyId || null))
+      changes.push({
+        field: "Company ID",
+        oldValue: currentDealData.companyId,
+        newValue: companyId === "_none_" ? null : companyId || null,
+      });
+    if ((currentDealData.expectedCloseDate || null) !== (expectedCloseDate || null))
+      changes.push({
+        field: "Expected Close Date",
+        oldValue: currentDealData.expectedCloseDate,
+        newValue: expectedCloseDate || null,
+      });
+    if ((currentDealData.description || null) !== (description || null))
+      changes.push({
+        field: "Description",
+        oldValue: currentDealData.description,
+        newValue: description || null,
+      });
+    if (JSON.stringify(currentDealData.tags || []) !== JSON.stringify(tags || []))
+      changes.push({ field: "Tags", oldValue: currentDealData.tags, newValue: tags || [] });
 
     // If only stage changed, details might be redundant if captured by activityType already.
     // But for consistency, we can include it.
     let activityDetails: Record<string, any> = { changes };
-    if (activityType === 'updated_deal_stage') {
+    if (activityType === "updated_deal_stage") {
       activityDetails.old_stage = currentDealData.stage;
       activityDetails.new_stage = stage;
     }
-
 
     if (changes.length > 0) {
       await logActivity({
         organizationId,
         userId,
         activityType,
-        entityType: 'deal',
+        entityType: "deal",
         entityId: dealId,
         entityName: name, // Log with new name
         details: activityDetails,
@@ -150,10 +186,9 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
     };
 
     return NextResponse.json(updatedDeal);
-
   } catch (error) {
     console.error(`API Error updating deal ${params.dealId}:`, error);
-    return NextResponse.json({ error: 'Failed to update deal.' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update deal." }, { status: 500 });
   }
 }
 
@@ -161,37 +196,46 @@ export async function PUT(request: NextRequest, { params }: { params: { dealId: 
 export async function DELETE(request: NextRequest, { params }: { params: { dealId: string } }) {
   try {
     const { dealId } = await params;
-    const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id');
+    const organizationId = request.headers.get("x-user-organization-id");
+    const userId = request.headers.get("x-user-id");
 
     if (!organizationId || !userId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization or User ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
 
-    const dealCheckStmt = db.prepare('SELECT name FROM Deals WHERE id = ? AND organizationId = ?');
-    const dealToDeleteData = dealCheckStmt.get(dealId, organizationId) as { name: string } | undefined;
+    const dealCheckStmt = db.prepare("SELECT name FROM Deals WHERE id = ? AND organizationId = ?");
+    const dealToDeleteData = dealCheckStmt.get(dealId, organizationId) as
+      | { name: string }
+      | undefined;
 
     if (!dealToDeleteData) {
-      return NextResponse.json({ error: 'Deal not found or not authorized' }, { status: 404 });
+      return NextResponse.json({ error: "Deal not found or not authorized" }, { status: 404 });
     }
     const dealName = dealToDeleteData.name;
 
     db.transaction(() => {
-      const stmtUpdateTasks = db.prepare('UPDATE Tasks SET relatedDealId = NULL WHERE relatedDealId = ? AND organizationId = ?');
+      const stmtUpdateTasks = db.prepare(
+        "UPDATE Tasks SET relatedDealId = NULL WHERE relatedDealId = ? AND organizationId = ?"
+      );
       stmtUpdateTasks.run(dealId, organizationId);
 
-      const stmtDeleteNotes = db.prepare('DELETE FROM Notes WHERE dealId = ? AND organizationId = ?');
+      const stmtDeleteNotes = db.prepare(
+        "DELETE FROM Notes WHERE dealId = ? AND organizationId = ?"
+      );
       stmtDeleteNotes.run(dealId, organizationId);
 
-      const stmtDeleteDeal = db.prepare('DELETE FROM Deals WHERE id = ? AND organizationId = ?');
+      const stmtDeleteDeal = db.prepare("DELETE FROM Deals WHERE id = ? AND organizationId = ?");
       const result = stmtDeleteDeal.run(dealId, organizationId);
 
       if (result.changes === 0) {
-        const notFoundError = new Error('Deal not found or not authorized during transaction');
+        const notFoundError = new Error("Deal not found or not authorized during transaction");
         (notFoundError as any).statusCode = 404;
         throw notFoundError;
       }
@@ -200,19 +244,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { dealI
     await logActivity({
       organizationId,
       userId,
-      activityType: 'deleted_deal',
-      entityType: 'deal',
+      activityType: "deleted_deal",
+      entityType: "deal",
       entityId: dealId,
       entityName: dealName,
     });
 
-    return NextResponse.json({ message: 'Deal deleted successfully' }, { status: 200 });
-
+    return NextResponse.json({ message: "Deal deleted successfully" }, { status: 200 });
   } catch (error: any) {
     console.error(`API Error deleting deal ${params.dealId}:`, error);
     if (error.statusCode === 404) {
-        return NextResponse.json({ error: 'Deal not found or not authorized' }, { status: 404 });
+      return NextResponse.json({ error: "Deal not found or not authorized" }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Failed to delete deal.' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete deal." }, { status: 500 });
   }
 }

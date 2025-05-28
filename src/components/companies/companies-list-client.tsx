@@ -1,7 +1,6 @@
+"use client";
 
-'use client';
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -10,25 +9,46 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle, Edit, Trash2, ExternalLink, LayoutGrid, ListFilter, ArrowUpDown, Loader2 } from 'lucide-react';
-import type { Company, User } from '@/lib/types';
-import { CompanyFormModal } from './company-form-modal';
-import { CompanyCard } from './company-card';
-import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { DeleteConfirmationDialog } from '@/components/shared/delete-confirmation-dialog';
-import { TagBadge } from '@/components/shared/tag-badge';
-import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/auth-context';
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
+import {
+  MoreHorizontal,
+  PlusCircle,
+  Edit,
+  Trash2,
+  ExternalLink,
+  LayoutGrid,
+  ListFilter,
+  ArrowUpDown,
+  Loader2,
+} from "lucide-react";
+import type { Company, User } from "@/lib/types";
+import { CompanyFormModal } from "./company-form-modal";
+import { CompanyCard } from "./company-card";
+import { PageSectionHeader } from "@/components/shared/page-section-header";
+import { DeleteConfirmationDialog } from "@/components/shared/delete-confirmation-dialog";
+import { TagBadge } from "@/components/shared/tag-badge";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/auth-context";
 
-type SortByType = 'name' | 'industry' | 'createdAt' | '';
+type SortByType = "name" | "industry" | "createdAt" | "";
 
 export function CompaniesListClient() {
   const { user: loggedInUser } = useAuth();
@@ -44,16 +64,16 @@ export function CompaniesListClient() {
   const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid view
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<SortByType>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid"); // Default to grid view
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<SortByType>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const fetchCompanies = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/companies');
+      const response = await fetch("/api/companies");
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to fetch companies: ${response.statusText}`);
@@ -62,7 +82,7 @@ export function CompaniesListClient() {
       setCompanies(data);
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(message);
       toast({ title: "Error Fetching Companies", description: message, variant: "destructive" });
     } finally {
@@ -74,19 +94,26 @@ export function CompaniesListClient() {
     if (!loggedInUser?.organizationId) return;
     setIsFormRelatedDataLoading(true);
     try {
-      const usersResponse = await fetch('/api/users'); 
-      if(!usersResponse.ok) {
+      const usersResponse = await fetch("/api/users");
+      if (!usersResponse.ok) {
         const errorData = await usersResponse.json();
-        throw new Error(errorData.error || `Failed to fetch users for form: ${usersResponse.statusText}`);
+        throw new Error(
+          errorData.error || `Failed to fetch users for form: ${usersResponse.statusText}`
+        );
       }
       let usersData: User[] = await usersResponse.json();
       // Client-side safeguard/filter
-      usersData = usersData.filter(u => u.organizationId === loggedInUser.organizationId);
+      usersData = usersData.filter((u) => u.organizationId === loggedInUser.organizationId);
       setAllUsersForForm(usersData);
     } catch (err) {
       console.error("Error fetching form data for Companies List:", err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred fetching form data.';
-      toast({ title: "Error Loading Form Dependencies", description: message, variant: "destructive" });
+      const message =
+        err instanceof Error ? err.message : "An unknown error occurred fetching form data.";
+      toast({
+        title: "Error Loading Form Dependencies",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setIsFormRelatedDataLoading(false);
     }
@@ -110,7 +137,7 @@ export function CompaniesListClient() {
   const handleSaveCompanyCallback = () => {
     fetchCompanies();
   };
-  
+
   const handleDeleteCompany = (companyId: string) => {
     setCompanyToDelete(companyId);
     setShowDeleteDialog(true);
@@ -118,21 +145,24 @@ export function CompaniesListClient() {
 
   const confirmDeleteCompany = async () => {
     if (!companyToDelete) return;
-    
-    const companyName = companies.find(c => c.id === companyToDelete)?.name || "Company";
+
+    const companyName = companies.find((c) => c.id === companyToDelete)?.name || "Company";
     try {
       const response = await fetch(`/api/companies/${companyToDelete}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to delete company: ${response.statusText}`);
       }
-      toast({ title: "Company Deleted", description: `Company "${companyName}" has been deleted.`});
-      setCompanies(prevCompanies => prevCompanies.filter(c => c.id !== companyToDelete));
+      toast({
+        title: "Company Deleted",
+        description: `Company "${companyName}" has been deleted.`,
+      });
+      setCompanies((prevCompanies) => prevCompanies.filter((c) => c.id !== companyToDelete));
     } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
       toast({ title: "Error Deleting Company", description: message, variant: "destructive" });
     } finally {
       setShowDeleteDialog(false);
@@ -144,23 +174,26 @@ export function CompaniesListClient() {
     let items = [...companies];
 
     if (searchTerm) {
-      items = items.filter(company =>
-        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (company.industry && company.industry.toLowerCase().includes(searchTerm.toLowerCase()))
+      items = items.filter(
+        (company) =>
+          company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (company.industry && company.industry.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
     if (sortBy) {
       items.sort((a, b) => {
         let comparison = 0;
-        const factor = sortOrder === 'asc' ? 1 : -1;
+        const factor = sortOrder === "asc" ? 1 : -1;
 
-        if (sortBy === 'createdAt') {
+        if (sortBy === "createdAt") {
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        } else if (sortBy === 'name') {
-          comparison = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
-        } else if (sortBy === 'industry') {
-          comparison = (a.industry || '').toLowerCase().localeCompare((b.industry || '').toLowerCase());
+        } else if (sortBy === "name") {
+          comparison = (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase());
+        } else if (sortBy === "industry") {
+          comparison = (a.industry || "")
+            .toLowerCase()
+            .localeCompare((b.industry || "").toLowerCase());
         }
         return comparison * factor;
       });
@@ -169,7 +202,7 @@ export function CompaniesListClient() {
   }, [companies, searchTerm, sortBy, sortOrder]);
 
   const formatAddressForList = (company: Company) => {
-    return [company.city, company.state, company.country].filter(Boolean).join(', ') || 'N/A';
+    return [company.city, company.state, company.country].filter(Boolean).join(", ") || "N/A";
   };
 
   if (isLoading || isFormRelatedDataLoading) {
@@ -193,8 +226,8 @@ export function CompaniesListClient() {
           </div>
         </div>
         <Card className="shadow-sm">
-          <CardContent className={viewMode === 'list' ? "p-0" : "pt-6"}>
-            {viewMode === 'list' ? (
+          <CardContent className={viewMode === "list" ? "p-0" : "pt-6"}>
+            {viewMode === "list" ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -209,12 +242,27 @@ export function CompaniesListClient() {
                 <TableBody>
                   {Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={`skeleton-row-${index}`}>
-                      <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
-                      <TableCell><div className="flex gap-1"><Skeleton className="h-5 w-12 rounded-full" /><Skeleton className="h-5 w-12 rounded-full" /></div></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[150px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[100px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[120px]" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-[180px]" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Skeleton className="h-5 w-12 rounded-full" />
+                          <Skeleton className="h-5 w-12 rounded-full" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-8 w-8" />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -230,9 +278,18 @@ export function CompaniesListClient() {
                       </div>
                     </CardHeader>
                     <CardContent className="px-4 pb-3 space-y-2 text-sm flex-grow">
-                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
-                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-4/5" /></div>
-                      <div className="flex items-center"><Skeleton className="h-4 w-4 mr-2 rounded-full" /><Skeleton className="h-4 w-3/5" /></div>
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                        <Skeleton className="h-4 w-3/5" />
+                      </div>
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                        <Skeleton className="h-4 w-4/5" />
+                      </div>
+                      <div className="flex items-center">
+                        <Skeleton className="h-4 w-4 mr-2 rounded-full" />
+                        <Skeleton className="h-4 w-3/5" />
+                      </div>
                     </CardContent>
                     <CardFooter className="px-4 pt-2 pb-4 flex flex-wrap gap-1 border-t mt-auto">
                       <Skeleton className="h-5 w-12 rounded-full" />
@@ -252,12 +309,12 @@ export function CompaniesListClient() {
     return (
       <div>
         <PageSectionHeader title="Companies" description="Manage your company directory.">
-         <Button onClick={() => handleOpenModal()} disabled={isFormRelatedDataLoading}>
+          <Button onClick={() => handleOpenModal()} disabled={isFormRelatedDataLoading}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Company
           </Button>
         </PageSectionHeader>
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-20rem)]">
-            <p className="text-lg text-destructive">Error loading companies: {error}</p>
+          <p className="text-lg text-destructive">Error loading companies: {error}</p>
         </div>
       </div>
     );
@@ -266,9 +323,9 @@ export function CompaniesListClient() {
   return (
     <div>
       <PageSectionHeader title="Companies" description="Manage your company directory.">
-         <Button onClick={() => handleOpenModal()} disabled={isFormRelatedDataLoading}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Company
-          </Button>
+        <Button onClick={() => handleOpenModal()} disabled={isFormRelatedDataLoading}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Company
+        </Button>
       </PageSectionHeader>
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-2 mb-6">
@@ -289,14 +346,31 @@ export function CompaniesListClient() {
               <SelectItem value="createdAt">Date Created</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} aria-label="Toggle sort order">
-            <ArrowUpDown className={`h-4 w-4 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            aria-label="Toggle sort order"
+          >
+            <ArrowUpDown
+              className={`h-4 w-4 transition-transform ${sortOrder === "desc" ? "rotate-180" : ""}`}
+            />
           </Button>
           <div className="flex items-center border rounded-md">
-            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')} aria-label="List view">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+            >
               <ListFilter className="h-4 w-4" />
             </Button>
-            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')} aria-label="Grid view">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+            >
               <LayoutGrid className="h-4 w-4" />
             </Button>
           </div>
@@ -304,8 +378,8 @@ export function CompaniesListClient() {
       </div>
 
       <Card className="shadow-sm">
-        <CardContent className={viewMode === 'list' ? "p-0" : "pt-6"}>
-          {viewMode === 'list' ? (
+        <CardContent className={viewMode === "list" ? "p-0" : "pt-6"}>
+          {viewMode === "list" ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -321,23 +395,41 @@ export function CompaniesListClient() {
                 {displayedCompanies.map((company) => (
                   <TableRow key={company.id}>
                     <TableCell className="font-medium">
-                      <Link href={`/companies/${company.id}`} className="hover:underline text-primary">
+                      <Link
+                        href={`/companies/${company.id}`}
+                        className="hover:underline text-primary"
+                      >
                         {company.name}
                       </Link>
                     </TableCell>
-                    <TableCell>{company.industry || 'N/A'}</TableCell>
+                    <TableCell>{company.industry || "N/A"}</TableCell>
                     <TableCell>{formatAddressForList(company)}</TableCell>
                     <TableCell>
                       {company.website ? (
-                        <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center">
+                        <a
+                          href={
+                            company.website.startsWith("http")
+                              ? company.website
+                              : `https://${company.website}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline flex items-center"
+                        >
                           {company.website} <ExternalLink className="h-3 w-3 ml-1" />
                         </a>
-                      ) : 'N/A'}
+                      ) : (
+                        "N/A"
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {(company.tags || []).slice(0, 2).map(tag => <TagBadge key={tag} tag={tag} />)}
-                        {(company.tags || []).length > 2 && <Badge variant="outline">+{company.tags.length - 2}</Badge>}
+                        {(company.tags || []).slice(0, 2).map((tag) => (
+                          <TagBadge key={tag} tag={tag} />
+                        ))}
+                        {(company.tags || []).length > 2 && (
+                          <Badge variant="outline">+{company.tags.length - 2}</Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -357,7 +449,10 @@ export function CompaniesListClient() {
                           <DropdownMenuItem onClick={() => handleOpenModal(company)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDeleteCompany(company.id)} className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground">
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteCompany(company.id)}
+                            className="text-destructive hover:!bg-destructive hover:!text-destructive-foreground"
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -367,7 +462,9 @@ export function CompaniesListClient() {
                 ))}
                 {displayedCompanies.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">No companies found.</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">
+                      No companies found.
+                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -378,7 +475,7 @@ export function CompaniesListClient() {
                 <CompanyCard
                   key={company.id}
                   company={company}
-                  allUsers={allUsersForForm} 
+                  allUsers={allUsersForForm}
                   onEdit={() => handleOpenModal(company)}
                   onDelete={() => handleDeleteCompany(company.id)}
                 />
@@ -398,17 +495,15 @@ export function CompaniesListClient() {
         onClose={handleCloseModal}
         onSaveCallback={handleSaveCompanyCallback}
         company={editingCompany}
-        allUsers={allUsersForForm} 
+        allUsers={allUsersForForm}
       />
 
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={confirmDeleteCompany}
-        itemName={companies.find(c => c.id === companyToDelete)?.name || "this company"}
+        itemName={companies.find((c) => c.id === companyToDelete)?.name || "this company"}
       />
     </div>
   );
 }
-
-    

@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { X, Wand2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { Tag } from '@/lib/types';
-import { suggestTagsAction } from '@/actions/ai.actions';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState, useEffect, useCallback } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X, Wand2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { Tag } from "@/lib/types";
+import { suggestTagsAction } from "@/actions/ai.actions";
+import { useToast } from "@/hooks/use-toast";
 
 interface TagInputFieldProps {
   value: Tag[];
@@ -21,11 +21,11 @@ interface TagInputFieldProps {
 export function TagInputField({
   value = [],
   onChange,
-  placeholder = 'Add tags...',
+  placeholder = "Add tags...",
   textToSuggestFrom,
   className,
 }: TagInputFieldProps) {
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [suggestedTags, setSuggestedTags] = useState<Tag[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const { toast } = useToast();
@@ -35,11 +35,11 @@ export function TagInputField({
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && inputValue.trim() !== '') {
+    if (e.key === "Enter" && inputValue.trim() !== "") {
       e.preventDefault();
       addTag(inputValue.trim());
-      setInputValue('');
-    } else if (e.key === 'Backspace' && inputValue === '' && value.length > 0) {
+      setInputValue("");
+    } else if (e.key === "Backspace" && inputValue === "" && value.length > 0) {
       removeTag(value[value.length - 1]);
     }
   };
@@ -55,7 +55,8 @@ export function TagInputField({
   };
 
   const handleSuggestTags = useCallback(async () => {
-    if (!textToSuggestFrom || textToSuggestFrom.trim().length < 10) { // Require some text for meaningful suggestions
+    if (!textToSuggestFrom || textToSuggestFrom.trim().length < 10) {
+      // Require some text for meaningful suggestions
       toast({
         title: "Cannot Suggest Tags",
         description: "Please provide more descriptive text to get tag suggestions.",
@@ -68,9 +69,9 @@ export function TagInputField({
     try {
       const result = await suggestTagsAction({ text: textToSuggestFrom });
       if (result.success && result.tags) {
-        setSuggestedTags(result.tags.filter(tag => !value.includes(tag))); // Filter out already added tags
-         if (result.tags.length === 0) {
-          toast({ title: "No new tags suggested."});
+        setSuggestedTags(result.tags.filter((tag) => !value.includes(tag))); // Filter out already added tags
+        if (result.tags.length === 0) {
+          toast({ title: "No new tags suggested." });
         }
       } else {
         toast({
@@ -91,7 +92,7 @@ export function TagInputField({
   }, [textToSuggestFrom, value, toast]);
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn("space-y-2", className)}>
       <div className="flex gap-2 items-center">
         <Input
           type="text"
@@ -118,23 +119,26 @@ export function TagInputField({
           </Button>
         )}
       </div>
-      
+
       {(suggestedTags.length > 0 || isSuggesting) && (
         <div className="p-2 border rounded-md bg-secondary/30">
           <p className="text-xs text-muted-foreground mb-1">
             {isSuggesting ? "AI thinking..." : "Suggested tags (click to add):"}
           </p>
           <div className="flex flex-wrap gap-1">
-            {isSuggesting && Array.from({length:3}).map((_, idx) => (
-                 <Badge key={`loader-${idx}`} variant="outline" className="animate-pulse">Loading...</Badge>
-            ))}
+            {isSuggesting &&
+              Array.from({ length: 3 }).map((_, idx) => (
+                <Badge key={`loader-${idx}`} variant="outline" className="animate-pulse">
+                  Loading...
+                </Badge>
+              ))}
             {suggestedTags.map((tag) => (
               <Badge
                 key={tag}
                 variant="outline"
                 onClick={() => {
                   addTag(tag);
-                  setSuggestedTags(suggestedTags.filter(s => s !== tag));
+                  setSuggestedTags(suggestedTags.filter((s) => s !== tag));
                 }}
                 className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
               >

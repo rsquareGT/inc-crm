@@ -1,12 +1,11 @@
-
-import { AppPageShell } from '@/components/layout/app-page-shell';
-import { DealDetailsClient } from '@/components/deals/deal-details-client';
+import { AppPageShell } from "@/components/layout/app-page-shell";
+import { DealDetailsClient } from "@/components/deals/deal-details-client";
 // Mock data no longer primary source
-import type { Deal, Contact, Company, Task } from '@/lib/types';
-import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import type { Deal, Contact, Company, Task } from "@/lib/types";
+import { PageSectionHeader } from "@/components/shared/page-section-header";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 interface DealDetailsPageProps {
   params: { dealId: string };
@@ -18,7 +17,10 @@ async function getDealInitialData(dealId: string): Promise<{ deal: Deal | null }
   // In a real app, you'd fetch from your DB/API here.
   // Example: const deal = await fetch(`/api/deals/${dealId}`).then(res => res.json());
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:9002'}/api/deals/${dealId}`, { cache: 'no-store'});
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9002"}/api/deals/${dealId}`,
+      { cache: "no-store" }
+    );
     if (!res.ok) return { deal: null };
     return { deal: await res.json() };
   } catch (error) {
@@ -26,7 +28,6 @@ async function getDealInitialData(dealId: string): Promise<{ deal: Deal | null }
     return { deal: null };
   }
 }
-
 
 export default async function DealDetailsPage({ params }: DealDetailsPageProps) {
   const { dealId } = await params;

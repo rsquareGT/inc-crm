@@ -19,7 +19,7 @@
 
     --secondary: 200 50% 94%; /* Light cool gray */
     --secondary-foreground: 200 20% 40%; /* Medium-dark blue-gray */
-    
+
     --muted: 200 40% 90%; /* Very light cool gray */
     --muted-foreground: 200 15% 60%; /* Medium-light gray */
 
@@ -30,7 +30,7 @@
     --destructive-foreground: 0 0% 98%; /* White/light text on destructive */
 
     --border: 200 30% 88%; /* Slightly darker cool gray for borders */
-    --input: 200 30% 88%;  /* Input border, background can be transparent or --background */
+    --input: 200 30% 88%; /* Input border, background can be transparent or --background */
     --ring: 205 70% 50%; /* Primary Blue for focus rings */
 
     --chart-1: 205 70% 50%; /* Primary Blue */
@@ -38,7 +38,7 @@
     --chart-3: 150 60% 45%; /* Seafoam Green */
     --chart-4: 270 60% 65%; /* Soft Lavender */
     --chart-5: 50 70% 55%; /* Muted Yellow */
-    
+
     --radius: 0.5rem;
 
     /* Sidebar specific colors (Light) */

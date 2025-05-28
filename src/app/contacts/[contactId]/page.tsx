@@ -1,13 +1,12 @@
-
-import { AppPageShell } from '@/components/layout/app-page-shell';
-import { ContactDetailsClient } from '@/components/contacts/contact-details-client';
+import { AppPageShell } from "@/components/layout/app-page-shell";
+import { ContactDetailsClient } from "@/components/contacts/contact-details-client";
 // mockContacts, mockCompanies, mockDeals are no longer used.
 // Data will be fetched client-side by ContactDetailsClient from APIs.
-import type { Contact, Company, Deal } from '@/lib/types'; // Keep types for reference if needed
-import { PageSectionHeader } from '@/components/shared/page-section-header';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import type { Contact, Company, Deal } from "@/lib/types"; // Keep types for reference if needed
+import { PageSectionHeader } from "@/components/shared/page-section-header";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 interface ContactDetailsPageProps {
   params: { contactId: string };

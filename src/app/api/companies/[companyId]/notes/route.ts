@@ -1,42 +1,48 @@
-
-import { NextResponse, type NextRequest } from 'next/server';
-import { db } from '@/lib/db';
-import type { Note } from '@/lib/types';
-import { generateId } from '@/lib/utils';
-import { logActivity } from '@/services/activity-logger';
+import { NextResponse, type NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import type { Note } from "@/lib/types";
+import { generateId } from "@/lib/utils";
+import { logActivity } from "@/services/activity-logger";
 
 // POST a new note for a company, ensuring company belongs to user's organization
 export async function POST(request: NextRequest, { params }: { params: { companyId: string } }) {
   try {
     const { companyId } = await params;
-    const organizationId = request.headers.get('x-user-organization-id');
-    const userId = request.headers.get('x-user-id');
+    const organizationId = request.headers.get("x-user-organization-id");
+    const userId = request.headers.get("x-user-id");
 
     if (!organizationId || !userId) {
-      return NextResponse.json({ error: 'Unauthorized: Organization or User ID missing.' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized: Organization or User ID missing." },
+        { status: 401 }
+      );
     }
 
     if (!db) {
-      return NextResponse.json({ error: 'Database connection is not available' }, { status: 500 });
+      return NextResponse.json({ error: "Database connection is not available" }, { status: 500 });
     }
     const body = await request.json();
     const { content } = body;
 
-    if (!content || content.trim() === '') {
-      return NextResponse.json({ error: 'Note content cannot be empty' }, { status: 400 });
+    if (!content || content.trim() === "") {
+      return NextResponse.json({ error: "Note content cannot be empty" }, { status: 400 });
     }
 
-    const companyCheckStmt = db.prepare('SELECT id, name FROM Companies WHERE id = ? AND organizationId = ?');
-    const companyData = companyCheckStmt.get(companyId, organizationId) as { id: string; name: string } | undefined;
+    const companyCheckStmt = db.prepare(
+      "SELECT id, name FROM Companies WHERE id = ? AND organizationId = ?"
+    );
+    const companyData = companyCheckStmt.get(companyId, organizationId) as
+      | { id: string; name: string }
+      | undefined;
     if (!companyData) {
-      return NextResponse.json({ error: 'Company not found or not authorized' }, { status: 404 });
+      return NextResponse.json({ error: "Company not found or not authorized" }, { status: 404 });
     }
 
     const newNoteId = generateId();
     const now = new Date().toISOString();
 
     const stmt = db.prepare(
-      'INSERT INTO Notes (id, content, createdAt, companyId, organizationId) VALUES (?, ?, ?, ?, ?)'
+      "INSERT INTO Notes (id, content, createdAt, companyId, organizationId) VALUES (?, ?, ?, ?, ?)"
     );
     stmt.run(newNoteId, content.trim(), now, companyId, organizationId);
 
@@ -52,17 +58,16 @@ export async function POST(request: NextRequest, { params }: { params: { company
     await logActivity({
       organizationId,
       userId,
-      activityType: 'added_note_to_company',
-      entityType: 'company', // The note is related to a company
+      activityType: "added_note_to_company",
+      entityType: "company", // The note is related to a company
       entityId: companyId,
       entityName: companyData.name,
-      details: { noteId: newNoteId, noteContentPreview: content.trim().substring(0, 50) }
+      details: { noteId: newNoteId, noteContentPreview: content.trim().substring(0, 50) },
     });
 
     return NextResponse.json(newNote, { status: 201 });
-
   } catch (error) {
     console.error(`API Error adding note to company ${params.companyId}:`, error);
-    return NextResponse.json({ error: 'Failed to add note.' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to add note." }, { status: 500 });
   }
 }

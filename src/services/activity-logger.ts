@@ -1,9 +1,8 @@
+"use server";
 
-'use server';
-
-import { db } from '@/lib/db';
-import { generateId } from '@/lib/utils';
-import type { ActivityType, ActivityEntityType } from '@/lib/types';
+import { db } from "@/lib/db";
+import { generateId } from "@/lib/utils";
+import type { ActivityType, ActivityEntityType } from "@/lib/types";
 
 interface LogActivityInput {
   organizationId: string;
@@ -17,11 +16,11 @@ interface LogActivityInput {
 
 export async function logActivity(input: LogActivityInput): Promise<void> {
   if (!db) {
-    console.error('ActivityLogger: Database connection is not available. Activity not logged.');
+    console.error("ActivityLogger: Database connection is not available. Activity not logged.");
     return;
   }
   if (!input.userId || !input.organizationId) {
-    console.error('ActivityLogger: userId and organizationId are required. Activity not logged.');
+    console.error("ActivityLogger: userId and organizationId are required. Activity not logged.");
     return;
   }
 
@@ -44,9 +43,11 @@ export async function logActivity(input: LogActivityInput): Promise<void> {
       input.details ? JSON.stringify(input.details) : null,
       createdAt
     );
-    console.log(`Activity logged: ${input.activityType} for ${input.entityType} ${input.entityId} by user ${input.userId}`);
+    console.log(
+      `Activity logged: ${input.activityType} for ${input.entityType} ${input.entityId} by user ${input.userId}`
+    );
   } catch (error) {
-    console.error('ActivityLogger: Error logging activity:', error);
+    console.error("ActivityLogger: Error logging activity:", error);
     // Depending on requirements, you might want to re-throw or handle more gracefully
   }
 }

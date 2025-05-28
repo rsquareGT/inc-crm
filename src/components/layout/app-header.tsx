@@ -1,13 +1,12 @@
+"use client";
 
-'use client';
-
-import { Logo } from './logo';
-import { MainNav } from './main-nav';
-import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, UserCircle, Loader2, Building, Users, KeyRound, Edit3 } from 'lucide-react'; 
-import { ThemeToggle } from './theme-toggle';
-import Link from 'next/link';
-import { useAuth } from '@/contexts/auth-context';
+import { Logo } from "./logo";
+import { MainNav } from "./main-nav";
+import { Button } from "@/components/ui/button";
+import { LogIn, LogOut, UserCircle, Loader2, Building, Users, KeyRound, Edit3 } from "lucide-react";
+import { ThemeToggle } from "./theme-toggle";
+import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
 
 export function AppHeader() {
   const { isAuthenticated, user, logout, isLoading } = useAuth();
@@ -34,7 +32,7 @@ export function AppHeader() {
     if (user?.email) {
       return user.email[0].toUpperCase();
     }
-    return 'U';
+    return "U";
   };
 
   return (
@@ -45,9 +43,9 @@ export function AppHeader() {
           {isAuthenticated && <MainNav />}
           <ThemeToggle />
           {isLoading ? (
-             <Button variant="ghost" size="icon" disabled>
-                <Loader2 className="h-5 w-5 animate-spin" />
-             </Button>
+            <Button variant="ghost" size="icon" disabled>
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </Button>
           ) : isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -64,9 +62,7 @@ export function AppHeader() {
                     <p className="text-sm font-medium leading-none">
                       {user.firstName} {user.lastName}
                     </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -80,7 +76,7 @@ export function AppHeader() {
                     <KeyRound className="mr-2 h-4 w-4" /> Change Password
                   </Link>
                 </DropdownMenuItem>
-                {user.role === 'admin' && (
+                {user.role === "admin" && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>

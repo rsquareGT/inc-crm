@@ -1,17 +1,16 @@
+"use client";
 
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
-import { useToast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Save } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const editProfileSchema = z.object({
   firstName: z.string().min(1, "First name is required").optional(),
@@ -37,35 +36,34 @@ export function EditProfileForm() {
   } = useForm<EditProfileFormValues>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      profilePictureUrl: '',
-    }
+      firstName: "",
+      lastName: "",
+      email: "",
+      profilePictureUrl: "",
+    },
   });
 
   useEffect(() => {
     if (currentUser) {
       reset({
-        firstName: currentUser.firstName || '',
-        lastName: currentUser.lastName || '',
+        firstName: currentUser.firstName || "",
+        lastName: currentUser.lastName || "",
         email: currentUser.email,
-        profilePictureUrl: currentUser.profilePictureUrl || '',
+        profilePictureUrl: currentUser.profilePictureUrl || "",
       });
     }
   }, [currentUser, reset]);
 
-  const watchedProfilePictureUrl = watch('profilePictureUrl');
-  const watchedFirstName = watch('firstName');
-  const watchedLastName = watch('lastName');
-  const watchedEmail = watch('email');
+  const watchedProfilePictureUrl = watch("profilePictureUrl");
+  const watchedFirstName = watch("firstName");
+  const watchedLastName = watch("lastName");
+  const watchedEmail = watch("email");
 
   const getInitials = () => {
-    const first = watchedFirstName?.[0] || '';
-    const last = watchedLastName?.[0] || '';
-    return `${first}${last}`.toUpperCase() || (watchedEmail?.[0] || 'U').toUpperCase();
-  }
-
+    const first = watchedFirstName?.[0] || "";
+    const last = watchedLastName?.[0] || "";
+    return `${first}${last}`.toUpperCase() || (watchedEmail?.[0] || "U").toUpperCase();
+  };
 
   const onSubmit = async (data: EditProfileFormValues) => {
     if (!currentUser) {
@@ -77,36 +75,36 @@ export function EditProfileForm() {
 
     try {
       const response = await fetch(`/api/users/${currentUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to update profile.');
+        throw new Error(result.error || "Failed to update profile.");
       }
 
       toast({
-        title: 'Profile Updated',
-        description: 'Your profile information has been saved.',
+        title: "Profile Updated",
+        description: "Your profile information has been saved.",
       });
       await fetchUser(); // Re-fetch user to update AuthContext and UI
       reset(data); // Reset form to new values to clear dirty state
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      const message = error instanceof Error ? error.message : "An unexpected error occurred.";
       setFormError(message);
       toast({
-        title: 'Profile Update Failed',
+        title: "Profile Update Failed",
         description: message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsSubmittingForm(false);
     }
   };
-  
+
   if (authLoading && !currentUser) {
     return (
       <div className="space-y-6">
@@ -115,17 +113,19 @@ export function EditProfileForm() {
           <div className="animate-pulse bg-muted h-4 w-3/4 rounded"></div>
           <div className="animate-pulse bg-muted h-4 w-1/2 rounded"></div>
         </div>
-         <div className="animate-pulse bg-muted h-10 w-full rounded-md"></div>
+        <div className="animate-pulse bg-muted h-10 w-full rounded-md"></div>
       </div>
     );
   }
 
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-       <div className="flex flex-col items-center space-y-4 mb-6">
+      <div className="flex flex-col items-center space-y-4 mb-6">
         <Avatar className="h-24 w-24 text-3xl">
-          <AvatarImage src={watchedProfilePictureUrl || currentUser?.profilePictureUrl || undefined} alt={`${watchedFirstName} ${watchedLastName}`} />
+          <AvatarImage
+            src={watchedProfilePictureUrl || currentUser?.profilePictureUrl || undefined}
+            alt={`${watchedFirstName} ${watchedLastName}`}
+          />
           <AvatarFallback>{getInitials()}</AvatarFallback>
         </Avatar>
       </div>
@@ -134,26 +134,30 @@ export function EditProfileForm() {
           {formError}
         </div>
       )}
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="firstName">First Name</Label>
           <Input
             id="firstName"
-            {...register('firstName')}
+            {...register("firstName")}
             disabled={isSubmittingForm || authLoading}
-            className={errors.firstName ? 'border-destructive' : ''}
+            className={errors.firstName ? "border-destructive" : ""}
           />
-          {errors.firstName && <p className="text-sm text-destructive mt-1">{errors.firstName.message}</p>}
+          {errors.firstName && (
+            <p className="text-sm text-destructive mt-1">{errors.firstName.message}</p>
+          )}
         </div>
         <div>
           <Label htmlFor="lastName">Last Name</Label>
           <Input
             id="lastName"
-            {...register('lastName')}
+            {...register("lastName")}
             disabled={isSubmittingForm || authLoading}
-            className={errors.lastName ? 'border-destructive' : ''}
+            className={errors.lastName ? "border-destructive" : ""}
           />
-          {errors.lastName && <p className="text-sm text-destructive mt-1">{errors.lastName.message}</p>}
+          {errors.lastName && (
+            <p className="text-sm text-destructive mt-1">{errors.lastName.message}</p>
+          )}
         </div>
       </div>
       <div>
@@ -161,9 +165,9 @@ export function EditProfileForm() {
         <Input
           id="email"
           type="email"
-          {...register('email')}
+          {...register("email")}
           disabled={isSubmittingForm || authLoading}
-          className={errors.email || formError ? 'border-destructive' : ''}
+          className={errors.email || formError ? "border-destructive" : ""}
         />
         {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
       </div>
@@ -172,14 +176,20 @@ export function EditProfileForm() {
         <Input
           id="profilePictureUrl"
           placeholder="https://example.com/your-image.png"
-          {...register('profilePictureUrl')}
+          {...register("profilePictureUrl")}
           disabled={isSubmittingForm || authLoading}
-          className={errors.profilePictureUrl ? 'border-destructive' : ''}
+          className={errors.profilePictureUrl ? "border-destructive" : ""}
         />
-        {errors.profilePictureUrl && <p className="text-sm text-destructive mt-1">{errors.profilePictureUrl.message}</p>}
+        {errors.profilePictureUrl && (
+          <p className="text-sm text-destructive mt-1">{errors.profilePictureUrl.message}</p>
+        )}
       </div>
-      
-      <Button type="submit" className="w-full" disabled={isSubmittingForm || authLoading || !isDirty}>
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isSubmittingForm || authLoading || !isDirty}
+      >
         {isSubmittingForm ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

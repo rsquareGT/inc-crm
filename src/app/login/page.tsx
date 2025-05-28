@@ -1,7 +1,6 @@
-
-import { LoginForm } from '@/components/auth/login-form';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Logo } from '@/components/layout/logo'; // Assuming you want your logo here
+import { LoginForm } from "@/components/auth/login-form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Logo } from "@/components/layout/logo"; // Assuming you want your logo here
 
 export default function LoginPage() {
   return (

@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Wand2 } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tag } from "@/lib/types";
-import { suggestTagsAction } from "@/actions/ai.actions";
 import { useToast } from "@/hooks/use-toast";
 
 interface TagInputFieldProps {
@@ -54,43 +52,6 @@ export function TagInputField({
     onChange(value.filter((tag) => tag !== tagToRemove));
   };
 
-  const handleSuggestTags = useCallback(async () => {
-    if (!textToSuggestFrom || textToSuggestFrom.trim().length < 10) {
-      // Require some text for meaningful suggestions
-      toast({
-        title: "Cannot Suggest Tags",
-        description: "Please provide more descriptive text to get tag suggestions.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsSuggesting(true);
-    setSuggestedTags([]);
-    try {
-      const result = await suggestTagsAction({ text: textToSuggestFrom });
-      if (result.success && result.tags) {
-        setSuggestedTags(result.tags.filter((tag) => !value.includes(tag))); // Filter out already added tags
-        if (result.tags.length === 0) {
-          toast({ title: "No new tags suggested." });
-        }
-      } else {
-        toast({
-          title: "Error Suggesting Tags",
-          description: result.error || "An unknown error occurred.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error Suggesting Tags",
-        description: "Could not connect to the AI service.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSuggesting(false);
-    }
-  }, [textToSuggestFrom, value, toast]);
-
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex gap-2 items-center">
@@ -102,22 +63,6 @@ export function TagInputField({
           placeholder={placeholder}
           className="flex-grow"
         />
-        {textToSuggestFrom && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={handleSuggestTags}
-            disabled={isSuggesting}
-            title="Suggest Tags (AI)"
-          >
-            {isSuggesting ? (
-              <Wand2 className="h-4 w-4 animate-pulse" />
-            ) : (
-              <Wand2 className="h-4 w-4" />
-            )}
-          </Button>
-        )}
       </div>
 
       {(suggestedTags.length > 0 || isSuggesting) && (

@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
       console.warn("API Refresh Token: Refresh token not found in DB or hash mismatch.");
       // Clear potentially compromised/invalid cookies
       const clearResponse = NextResponse.json({ error: "Invalid refresh token." }, { status: 401 });
-      cookieStore.delete(ACCESS_TOKEN_NAME, { path: "/" });
-      cookieStore.delete(REFRESH_TOKEN_NAME, { path: "/api/auth/refresh-token" });
+      cookieStore.delete(ACCESS_TOKEN_NAME);
+      cookieStore.delete(REFRESH_TOKEN_NAME);
       return clearResponse;
     }
 
@@ -76,8 +76,8 @@ export async function POST(request: NextRequest) {
       console.warn(`API Refresh Token: Refresh token for user ${matchedUserId} has expired.`);
       db.prepare("DELETE FROM RefreshTokens WHERE id = ?").run(dbTokenRecord.id); // Clean up expired token
       const clearResponse = NextResponse.json({ error: "Refresh token expired." }, { status: 401 });
-      cookieStore.delete(ACCESS_TOKEN_NAME, { path: "/" });
-      cookieStore.delete(REFRESH_TOKEN_NAME, { path: "/api/auth/refresh-token" });
+      cookieStore.delete(ACCESS_TOKEN_NAME);
+      cookieStore.delete(REFRESH_TOKEN_NAME);
       return clearResponse;
     }
 
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
         { error: "User associated with token not found." },
         { status: 401 }
       );
-      cookieStore.delete(ACCESS_TOKEN_NAME, { path: "/" });
-      cookieStore.delete(REFRESH_TOKEN_NAME, { path: "/api/auth/refresh-token" });
+      cookieStore.delete(ACCESS_TOKEN_NAME);
+      cookieStore.delete(REFRESH_TOKEN_NAME);
       return clearResponse;
     }
 
@@ -146,8 +146,8 @@ export async function POST(request: NextRequest) {
       { error: "An internal server error occurred during token refresh." },
       { status: 500 }
     );
-    cookieStore.delete(ACCESS_TOKEN_NAME, { path: "/" });
-    cookieStore.delete(REFRESH_TOKEN_NAME, { path: "/api/auth/refresh-token" });
+    cookieStore.delete(ACCESS_TOKEN_NAME);
+    cookieStore.delete(REFRESH_TOKEN_NAME);
     return errorResponse;
   }
 }

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Remove old 'session' cookie if it exists
     if (cookieStore.has("session")) {
       console.log("API Logout: Old 'session' cookie found, deleting it.");
-      cookieStore.delete("session", { path: "/", expires: new Date(0) });
+      cookieStore.delete(ACCESS_TOKEN_NAME);
     }
 
     return response;

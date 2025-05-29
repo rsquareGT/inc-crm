@@ -125,43 +125,73 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {formError && (
-        <div className="p-3 bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-md">
+        <div className="p-3 border border-red-200 text-red-600 text-sm rounded-lg font-medium">
           {formError}
         </div>
       )}
       <div className="space-y-2">
-        <Label htmlFor="email">Email Address</Label>
+        <Label
+          htmlFor="email"
+          className="text-base font-semibold text-emerald-700 dark:text-emerald-400 tracking-tight"
+        >
+          Email Address
+        </Label>
         <Input
           id="email"
           type="email"
           placeholder="you@example.com"
           {...register("email")}
           disabled={isSubmittingForm}
-          className={errors.email || formError ? "border-destructive" : ""}
+          className={`rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all ${errors.email || formError ? "border-red-400" : "border-emerald-200 dark:border-emerald-700"}`}
         />
-        {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
+        {errors.email && (
+          <p className="text-sm mt-1 text-red-600 rounded px-2 py-1 font-medium">
+            {errors.email.message}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label
+          htmlFor="password"
+          className="text-base font-semibold text-emerald-700 dark:text-emerald-400 tracking-tight"
+        >
+          Password
+        </Label>
         <Input
           id="password"
           type="password"
           placeholder="••••••••"
           {...register("password")}
           disabled={isSubmittingForm}
-          className={errors.password || formError ? "border-destructive" : ""}
+          className={`rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all ${errors.password || formError ? "border-red-400" : "border-emerald-200 dark:border-emerald-700"}`}
         />
         {errors.password && (
-          <p className="text-sm text-destructive mt-1">{errors.password.message}</p>
+          <p className="text-sm mt-1 text-red-600 rounded px-2 py-1 font-medium">
+            {errors.password.message}
+          </p>
         )}
       </div>
       <div className="flex items-center space-x-2">
-        <Checkbox id="rememberMe" {...register("rememberMe")} disabled={isSubmittingForm} />
-        <Label htmlFor="rememberMe" className="text-sm font-normal text-muted-foreground">
+        <Checkbox
+          id="rememberMe"
+          {...register("rememberMe")}
+          disabled={isSubmittingForm}
+          className="accent-emerald-600 border-emerald-400 focus:ring-2 focus:ring-emerald-500 transition-all
+            checked:bg-emerald-600 checked:border-emerald-600
+            [&>svg]:text-emerald-600 [&>svg]:stroke-2"
+        />
+        <Label
+          htmlFor="rememberMe"
+          className="text-sm font-normal text-emerald-700 dark:text-emerald-400"
+        >
           Remember me
         </Label>
       </div>
-      <Button type="submit" className="w-full" disabled={isSubmittingForm}>
+      <Button
+        type="submit"
+        className="w-full rounded-lg bg-emerald-600 text-white font-semibold shadow-md hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-400 transition-all cursor-pointer"
+        disabled={isSubmittingForm}
+      >
         {isSubmittingForm ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (

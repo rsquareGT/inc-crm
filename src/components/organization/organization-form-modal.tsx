@@ -135,7 +135,7 @@ export function OrganizationFormModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+        <DialogHeader className="px-2">
           <DialogTitle>Edit Organization Profile</DialogTitle>
           <DialogDescription>
             Update your organization's details. This information is visible to all users in your
@@ -144,7 +144,7 @@ export function OrganizationFormModal({
         </DialogHeader>
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2"
+          className="space-y-4 py-2 max-h-[70vh] overflow-y-auto px-2"
         >
           <div>
             <Label htmlFor="name">Organization Name</Label>

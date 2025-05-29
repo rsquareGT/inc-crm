@@ -4,11 +4,11 @@ import { Logo } from "@/components/layout/logo"; // Assuming you want your logo 
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4">
       <div className="mb-8">
         <Logo />
       </div>
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-md shadow-xl bg-background">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">Welcome Back!</CardTitle>
           <CardDescription>Sign in to continue to DealFlow CRM.</CardDescription>

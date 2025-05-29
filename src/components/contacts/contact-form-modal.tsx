@@ -156,7 +156,7 @@ export function ContactFormModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="px-2">
           <DialogTitle>{contact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
           <DialogDescription>
             {contact
@@ -166,7 +166,7 @@ export function ContactFormModal({
         </DialogHeader>
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-2"
+          className="space-y-4 py-2 max-h-[70vh] overflow-y-auto px-2"
         >
           <div className="grid grid-cols-2 gap-4">
             <div>

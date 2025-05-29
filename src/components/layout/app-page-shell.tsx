@@ -29,9 +29,11 @@ export function AppPageShell({ children }: AppPageShellProps) {
     return (
       <div className="min-h-screen flex flex-col">
         <AppHeader />
-        <main className="flex-1 container py-8 max-w-7xl flex items-center justify-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </main>
+        <div className="w-full max-w-7xl mx-auto flex-1 flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+          <main className="w-full">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </main>
+        </div>
       </div>
     );
   }
@@ -44,9 +46,11 @@ export function AppPageShell({ children }: AppPageShellProps) {
     return (
       <div className="min-h-screen flex flex-col">
         <AppHeader />
-        <main className="flex-1 container py-8 max-w-7xl flex items-center justify-center">
-          <p>Redirecting to login...</p>
-        </main>
+        <div className="w-full max-w-7xl mx-auto flex-1 flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+          <main className="w-full">
+            <p>Redirecting to login...</p>
+          </main>
+        </div>
       </div>
     );
   }
@@ -55,7 +59,9 @@ export function AppPageShell({ children }: AppPageShellProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader />
-      <main className="flex-1 container py-8 max-w-7xl">{children}</main>
+      <div className="w-full max-w-7xl mx-auto flex-1 py-8 px-4 sm:px-6 lg:px-8">
+        <main className="w-full">{children}</main>
+      </div>
     </div>
   );
 }

@@ -462,9 +462,9 @@ export function CompanyDetailsClient({ companyId }: CompanyDetailsClientProps) {
               Back to Companies
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{company.name}</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">{company.name}</h1>
           {company.industry && (
-            <p className="text-muted-foreground flex items-center mt-1">
+            <p className="text-foreground flex items-center mt-1">
               <BuildingIcon className="mr-2 h-4 w-4" />
               {company.industry}
             </p>

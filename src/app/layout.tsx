@@ -39,7 +39,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <NextTopLoader
-              color="hsl(var(--primary))"
+              color="var(--color-primary)"
               initialPosition={0.08}
               crawlSpeed={200}
               height={3}
@@ -47,7 +47,7 @@ export default function RootLayout({
               showSpinner={false}
               easing="ease"
               speed={200}
-              shadow="0 0 10px hsl(var(--primary)),0 0 5px hsl(var(--primary))"
+              shadow="0 0 10px var(--color-primary),0 0 5px var(--color-primary)"
             />
             {children}
             <Toaster />

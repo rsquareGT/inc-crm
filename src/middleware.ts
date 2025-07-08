@@ -8,7 +8,8 @@ const ACCESS_TOKEN_NAME = "access_token"; // Use a constant
 // Paths accessible without authentication
 const PUBLIC_PAGE_PATHS = ["/login"];
 // API paths that are public or handle their own auth for specific flows
-const PUBLIC_API_PATHS = ["/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token"];
+const PUBLIC_API_PATHS = ["/api/auth/login", "/api/auth/logout"];
+const REFRESH_TOKEN_PATH = "/api/auth/refresh-token";
 // /api/auth/me is special: it needs to be callable to check session,
 // but relies on the access_token.
 
@@ -34,9 +35,27 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_TOKEN_NAME)?.value;
+  const refreshToken = cookieStore.get("refresh_token")?.value;
   let userPayload: jose.JWTPayload | null = null;
 
   console.log(`Middleware: Processing request for ${pathname}`);
+
+  // Special handling for refresh token endpoint
+  if (pathname.startsWith(REFRESH_TOKEN_PATH)) {
+    // Only allow POST method for refresh token endpoint
+    if (request.method !== "POST") {
+      return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+    }
+
+    // Require refresh token for this endpoint
+    if (!refreshToken) {
+      console.warn("Middleware: Refresh token endpoint called without refresh token");
+      return NextResponse.json({ error: "Refresh token required" }, { status: 401 });
+    }
+
+    // Allow the request to proceed to the refresh endpoint
+    return NextResponse.next();
+  }
 
   // Allow Next.js specific paths and static files
   if (pathname.startsWith("/_next") || pathname.startsWith("/static") || pathname.includes(".")) {
@@ -69,11 +88,10 @@ export async function middleware(request: NextRequest) {
 
   if (accessToken) {
     userPayload = await verifyToken(accessToken, JWT_SECRET);
-    if (userPayload) {
-      console.log(`Middleware: Valid access token found for user: ${userPayload.email}`);
-    } else {
-      console.log(`Middleware: Invalid or expired access token found.`);
-      // Don't delete cookie here yet, client might refresh
+    if (!userPayload && pathname !== REFRESH_TOKEN_PATH) {
+      // Access token is invalid/expired and we're not already trying to refresh
+      // Let the client handle the 401 and attempt refresh
+      console.log(`Middleware: Invalid/expired access token, client should handle refresh`);
     }
   } else {
     console.log(`Middleware: No access token found.`);

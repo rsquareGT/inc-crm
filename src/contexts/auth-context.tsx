@@ -63,73 +63,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options?.headers instanceof Headers ? options.headers : new Headers(options?.headers || {});
 
       if (originalResponse.status === 401 && !headers.get("X-No-Refresh")) {
-        if (!isRefreshingRef.current) {
-          isRefreshingRef.current = true;
-          console.log(`AuthContext: API call to ${url} resulted in 401. Attempting token refresh.`);
+        // Max retries for refresh attempts
+        const MAX_REFRESH_RETRIES = 2;
+        let retryCount = 0;
 
-          activeRefreshPromiseRef.current = fetch("/api/auth/refresh-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-No-Refresh": "true" },
-          })
-            .then(async (refreshResponse) => {
+        while (retryCount < MAX_REFRESH_RETRIES) {
+          if (!isRefreshingRef.current) {
+            isRefreshingRef.current = true;
+            console.log(
+              `AuthContext: API call to ${url} resulted in 401. Attempting token refresh. Attempt ${retryCount + 1}/${MAX_REFRESH_RETRIES}`
+            );
+
+            try {
+              // Attempt refresh with exponential backoff
+              if (retryCount > 0) {
+                await new Promise((res) => setTimeout(res, Math.pow(2, retryCount) * 1000));
+              }
+
+              const refreshResponse = await fetch("/api/auth/refresh-token", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-No-Refresh": "true",
+                },
+              });
+
               if (refreshResponse.ok) {
-                console.log(
-                  "AuthContext: Token refresh successful. Retrying original request to",
-                  url
-                );
-                return fetch(url, options); // Retry original request
-              } else {
-                console.warn("AuthContext: Token refresh failed. Logging out.");
+                console.log("AuthContext: Token refresh successful. Retrying original request.");
+                isRefreshingRef.current = false;
+                // Retry original request with new token
+                return fetch(url, options);
+              }
+
+              // If refresh fails, increment retry count and try again if possible
+              retryCount++;
+              if (retryCount >= MAX_REFRESH_RETRIES) {
+                console.warn("AuthContext: Max refresh retries reached. Logging out.");
                 await logout();
-                // Return the original 401 response or throw an error to indicate failure
-                // Forcing a throw to make sure callers handle this as an unrecoverable auth error
-                throw new Error("Session expired. Please log in again.");
+                throw new Error("Session expired after max refresh attempts.");
               }
-            })
-            .catch(async (refreshError) => {
-              console.error("AuthContext: Error during token refresh attempt:", refreshError);
-              await logout();
-              throw refreshError; // Re-throw to be caught by the caller
-            })
-            .finally(() => {
+            } catch (error) {
+              console.error("AuthContext: Error during token refresh:", error);
               isRefreshingRef.current = false;
-              activeRefreshPromiseRef.current = null; // Clear the promise once resolved/rejected
-            });
-          return activeRefreshPromiseRef.current;
-        } else if (activeRefreshPromiseRef.current) {
-          console.log(`AuthContext: Queuing request to ${url} pending ongoing token refresh.`);
-          // Wait for the ongoing refresh promise to resolve, then retry the original request
-          return activeRefreshPromiseRef.current
-            .then(async (refreshOutcomeResponse) => {
-              // Check if the refresh itself was successful
-              if (refreshOutcomeResponse.ok && refreshOutcomeResponse.url === url) {
-                // This means the refresh promise resolved to the retried request
-                return refreshOutcomeResponse;
+              await logout();
+              throw error;
+            }
+          } else {
+            // Wait for ongoing refresh to complete
+            try {
+              await new Promise((res) => setTimeout(res, 1000));
+              // After waiting, if still refreshing, increment retry count
+              if (isRefreshingRef.current) {
+                retryCount++;
+              } else {
+                // Retry original request if refresh completed
+                return fetch(url, options);
               }
-              // If refreshOutcomeResponse indicates the refresh failed (e.g. it's not the retried request or not ok)
-              // or if the refresh promise threw an error which was caught above, then this path might not be hit as expected.
-              // The primary goal is that if refresh succeeded, the new request should succeed.
-              // If refresh failed, logout happened.
-              // Here, we assume refreshPromise resolves successfully if token was refreshed,
-              // then we make the new call.
-              console.log(`AuthContext: Ongoing refresh completed. Retrying ${url}.`);
-              return fetch(url, options); // Retry original request after current refresh op completes
-            })
-            .catch(async (err) => {
-              // If the shared refresh promise itself failed, logout already happened.
-              console.error(
-                `AuthContext: Queued request to ${url} failed as ongoing refresh failed.`,
-                err
-              );
-              throw new Error("Session expired due to failed refresh. Please log in again.");
-            });
-        } else {
-          // Should not happen: isRefreshingRef is true, but no activeRefreshPromiseRef.
-          console.error("AuthContext: Inconsistent refresh state. Logging out for safety.");
-          await logout();
-          throw new Error("Session refresh state error. Please log in again.");
+            } catch (error) {
+              console.error("AuthContext: Error waiting for refresh:", error);
+              throw error;
+            }
+          }
         }
+
+        // If we get here, all retries failed
+        await logout();
+        throw new Error("Session expired. Please log in again.");
       }
+
       return originalResponse;
     },
     [logout]
@@ -308,6 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+  console.log(context);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
